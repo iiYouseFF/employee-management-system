@@ -17,6 +17,7 @@ import Toast from '../components/Toast'
 import ReportModal from '../components/ReportModal'
 import RepModal from '../components/RepModal'
 import { useToast } from '../hooks/useToast'
+import { friendlyError } from '../lib/errors'
 import type { RepFormValues } from '../types/reps'
 
 import { supabase } from '../lib/supabase'
@@ -118,14 +119,18 @@ export default function Sheet() {
     : ['cash', 'credit', 'payments', 'statement', 'customers', 'products']
 
   const handleSaveRep = async (values: RepFormValues) => {
-    if (editingRep?.id) {
-      await updateRep.mutateAsync({ id: editingRep.id, ...values })
-      showToast('تم تحديث بيانات المندوب بنجاح')
-    } else {
-      await addRep.mutateAsync(values)
-      showToast('تمت إضافة المندوب بنجاح')
+    try {
+      if (editingRep?.id) {
+        await updateRep.mutateAsync({ id: editingRep.id, ...values })
+        showToast('تم تحديث بيانات المندوب بنجاح')
+      } else {
+        await addRep.mutateAsync(values)
+        showToast('تمت إضافة المندوب بنجاح')
+      }
+      setEditingRep(null)
+    } catch (error) {
+      throw new Error(friendlyError(error, 'تعذر حفظ بيانات المندوب، حاول مرة أخرى'))
     }
-    setEditingRep(null)
   }
 
   const handleDeleteRep = async (rep: { id: string; name: string }) => {

@@ -1,142 +1,224 @@
 ﻿# Employee Management System
 
-A comprehensive web-based management system for tracking invoices, payments, customers, and sales representatives. Built with React, TypeScript, Vite, Supabase, and Tailwind CSS.
+An Arabic-first (RTL) sales and accounting system for a food-distribution business. It tracks cash and credit invoices, customer and supplier balances, payments, expenses, product price lists, and manager-facing financial KPIs, with role-based access control enforced in the database.
+
+Built with React 19, TypeScript, Vite, Supabase (PostgreSQL + Auth), TanStack Query, and Tailwind CSS.
 
 ## Features
 
-- **Authentication** - Secure login system using Supabase Auth
-- **Invoice Management** - Track cash and credit invoices by total amount
-- **Payment Tracking** - Record and monitor customer payments
-- **Customer Management** - Maintain customer database with payment history
-- **Sales Representatives** - Manage reps and filter data by representative
-- **Multiple Reports/Tabs**:
-  - Cash Invoices
-  - Credit Invoices  
-  - Payments
-  - Account Statement
-  - Monthly Summary
-  - Customer Management
-- **Data Export** - Export data as CSV
-- **Print Support** - Print-optimized views for reports
-- **Responsive Design** - Works on desktop and tablet devices
-- **RTL Support** - Arabic interface with right-to-left layout
+### Core accounting
+- **Cash and credit invoices** recorded by total amount, linked to customers and reps
+- **Payment tracking** with allocation to credit invoices
+- **Customer statements** as running-balance ledgers (opening balance, debit, credit, row-by-row balance)
+- **Monthly summary** and **account statements** with print and CSV export
+
+### Management modules
+- **Customers** with phone, address, opening balance, and assigned rep
+- **Sales reps** management, including linking a rep record to a Supabase Auth account by email
+- **Suppliers (accounts payable)** with cash/credit purchases, supplier payments, and running-balance statements
+- **Expenses** for operational costs
+- **Product price list** with a print-optimized A4 catalog
+- **Manager KPI dashboard** - income vs. outcome, cash vs. credit split, receivables aging, DSO, average collection time, and collection rate
+
+### Access control
+- Two roles: `manager` and `sales_rep`
+- **Manager**: full access to every module, all reps' data, suppliers, expenses, and KPIs
+- **Sales rep**: read-only access to their own assigned customers, invoices, payments, statements, and the product price list
+- Enforced with Supabase Row Level Security; UI restrictions are a convenience only
+- Signup, login, and password-recovery flows via Supabase Auth
+
+### UX
+- Arabic RTL interface with Tailwind logical properties
+- Responsive layout for desktop and tablet
+- Toast notifications, inline form errors, loading and empty states
+- Error boundary for uncaught render errors
+- Print-optimized views and CSV export
 
 ## Tech Stack
 
-- **Frontend**: [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vitejs.dev/)
-- **Routing**: [React Router DOM](https://reactrouter.com/)
-- **State Management**: [TanStack Query (React Query)](https://tanstack.com/query)
+- **Frontend**: [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite 8](https://vite.dev/)
+- **Routing**: [React Router](https://reactrouter.com/)
+- **Data fetching**: [TanStack Query](https://tanstack.com/query)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Backend/Database**: [Supabase](https://supabase.com/) (PostgreSQL + Auth)
-- **UI Icons**: [Lucide React](https://lucide.dev/)
-- **Date Utilities**: [date-fns](https://date-fns.org/)
+- **Backend**: [Supabase](https://supabase.com/) (PostgreSQL, Auth, RLS, RPC functions)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Dates**: [date-fns](https://date-fns.org/)
 - **Linting**: [Oxlint](https://oxc.rs/docs/guide/usage/linter)
 
 ## Prerequisites
 
-- Node.js (v18 or higher)
-- npm or yarn
+- Node.js **20.19+** or **22.12+** (required by Vite 8)
+- npm
 - A Supabase project
 
 ## Getting Started
 
 ### 1. Clone the repository
 
-`ash
-git clone https://github.com/your-org/employee-management-system.git
+```bash
+git clone https://github.com/iiYouseFF/employee-management-system.git
 cd "Employee Management System"
-`
+```
 
 ### 2. Install dependencies
 
-`ash
+```bash
 npm install
-`
+```
 
-### 3. Set up environment variables
+### 3. Configure environment variables
 
-Create a .env.local file in the root directory with your Supabase credentials:
+Copy `.env.example` to `.env.local` and fill in your Supabase project values:
 
-`env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-`
+```env
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon-key>
+```
 
-### 4. Set up the database
+Only the public anon key belongs in the frontend. Never commit a service-role key.
 
-The SQL schema and migrations are located in the supabase/ directory. Apply them to your Supabase project:
+### 4. Apply the database migrations
 
-1. Go to your Supabase project > SQL Editor
-2. Run the migration files in order:
-   - supabase/migrations/0001_init.sql - Initial schema setup
-   - supabase/migrations/0002_views.sql - Database views
-   - supabase/migrations/0003_customers_add_phone_and_fix.sql - Customer updates (may be empty)
+Run the files in `supabase/migrations/` in filename order, either with the Supabase CLI or by pasting them into the Supabase SQL Editor:
 
-**Database tables include:**
-- invoices - Invoice records (cash and credit) with totals
-- payments - Payment transactions
-- customers - Customer information
-- eps - Sales representatives
-- settings - Application settings
+```
+0001_init.sql
+0002_views.sql
+0003_customers_add_phone_and_fix.sql
+0007_fix_customer_statement_view.sql
+0008_allocate_unlinked_payments.sql
+0009_rep_role_and_access.sql
+0010_all_features_management.sql
+0011_rbac_hardening.sql
+0012_rep_management.sql
+0013_simplify_suppliers.sql
+0014_rbac_hardening_v2.sql
+```
 
-### 5. Run the development server
+The migrations are additive and idempotent where possible; each file documents the objects it creates.
 
-`ash
+### 5. Create the first manager account
+
+Sign up through the app, then promote the account once in the SQL Editor:
+
+```sql
+insert into public.user_roles (user_id, role, owner_id)
+values ('<auth-user-id>', 'manager', '<auth-user-id>')
+on conflict (user_id) do update set role = excluded.role;
+```
+
+`user_roles` is not exposed to the API (`revoke all ... from anon, authenticated`), so role changes are made here in the SQL Editor or through manager-only RPCs.
+
+Rep accounts are linked automatically when a rep record is saved with the same email **before** the user confirms their signup.
+
+### 6. Run the development server
+
+```bash
 npm run dev
-`
+```
 
-The app will be available at http://localhost:5173.
+The app is available at http://localhost:5173.
 
 ## Available Scripts
 
-- 
-pm run dev - Start development server with hot reload
-- 
-pm run build - Build for production (TypeScript compilation + Vite build)
-- 
-pm run lint - Run Oxlint
-- 
-pm run preview - Preview production build locally
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the Vite dev server with hot reload |
+| `npm run build` | Type-check the project and build production assets |
+| `npm run typecheck` | Run `tsc -b` without emitting output |
+| `npm run lint` | Run Oxlint |
+| `npm run preview` | Serve the production build locally |
 
 ## Project Structure
 
-`
+```
 src/
-├── assets/          # Images and static assets
-├── components/      # Reusable components
-│   ├── tabs/        # Tab components (Cash, Credit, Payments, etc.)
-│   ├── EditableTable.tsx
-│   ├── SearchableCustomer.tsx
-│   └── Toast.tsx
-├── hooks/           # Custom React hooks (auth, data fetching, etc.)
-├── lib/             # Utility functions and configurations
-│   ├── supabase.ts  # Supabase client
-│   ├── query.ts     # React Query configuration
-│   ├── csv.ts       # CSV export utilities
-│   └── format.ts    # Formatting helpers
-├── pages/           # Page components
-│   ├── Login.tsx    # Authentication page
-│   └── Sheet.tsx    # Main application page
-└── main.tsx         # Application entry point
-`
+  components/
+    tabs/                 # Cash, Credit, Payments, Statement, Monthly, Customers,
+                          # Suppliers, Expenses, Products, ManagerDashboard, Reps
+    Modal.tsx, FormModal.tsx, RepModal.tsx
+    EditableTable.tsx, SearchableCustomer.tsx, StatementTable.tsx
+    Toast.tsx, ErrorBoundary.tsx
+  hooks/
+    useAuth.ts, useRole.ts
+    useData.ts, useInvoices.ts, useSuppliers.ts, useProducts.ts
+    useExpenses.ts, useStatements.ts, useKpi.ts, useToast.ts
+  lib/
+    supabase.ts   # Supabase client
+    query.ts      # React Query configuration
+    csv.ts        # CSV export
+    format.ts     # Number and date formatting
+    report.ts     # Printable report HTML
+    recoveryMode.ts
+    errors.ts     # Friendly Arabic messages for database errors
+  pages/
+    Login.tsx     # Login, signup, password recovery
+    Sheet.tsx     # Main application shell and tabs
+  types/
+    supabase.ts   # Generated database types
+    reps.ts
+  index.css, main.tsx
+supabase/migrations/
+docs/
+  accounting-model.md     # Sign conventions, cash/credit treatment, KPI formulas
+  deployment.md           # Vercel + Supabase production checklist
+public/
+```
+
+## Database Overview
+
+| Table | Purpose |
+|---|---|
+| `reps` | Sales representatives (optionally linked to an auth user) |
+| `customers` | Customer profiles, opening balances, assigned rep |
+| `cash_invoices` | Cash sales |
+| `credit_invoices` | Credit sales (receivables) |
+| `payments` | Customer payments, optionally allocated to invoices |
+| `suppliers` | Vendor profiles and opening balances |
+| `supplier_purchases` | Purchases from suppliers (cash or credit) |
+| `supplier_payments` | Payments made to suppliers |
+| `expenses` | Operational expenses |
+| `products` | Price list (Arabic/English names, unit, price) |
+| `app_settings` | Application title and tab labels |
+| `user_roles` | Role per auth user (`manager` / `sales_rep`) plus tenant owner; not API-accessible |
+
+Key SQL objects: `customer_statement()` and `supplier_statement()` (running-balance ledgers), `kpi_summary()`, `receivables_aging()`, `cashflow_series()`, and `rep_directory()`. Accounting sign conventions and KPI formulas are documented in [docs/accounting-model.md](docs/accounting-model.md).
+
+## Roles
+
+| Capability | Manager | Sales rep |
+|---|---|---|
+| View all customers, invoices, payments | Yes | Own customers only |
+| Create / edit / delete records | Yes | No (read-only) |
+| Suppliers, expenses | Yes | No |
+| Product price list | Yes (edit) | Yes (view and print) |
+| Manager KPI dashboard | Yes | No |
+| Reps and role management | Yes | No |
+
+Role checks run inside Postgres (RLS policies and `security definer` functions), so a rep querying another rep's data receives zero rows even outside the UI.
 
 ## Usage
 
-1. **Login** - Sign in with your credentials
-2. **Manage Reps** - Add/remove sales representatives from the reps section
-3. **Add Invoices** - Use Cash or Credit tabs to add new invoices (by total amount)
-4. **Track Payments** - Record customer payments in the Payments tab
-5. **View Reports** - Use Statement and Monthly tabs for reporting
-6. **Manage Customers** - View and manage customer data in the Customers tab
-7. **Print/Export** - Use print mode or CSV export for reports
+1. Sign in on the login page.
+2. Managers: set up reps and customers, then record invoices, payments, purchases, and expenses.
+3. Sales reps: browse their own customers, invoices, and payments, and print the product price list.
+4. Use the Statement tab for cumulative customer statements and the supplier details page for payables.
+5. Use the KPI tab for period-based financial reporting.
+6. Export CSV or print reports from the relevant tabs.
+
+## Deployment
+
+The app is configured for Vercel (`vercel.json` provides SPA rewrites, cache, and security headers). See [docs/deployment.md](docs/deployment.md) for the full checklist, including:
+
+- Setting `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project
+- Setting the Supabase Site URL and redirect allowlist for the production domain
+- Configuring SMTP so password-reset emails are delivered
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (git checkout -b feature/amazing-feature)
-3. Commit your changes (git commit -m 'Add some amazing feature')
-4. Push to the branch (git push origin feature/amazing-feature)
-5. Open a Pull Request
+1. Create a feature branch.
+2. Make your changes and run `npm run typecheck` and `npm run lint`.
+3. Commit, push, and open a pull request.
 
 ## License
 
