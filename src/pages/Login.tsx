@@ -1,95 +1,77 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
-import { clearRecoveryPending, isRecoveryPending, markRecoveryPending } from '../lib/recoveryMode'
 
-type Mode = 'login' | 'signup' | 'recovery'
+type Mode = 'login' | 'signup'
 
-const recoveryMessage = 'اختر كلمة مرور جديدة لحسابك'
+const COUNTRY_CODE = '+20'
+
+function buildPhone(local: string) {
+  const digits = local.replace(/\D/g, '')
+  return `${COUNTRY_CODE}${digits}`
+}
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState(() => (isRecoveryPending() ? recoveryMessage : ''))
-  const [mode, setMode] = useState<Mode>(() => (isRecoveryPending() ? 'recovery' : 'login'))
+  const [message, setMessage] = useState('')
+  const [mode, setMode] = useState<Mode>('login')
   const navigate = useNavigate()
 
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        markRecoveryPending()
-        setMode('recovery')
-        setMessage(recoveryMessage)
-      }
-    })
-    return () => data.subscription.unsubscribe()
-  }, [])
+  const fullPhone = buildPhone(phone)
 
+  // ─── Login ───────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    setMessage('')
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) {
-      setError(error.message === 'Invalid login credentials' ? 'بيانات الدخول غير صحيحة، يرجى التأكد من البريد وكلمة المرور' : error.message)
-    } else {
-      navigate('/')
-    }
-    setLoading(false)
-  }
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    setMessage('')
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-
-    if (error) {
-      setError(error.message)
-    } else if (data.session) {
-      navigate('/')
-    } else if (data.user && data.user.identities && data.user.identities.length === 0) {
-      setError('هذا البريد الإلكتروني مسجل بالفعل. سجّل الدخول بكلمة المرور الأصلية أو استخدم "نسيت كلمة المرور".')
-    } else {
-      setMessage('تم إنشاء الحساب بنجاح. افتح رسالة تأكيد البريد الإلكتروني ثم سجّل الدخول.')
-    }
-    setLoading(false)
-  }
-
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
-      setError('أدخل البريد الإلكتروني أولاً لإرسال رابط إعادة تعيين كلمة المرور')
+    if (phone.replace(/\D/g, '').length < 7) {
+      setError('أدخل رقم هاتف صحيح')
       return
     }
     setLoading(true)
     setError('')
     setMessage('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/login`,
+
+    // 1. Resolve phone → email via secure DB function (returns { email: string } jsonb)
+    const { data: result, error: lookupError } = await supabase.rpc(
+      'get_email_by_phone',
+      { p_phone: fullPhone },
+    )
+
+    const resolvedEmail = (result as { email?: string } | null)?.email
+
+    if (lookupError || !resolvedEmail) {
+      setError('رقم الهاتف غير مسجل في النظام')
+      setLoading(false)
+      return
+    }
+
+    // 2. Sign in with email + password (Supabase standard flow)
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: resolvedEmail,
+      password,
     })
-    if (error) {
-      setError(error.message)
+
+    if (signInError) {
+      setError(
+        signInError.message === 'Invalid login credentials'
+          ? 'كلمة المرور غير صحيحة'
+          : signInError.message,
+      )
     } else {
-      setMessage('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني')
+      navigate('/')
     }
     setLoading(false)
   }
 
-  const handleUpdatePassword = async (e: React.FormEvent) => {
+  // ─── Sign-up (phone + password, stored as email internally) ──────────────
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (phone.replace(/\D/g, '').length < 7) {
+      setError('أدخل رقم هاتف صحيح')
+      return
+    }
     if (password.length < 6) {
       setError('يجب أن تكون كلمة المرور 6 أحرف على الأقل')
       return
@@ -97,15 +79,27 @@ export default function Login() {
     setLoading(true)
     setError('')
     setMessage('')
-    const { error } = await supabase.auth.updateUser({ password })
+
+    // For sign-up we need an email — use phone as a fake email domain
+    // so the user only ever needs their phone number to log in.
+    const fakeEmail = `${fullPhone.replace('+', '')}@phone.local`
+
+    const { data, error } = await supabase.auth.signUp({
+      email: fakeEmail,
+      password,
+      options: { data: { phone: fullPhone } },
+    })
+
     if (error) {
       setError(error.message)
+    } else if (data.session) {
+      // Also persist the real phone in auth.users via update
+      await supabase.auth.updateUser({ phone: fullPhone })
+      navigate('/')
+    } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+      setError('هذا الرقم مسجل بالفعل. سجّل الدخول بكلمة المرور الأصلية.')
     } else {
-      await supabase.auth.signOut()
-      clearRecoveryPending()
-      setPassword('')
-      setMode('login')
-      setMessage('تم تحديث كلمة المرور بنجاح، يمكنك تسجيل الدخول الآن')
+      setMessage('تم إنشاء الحساب بنجاح. يمكنك تسجيل الدخول الآن.')
     }
     setLoading(false)
   }
@@ -128,154 +122,109 @@ export default function Login() {
 
           {error && (
             <div className="mb-6 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-medium flex items-center gap-2 animate-slide-in">
-              <svg className="w-5 h-5 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <svg className="w-5 h-5 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
               <p className="flex-1">{error}</p>
             </div>
           )}
 
           {message && (
             <div className="mb-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium flex items-center gap-2 animate-slide-in">
-              <svg className="w-5 h-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+              <svg className="w-5 h-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
               <p className="flex-1">{message}</p>
             </div>
           )}
 
-          {mode === 'recovery' ? (
-            <form onSubmit={handleUpdatePassword} className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                  كلمة المرور الجديدة
-                </label>
+          <form onSubmit={mode === 'signup' ? handleSignUp : handleLogin} className="space-y-5">
+            {/* Phone number field */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                رقم الهاتف
+              </label>
+              <div className="flex" dir="ltr">
+                <span className="inline-flex items-center px-3 rounded-s-xl border border-e-0 border-slate-300 bg-slate-100 text-slate-600 text-sm font-semibold select-none whitespace-nowrap">
+                  {COUNTRY_CODE}
+                </span>
                 <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="app-input text-start"
-                  placeholder="••••••••"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value)
+                    setError('')
+                  }}
+                  className="app-input rounded-s-none flex-1 text-start"
+                  placeholder="1012345678"
                   dir="ltr"
-                  minLength={6}
+                  inputMode="numeric"
                   required
                 />
               </div>
+            </div>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="app-btn app-btn-primary w-full py-3 text-base shadow-card font-bold hover:shadow-card-hover"
-                >
-                  {loading ? 'جاري الحفظ...' : 'حفظ كلمة المرور الجديدة'}
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  clearRecoveryPending()
-                  setMode('login')
+            {/* Password field */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+                كلمة المرور
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
                   setError('')
-                  setMessage('')
-                  setPassword('')
-                  await supabase.auth.signOut()
                 }}
-                className="app-btn app-btn-ghost w-full py-2.5 font-semibold text-slate-700 hover:text-slate-900"
-              >
-                رجوع لتسجيل الدخول
-              </button>
-            </form>
-          ) : (
-            <>
-              <form onSubmit={mode === 'signup' ? handleSignUp : handleLogin} className="space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    البريد الإلكتروني
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="app-input text-start"
-                      placeholder="name@example.com"
-                      dir="ltr"
-                      required
-                    />
-                  </div>
-                </div>
+                className="app-input text-start"
+                placeholder="••••••••"
+                dir="ltr"
+                minLength={6}
+                required
+              />
+            </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-                    كلمة المرور
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="app-input text-start"
-                      placeholder="••••••••"
-                      dir="ltr"
-                      minLength={6}
-                      required
-                    />
-                  </div>
-                  {mode === 'login' && (
-                    <div className="mt-2 text-end">
-                      <button
-                        type="button"
-                        onClick={handleForgotPassword}
-                        disabled={loading}
-                        className="text-xs font-bold text-primary-700 hover:text-primary-900 hover:underline"
-                      >
-                        نسيت كلمة المرور؟
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="app-btn app-btn-primary w-full py-3 text-base shadow-card font-bold hover:shadow-card-hover"
-                  >
-                    {loading ? (
-                      <span className="inline-flex items-center gap-2">
-                        <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>جاري التحقق...</span>
-                      </span>
-                    ) : mode === 'signup' ? (
-                      'إنشاء حساب جديد'
-                    ) : (
-                      'تسجيل الدخول'
-                    )}
-                  </button>
-                </div>
-              </form>
-
-              <div className="relative my-6 text-center">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200" />
-                </div>
-                <div className="relative inline-block px-4 bg-white text-xs text-slate-400 font-medium">
-                  أو
-                </div>
-              </div>
-
+            <div className="pt-2">
               <button
-                onClick={() => {
-                  setMode(mode === 'signup' ? 'login' : 'signup')
-                  setError('')
-                  setMessage('')
-                }}
-                type="button"
+                type="submit"
                 disabled={loading}
-                className="app-btn app-btn-ghost w-full py-2.5 font-semibold text-slate-700 hover:text-slate-900"
+                className="app-btn app-btn-primary w-full py-3 text-base shadow-card font-bold hover:shadow-card-hover"
               >
-                {mode === 'signup' ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'إنشاء حساب جديد'}
+                {loading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>جاري التحقق...</span>
+                  </span>
+                ) : mode === 'signup' ? (
+                  'إنشاء حساب جديد'
+                ) : (
+                  'تسجيل الدخول'
+                )}
               </button>
-            </>
-          )}
+            </div>
+          </form>
+
+          <div className="relative my-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative inline-block px-4 bg-white text-xs text-slate-400 font-medium">
+              أو
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setMode(mode === 'signup' ? 'login' : 'signup')
+              setError('')
+              setMessage('')
+            }}
+            type="button"
+            disabled={loading}
+            className="app-btn app-btn-ghost w-full py-2.5 font-semibold text-slate-700 hover:text-slate-900"
+          >
+            {mode === 'signup' ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'إنشاء حساب جديد'}
+          </button>
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6 font-medium">

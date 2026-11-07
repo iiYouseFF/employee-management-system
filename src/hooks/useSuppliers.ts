@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { getTenantId } from '../lib/tenant'
 import type { Database } from '../types/supabase'
 
 export type Supplier = Database['public']['Tables']['suppliers']['Row']
@@ -71,12 +72,11 @@ export function useAddSupplier() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (supplier: Omit<SupplierInsert, 'owner_id'>) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Unauthenticated')
+      const tenantId = await getTenantId()
 
       const { data, error } = await supabase
         .from('suppliers')
-        .insert({ ...supplier, owner_id: user.id })
+        .insert({ ...supplier, owner_id: tenantId })
         .select()
         .single()
 
@@ -126,6 +126,7 @@ export function useAddSupplierPurchase() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (purchase: Omit<SupplierPurchaseInsert, 'owner_id' | 'created_by'>) => {
+      const tenantId = await getTenantId()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Unauthenticated')
 
@@ -133,7 +134,7 @@ export function useAddSupplierPurchase() {
         .from('supplier_purchases')
         .insert({
           ...purchase,
-          owner_id: user.id,
+          owner_id: tenantId,
           created_by: user.id,
         })
         .select()
@@ -156,6 +157,7 @@ export function useAddSupplierPayment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payment: Omit<SupplierPaymentInsert, 'owner_id' | 'created_by'>) => {
+      const tenantId = await getTenantId()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Unauthenticated')
 
@@ -163,7 +165,7 @@ export function useAddSupplierPayment() {
         .from('supplier_payments')
         .insert({
           ...payment,
-          owner_id: user.id,
+          owner_id: tenantId,
           created_by: user.id,
         })
         .select()

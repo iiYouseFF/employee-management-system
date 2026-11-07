@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { getTenantId } from '../lib/tenant'
 
 
 export function useCustomers(repFilter?: string) {
@@ -26,8 +27,7 @@ export function useUpsertCustomer() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ name, phone, representative_id, representative_name }: { name: string, phone?: string, representative_id?: string | null, representative_name?: string | null }) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const tenantId = await getTenantId()
       const { data, error } = await supabase
         .from('customers')
         .insert({
@@ -35,7 +35,7 @@ export function useUpsertCustomer() {
           phone: phone || null,
           representative_id: representative_id || null,
           representative_name: representative_name || null,
-          owner_id: user.id,
+          owner_id: tenantId,
         })
         .select()
         .single()
@@ -112,11 +112,10 @@ export function useAddCashInvoice() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (invoice: any) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const tenantId = await getTenantId()
       const { data, error } = await supabase
         .from('cash_invoices')
-        .insert({ ...invoice, owner_id: user.id })
+        .insert({ ...invoice, owner_id: tenantId })
         .select()
         .single()
       if (error) throw error
@@ -187,11 +186,10 @@ export function useAddCreditInvoice() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (invoice: any) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const tenantId = await getTenantId()
       const { data, error } = await supabase
         .from('credit_invoices')
-        .insert({ ...invoice, owner_id: user.id })
+        .insert({ ...invoice, owner_id: tenantId })
         .select()
         .single()
       if (error) throw error
@@ -262,11 +260,10 @@ export function useAddPayment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payment: any) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const tenantId = await getTenantId()
       const { data, error } = await supabase
         .from('payments')
-        .insert({ ...payment, owner_id: user.id })
+        .insert({ ...payment, owner_id: tenantId })
         .select()
         .single()
       if (error) throw error

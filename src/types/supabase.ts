@@ -623,6 +623,7 @@ export type Database = {
           tx_type: string
         }[]
       }
+      current_owner_id: { Args: never; Returns: string }
       current_role_name: { Args: never; Returns: string }
       get_current_rep_id: { Args: never; Returns: string }
       get_current_rep_owner_id: { Args: never; Returns: string }

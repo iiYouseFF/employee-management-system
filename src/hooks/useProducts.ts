@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { getTenantId } from '../lib/tenant'
 import type { Database } from '../types/supabase'
 
 export type Product = Database['public']['Tables']['products']['Row']
@@ -26,12 +27,11 @@ export function useAddProduct() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (product: Omit<ProductInsert, 'owner_id'>) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Unauthenticated')
+      const tenantId = await getTenantId()
 
       const { data, error } = await supabase
         .from('products')
-        .insert({ ...product, owner_id: user.id })
+        .insert({ ...product, owner_id: tenantId })
         .select()
         .single()
 

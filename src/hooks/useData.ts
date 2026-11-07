@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { getTenantId } from '../lib/tenant'
 import type { RepDirectoryRow, RepFormValues } from '../types/reps'
 
 export function useSettings() {
@@ -20,12 +21,11 @@ export function useUpdateSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (updates: any) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const tenantId = await getTenantId()
       const { data, error } = await supabase
         .from('app_settings')
         .update(updates)
-        .eq('owner_id', user.id)
+        .eq('owner_id', tenantId)
         .select()
         .single()
       if (error) throw error
@@ -55,8 +55,7 @@ export function useAddRep() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ name, email, phone, notes, monthly_target, is_active }: RepFormValues) => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      const tenantId = await getTenantId()
       const { data, error } = await supabase
         .from('reps')
         .insert({
@@ -66,7 +65,7 @@ export function useAddRep() {
           notes: notes?.trim() || null,
           monthly_target: monthly_target ?? 0,
           is_active: is_active ?? true,
-          owner_id: user.id,
+          owner_id: tenantId,
         })
         .select()
         .single()

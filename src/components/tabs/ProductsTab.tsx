@@ -8,6 +8,7 @@ import {
 } from '../../hooks/useProducts'
 import { formatNumber } from '../../lib/format'
 import Modal from '../Modal'
+import CategorySelect from '../CategorySelect'
 
 interface ProductsTabProps {
   isReadOnly?: boolean
@@ -323,12 +324,10 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">التصنيف</label>
-                <input
-                  type="text"
+                <CategorySelect
                   value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="app-input"
-                  placeholder="زيوت، معلبات، بقوليات..."
+                  onChange={(val) => setForm({ ...form, category: val })}
+                  isManager={!isReadOnly}
                 />
               </div>
             </div>

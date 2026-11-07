@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { supabase } from '../lib/supabase'
+import { clearTenantCache } from '../lib/tenant'
 import type { User } from '@supabase/supabase-js'
 
 export type AppRole = 'manager' | 'sales_rep'
@@ -51,6 +52,7 @@ function getSnapshot() {
 
 function clearState() {
   resolution += 1
+  clearTenantCache()
   setState({ user: null, role: null, repProfile: null, loading: false })
 }
 

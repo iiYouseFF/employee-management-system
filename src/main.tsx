@@ -1,4 +1,4 @@
-import './lib/recoveryMode'
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
@@ -8,7 +8,7 @@ import Login from './pages/Login'
 import Sheet from './pages/Sheet'
 import ErrorBoundary from './components/ErrorBoundary'
 import { useAuth } from './hooks/useAuth'
-import { isRecoveryPending } from './lib/recoveryMode'
+
 import './index.css'
 
 function App() {
@@ -18,12 +18,10 @@ function App() {
     return <div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>
   }
 
-  const recovering = isRecoveryPending()
-
   return (
     <Routes>
-      <Route path="/login" element={!user || recovering ? <Login /> : <Navigate to="/" replace />} />
-      <Route path="/" element={user && !recovering ? <Sheet /> : <Navigate to="/login" replace />} />
+      <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
+      <Route path="/" element={user ? <Sheet /> : <Navigate to="/login" replace />} />
     </Routes>
   )
 }
