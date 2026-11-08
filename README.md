@@ -155,6 +155,18 @@ Two roles are stored and verified in Supabase:
 
 ---
 
+### 📦 Inventory Management (إدارة المخزون)
+
+- **Stock in & out:** Stock enters through supplier receipts or standalone "Receive Goods" forms (with quantity and unit cost). Stock leaves automatically when invoice line items are saved.
+- **Auditable movements:** Stock is never edited directly; every adjustment or reversal creates a movement entry (`in`, `out`, or `adjustment`). Current on-hand quantity is the sum of movements.
+- **Negative stock guard:** Negative stock is blocked by default via the `allow_negative_stock` setting in `app_settings`.
+- **Invoices with line items:** Cash and credit invoices support multi-line documents (product, quantity, unit price, and line total). The invoice total is automatically computed from the lines.
+- **Atomic transactions:** Saving or editing an invoice inserts lines and updates stock movements in a single PostgreSQL database transaction. Insufficient stock rejects the entire save and highlights the unavailable product.
+- **Weighted Average Cost (WAC):** Costing uses weighted average cost per product.
+- **Inventory Tab (Manager-only):** On-hand stock per product, manual stock-in, stock adjustments, movement history log with date/product filters, and stock valuation report.
+
+---
+
 ### 💸 Expenses (المصاريف)
 
 - Record operational expenses with date, category, amount, and description.
