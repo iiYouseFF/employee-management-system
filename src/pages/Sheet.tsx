@@ -13,6 +13,7 @@ import ExpensesTab from '../components/tabs/ExpensesTab'
 import ProductsTab from '../components/tabs/ProductsTab'
 import ManagerDashboardTab from '../components/tabs/ManagerDashboardTab'
 import RepsTab from '../components/tabs/RepsTab'
+import InventoryTab from '../components/tabs/InventoryTab'
 import Toast from '../components/Toast'
 import ReportModal from '../components/ReportModal'
 import RepModal from '../components/RepModal'
@@ -100,6 +101,7 @@ export default function Sheet() {
     reps: 'إدارة المناديب',
     suppliers: 'الموردين',
     expenses: 'المصاريف',
+    inventory: 'المخزون',
     products: 'قائمة الأسعار والكتالوج',
     kpi: 'مؤشرات الأداء المالي (KPIs)',
   }
@@ -117,7 +119,7 @@ export default function Sheet() {
   // Managers see all tabs including suppliers and executive KPI dashboard.
   // Sales reps only see cash, credit, payments, statement, customers, and products catalog.
   const availableTabs = isManager
-    ? ['cash', 'credit', 'payments', 'statement', 'monthly', 'customers', 'reps', 'suppliers', 'expenses', 'products', 'kpi']
+    ? ['cash', 'credit', 'payments', 'statement', 'monthly', 'customers', 'reps', 'suppliers', 'expenses', 'inventory', 'products', 'kpi']
     : ['cash', 'credit', 'payments', 'statement', 'customers', 'products']
 
   const handleSaveRep = async (values: RepFormValues) => {
@@ -327,6 +329,7 @@ export default function Sheet() {
           )}
           {activeTab === 'suppliers' && isManager && <SuppliersTab showToast={showToast} />}
           {activeTab === 'expenses' && isManager && <ExpensesTab showToast={showToast} />}
+          {activeTab === 'inventory' && isManager && <InventoryTab />}
           {activeTab === 'reps' && isManager && (
             <RepsTab
               onAdd={() => {

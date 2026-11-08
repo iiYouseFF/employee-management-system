@@ -12,6 +12,8 @@ export interface KpiSummaryData {
   dso: number
   avg_collection_days: number
   collection_rate_30d: number
+  cogs?: number
+  gross_margin?: number
 }
 
 export interface ReceivablesAgingData {

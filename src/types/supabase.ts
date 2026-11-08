@@ -21,6 +21,7 @@ export type Database = {
           tab_names: Json
           title: string
           updated_at: string
+          allow_negative_stock?: boolean
         }
         Insert: {
           id?: string
@@ -28,6 +29,7 @@ export type Database = {
           tab_names?: Json
           title?: string
           updated_at?: string
+          allow_negative_stock?: boolean
         }
         Update: {
           id?: string
@@ -35,6 +37,7 @@ export type Database = {
           tab_names?: Json
           title?: string
           updated_at?: string
+          allow_negative_stock?: boolean
         }
         Relationships: []
       }
@@ -538,6 +541,101 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_lines: {
+        Row: {
+          id: string
+          owner_id: string
+          invoice_type: string
+          invoice_id: string
+          product_id: string
+          qty: number
+          unit_price: number
+          line_total: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id?: string
+          invoice_type: string
+          invoice_id: string
+          product_id: string
+          qty: number
+          unit_price: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          invoice_type?: string
+          invoice_id?: string
+          product_id?: string
+          qty?: number
+          unit_price?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      stock_movements: {
+        Row: {
+          id: string
+          owner_id: string
+          product_id: string
+          movement_type: string
+          qty: number
+          unit_cost: number
+          avg_cost_snapshot: number | null
+          reference_type: string | null
+          reference_id: string | null
+          notes: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id?: string
+          product_id: string
+          movement_type: string
+          qty: number
+          unit_cost?: number
+          avg_cost_snapshot?: number | null
+          reference_type?: string | null
+          reference_id?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          product_id?: string
+          movement_type?: string
+          qty?: number
+          unit_cost?: number
+          avg_cost_snapshot?: number | null
+          reference_type?: string | null
+          reference_id?: string | null
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       v_credit_invoices: {
@@ -700,6 +798,98 @@ export type Database = {
           tx_date: string
           tx_type: string
         }[]
+      }
+      product_stock_summary: {
+        Args: Record<string, never>
+        Returns: {
+          product_id: string
+          name_ar: string
+          name_en: string | null
+          sku: string | null
+          unit: string | null
+          category: string | null
+          price: number
+          on_hand: number
+          avg_cost: number
+          stock_value: number
+          is_active: boolean
+        }[]
+      }
+      stock_movement_history: {
+        Args: {
+          p_product_id?: string | null
+          p_from?: string | null
+          p_to?: string | null
+        }
+        Returns: {
+          id: string
+          product_id: string
+          product_name: string
+          movement_type: string
+          qty: number
+          unit_cost: number
+          avg_cost_snapshot: number | null
+          reference_type: string | null
+          reference_id: string | null
+          notes: string | null
+          created_at: string
+        }[]
+      }
+      stock_valuation: {
+        Args: Record<string, never>
+        Returns: {
+          product_id: string
+          name_ar: string
+          unit: string | null
+          category: string | null
+          on_hand: number
+          avg_cost: number
+          stock_value: number
+        }[]
+      }
+      receive_stock: {
+        Args: {
+          p_product_id: string
+          p_qty: number
+          p_unit_cost: number
+          p_notes?: string | null
+          p_reference?: string | null
+        }
+        Returns: string
+      }
+      adjust_stock: {
+        Args: {
+          p_product_id: string
+          p_qty_delta: number
+          p_notes?: string | null
+        }
+        Returns: string
+      }
+      save_cash_invoice: {
+        Args: {
+          p_invoice: Json
+          p_lines: Json
+        }
+        Returns: string
+      }
+      save_credit_invoice: {
+        Args: {
+          p_invoice: Json
+          p_lines: Json
+        }
+        Returns: string
+      }
+      delete_cash_invoice: {
+        Args: {
+          p_id: string
+        }
+        Returns: undefined
+      }
+      delete_credit_invoice: {
+        Args: {
+          p_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

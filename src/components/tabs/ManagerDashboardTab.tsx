@@ -180,6 +180,35 @@ export default function ManagerDashboardTab() {
         </div>
       </div>
 
+      {/* Inventory & Gross Margin Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="app-card p-4.5 bg-gradient-to-br from-indigo-50/70 to-white border-indigo-100 flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold text-indigo-900 block">تكلفة البضاعة المباعة (COGS)</span>
+            <p className="text-2xl font-black text-indigo-800 font-mono mt-1">
+              {loadingKpi ? '...' : `${formatNumber(kpi?.cogs ?? 0)} ج.م`}
+            </p>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">محسوبة بمتوسط التكلفة المرجح للأصناف المباعة</span>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+            تكلفة
+          </div>
+        </div>
+
+        <div className="app-card p-4.5 bg-gradient-to-br from-teal-50/70 to-white border-teal-100 flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold text-teal-900 block">مجمل الربح (Gross Margin)</span>
+            <p className={`text-2xl font-black font-mono mt-1 ${(kpi?.gross_margin ?? 0) >= 0 ? 'text-teal-800' : 'text-rose-700'}`}>
+              {loadingKpi ? '...' : `${formatNumber(kpi?.gross_margin ?? 0)} ج.م`}
+            </p>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">إجمالي مبيعات الفواتير − تكلفة البضاعة المباعة</span>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+            ربح
+          </div>
+        </div>
+      </div>
+
       {/* Velocity Details Panel */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-blue-50/80 to-blue-100/40 p-4.5 rounded-2xl border border-blue-200/80 shadow-sm">
