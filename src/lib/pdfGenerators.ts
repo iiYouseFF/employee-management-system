@@ -1,12 +1,29 @@
-import autoTable from 'jspdf-autotable'
-import { createArabicPdf, shapeArabicText, shapeArabicTableCell, sharePdfViaWhatsApp } from './pdfShare'
+import { generatePdfFromHtml, sharePdfBlobViaWhatsApp } from './pdfShare'
 import { formatNumber } from './format'
 import type { StatementRow } from '../hooks/useStatements'
 import type { Product } from '../hooks/useProducts'
 import type { Report } from './report'
 
+function esc(val: any): string {
+  if (val === null || val === undefined) return ''
+  return String(val)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+const COMMON_STYLES = `
+  box-sizing: border-box;
+  font-family: 'Tajawal', system-ui, -apple-system, sans-serif;
+  color: #1e293b;
+  padding: 24px;
+  background-color: #ffffff;
+  direction: rtl;
+`
+
 /**
- * Generate and share a Customer Cumulative Statement PDF via WhatsApp.
+ * Customer Statement HTML Template & PDF generator
  */
 export async function shareCustomerStatementWhatsApp({
   customer,
@@ -26,128 +43,89 @@ export async function shareCustomerStatementWhatsApp({
   fromDate?: string
   toDate?: string
 }) {
-  const doc = await createArabicPdf('p')
-  const pageWidth = doc.internal.pageSize.getWidth()
-
-  // Header background banner
-  doc.setFillColor(31, 78, 121)
-  doc.rect(0, 0, pageWidth, 28, 'F')
-
-  // Header title
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(16)
-  doc.text(shapeArabicText(doc, companyName), pageWidth / 2, 11, { align: 'center' })
-  doc.setFontSize(11)
-  doc.text(shapeArabicText(doc, `كشف حساب عميل تفصيلي - تراكمي`), pageWidth / 2, 20, { align: 'center' })
-
-  // Customer & Meta Info Card
-  doc.setTextColor(40, 40, 40)
-  doc.setFontSize(10)
+  const totalDebit = statementRows.reduce((acc, r) => acc + (r.debit || 0), 0)
+  const totalCredit = statementRows.reduce((acc, r) => acc + (r.credit || 0), 0)
+  const finalBalance = statementRows[statementRows.length - 1]?.balance ?? 0
 
   const dateRangeLabel = fromDate || toDate
     ? `الفترة: من ${fromDate || 'البداية'} إلى ${toDate || 'اليوم'}`
     : 'الفترة: كشف حساب شامل'
 
-  doc.text(shapeArabicText(doc, `العميل: ${customer.name}`), pageWidth - 14, 36, { align: 'right' })
-  doc.text(shapeArabicText(doc, `المندوب: ${customer.representative_name || '-'}`), pageWidth - 14, 43, { align: 'right' })
+  const rowsHtml = statementRows.map((r) => {
+    const isOpening = r.tx_type === 'opening'
+    return `
+      <tr style="background-color: ${isOpening ? '#fef3c7' : '#ffffff'}; font-weight: ${isOpening ? '700' : '500'}; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 7px 6px; text-align: center; font-size: 11px; color: #64748b;">${r.row_no === 0 ? 'افتتاحي' : r.row_no}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 11px; color: #475569; font-family: monospace;">${esc(r.tx_date || '-')}</td>
+        <td style="padding: 7px 8px; text-align: right; font-size: 12px; color: #1e293b;">${esc(r.description)}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 11px; color: #64748b; font-family: monospace;">${esc(r.ref || '-')}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 12px; color: #1d4ed8; font-weight: 700;">${r.debit !== null ? formatNumber(r.debit) : '-'}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 12px; color: #047857; font-weight: 700;">${r.credit !== null ? formatNumber(r.credit) : '-'}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 12px; color: #0f172a; font-weight: 800;">${formatNumber(r.balance)} ج.م</td>
+      </tr>
+    `
+  }).join('')
 
-  doc.text(shapeArabicText(doc, `رقم الهاتف: ${customer.phone || 'غير مسجل'}`), 14, 36, { align: 'left' })
-  doc.text(shapeArabicText(doc, dateRangeLabel), 14, 43, { align: 'left' })
+  const html = `
+    <div style="${COMMON_STYLES}">
+      <!-- Header Banner -->
+      <div style="background: linear-gradient(135deg, #1e3a8a, #0f172a); color: #ffffff; padding: 18px 22px; border-radius: 12px; text-align: center; margin-bottom: 18px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 800;">${esc(companyName)}</h1>
+        <div style="margin-top: 4px; font-size: 14px; opacity: 0.9; font-weight: 600;">كشف حساب عميل تفصيلي (تراكمي)</div>
+      </div>
 
-  // Prepare table data (Columns ordered right-to-left: #, التاريخ, البيان, المرجع, مدين, دائن, الرصيد)
-  const head = [[
-    shapeArabicTableCell(doc, 'الرصيد التراكمي'),
-    shapeArabicTableCell(doc, 'دائن (-)'),
-    shapeArabicTableCell(doc, 'مدين (+)'),
-    shapeArabicTableCell(doc, 'المرجع'),
-    shapeArabicTableCell(doc, 'البيان والتفاصيل'),
-    shapeArabicTableCell(doc, 'التاريخ'),
-    shapeArabicTableCell(doc, '#'),
-  ]]
+      <!-- Info Card -->
+      <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+        <div>
+          <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">العميل: ${esc(customer.name)}</div>
+          <div style="color: #64748b;">المندوب المخصص: <b style="color: #334155;">${esc(customer.representative_name || '-')}</b></div>
+        </div>
+        <div style="text-align: left;">
+          <div style="color: #334155; margin-bottom: 4px;">رقم الهاتف: <b style="font-family: monospace; color: #0f172a;">${esc(customer.phone || 'غير مسجل')}</b></div>
+          <div style="color: #64748b; font-weight: 600;">${esc(dateRangeLabel)}</div>
+        </div>
+      </div>
 
-  const body = statementRows.map((r) => [
-    `${formatNumber(r.balance)} ج.م`,
-    r.credit !== null ? formatNumber(r.credit) : '-',
-    r.debit !== null ? formatNumber(r.debit) : '-',
-    r.ref ? String(r.ref) : '-',
-    shapeArabicTableCell(doc, r.description),
-    r.tx_date || '-',
-    r.row_no === 0 ? shapeArabicTableCell(doc, 'رصيد سابق') : String(r.row_no),
-  ])
+      <!-- Table -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 11px;">
+        <thead>
+          <tr style="background-color: #1e3a8a; color: #ffffff; font-weight: 700;">
+            <th style="padding: 9px 6px; text-align: center; width: 45px;">#</th>
+            <th style="padding: 9px 6px; text-align: center; width: 85px;">التاريخ</th>
+            <th style="padding: 9px 8px; text-align: right;">البيان والتفاصيل</th>
+            <th style="padding: 9px 6px; text-align: center; width: 75px;">المرجع</th>
+            <th style="padding: 9px 6px; text-align: center; width: 85px;">مدين (+)</th>
+            <th style="padding: 9px 6px; text-align: center; width: 85px;">دائن (-)</th>
+            <th style="padding: 9px 6px; text-align: center; width: 110px;">الرصيد التراكمي</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+        <tfoot>
+          <tr style="background-color: #e2e8f0; font-weight: 800; border-top: 2px solid #0f172a;">
+            <td colspan="4" style="padding: 9px 8px; text-align: center; font-size: 12px; color: #1e293b;">الإجمالي والرصيد الختامي</td>
+            <td style="padding: 9px 6px; text-align: center; font-size: 12px; color: #1d4ed8;">${formatNumber(totalDebit)}</td>
+            <td style="padding: 9px 6px; text-align: center; font-size: 12px; color: #047857;">${formatNumber(totalCredit)}</td>
+            <td style="padding: 9px 6px; text-align: center; font-size: 13px; color: #0f172a;">${formatNumber(finalBalance)} ج.م</td>
+          </tr>
+        </tfoot>
+      </table>
 
-  // Calculate totals
-  const totalDebit = statementRows.reduce((acc, r) => acc + (r.debit || 0), 0)
-  const totalCredit = statementRows.reduce((acc, r) => acc + (r.credit || 0), 0)
-  const finalBalance = statementRows[statementRows.length - 1]?.balance ?? 0
+      <!-- Footer Notes -->
+      <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b;">
+        <span>تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}</span>
+        <span>شكراً لتعاملكم معنا - نعتز بخدمتكم دائماً</span>
+      </div>
+    </div>
+  `
 
-  const foot = [[
-    `${formatNumber(finalBalance)} ج.م`,
-    formatNumber(totalCredit),
-    formatNumber(totalDebit),
-    '',
-    shapeArabicTableCell(doc, 'الإجمالي والرصيد الختامي'),
-    '',
-    '',
-  ]]
-
-  autoTable(doc, {
-    startY: 48,
-    head,
-    body,
-    foot,
-    styles: {
-      font: 'Amiri',
-      fontSize: 9,
-      cellPadding: 2.5,
-      halign: 'center',
-    },
-    headStyles: {
-      font: 'Amiri',
-      fillColor: [31, 78, 121],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    footStyles: {
-      font: 'Amiri',
-      fillColor: [230, 238, 246],
-      textColor: [31, 78, 121],
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    columnStyles: {
-      0: { halign: 'center', fontStyle: 'bold' },
-      4: { halign: 'right' },
-    },
-    theme: 'grid',
-    margin: { left: 12, right: 12, top: 48, bottom: 20 },
-  })
-
-  // Add footer to all pages
-  const totalPages = doc.getNumberOfPages()
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setTextColor(130, 130, 130)
-    doc.text(
-      shapeArabicText(doc, `صفحة ${i} من ${totalPages}`),
-      pageWidth / 2,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: 'center' }
-    )
-    doc.text(
-      shapeArabicText(doc, `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`),
-      14,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: 'left' }
-    )
-  }
-
+  const blob = await generatePdfFromHtml(html)
   const filename = `كشف_حساب_${customer.name}_${new Date().toISOString().slice(0, 10)}.pdf`
   const message = `السلام عليكم ورحمة الله،\nمرفق كشف الحساب التراكمي للعميل: ${customer.name}\nالرصيد الحالي: ${formatNumber(finalBalance)} ج.م\nشكراً لتعاملكم معنا.`
 
-  return await sharePdfViaWhatsApp({
-    doc,
+  return await sharePdfBlobViaWhatsApp({
+    blob,
     filename,
     recipientPhone: customer.phone,
     message,
@@ -155,7 +133,7 @@ export async function shareCustomerStatementWhatsApp({
 }
 
 /**
- * Generate and share a Supplier Cumulative Statement PDF via WhatsApp.
+ * Supplier Statement HTML Template & PDF generator
  */
 export async function shareSupplierStatementWhatsApp({
   supplier,
@@ -175,123 +153,89 @@ export async function shareSupplierStatementWhatsApp({
   fromDate?: string
   toDate?: string
 }) {
-  const doc = await createArabicPdf('p')
-  const pageWidth = doc.internal.pageSize.getWidth()
-
-  // Header background banner
-  doc.setFillColor(31, 78, 121)
-  doc.rect(0, 0, pageWidth, 28, 'F')
-
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(16)
-  doc.text(shapeArabicText(doc, companyName), pageWidth / 2, 11, { align: 'center' })
-  doc.setFontSize(11)
-  doc.text(shapeArabicText(doc, `كشف حساب مورد تفصيلي - تراكمي`), pageWidth / 2, 20, { align: 'center' })
-
-  doc.setTextColor(40, 40, 40)
-  doc.setFontSize(10)
+  const totalDebit = statementRows.reduce((acc, r) => acc + (r.debit || 0), 0)
+  const totalCredit = statementRows.reduce((acc, r) => acc + (r.credit || 0), 0)
+  const finalBalance = statementRows[statementRows.length - 1]?.balance ?? 0
 
   const dateRangeLabel = fromDate || toDate
     ? `الفترة: من ${fromDate || 'البداية'} إلى ${toDate || 'اليوم'}`
     : 'الفترة: كشف حساب شامل'
 
-  doc.text(shapeArabicText(doc, `المورد: ${supplier.name}`), pageWidth - 14, 36, { align: 'right' })
-  doc.text(shapeArabicText(doc, `رصيد أول المدة: ${formatNumber(supplier.opening_balance || 0)} ج.م`), pageWidth - 14, 43, { align: 'right' })
+  const rowsHtml = statementRows.map((r) => {
+    const isOpening = r.tx_type === 'opening'
+    return `
+      <tr style="background-color: ${isOpening ? '#fef3c7' : '#ffffff'}; font-weight: ${isOpening ? '700' : '500'}; border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 7px 6px; text-align: center; font-size: 11px; color: #64748b;">${r.row_no === 0 ? 'افتتاحي' : r.row_no}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 11px; color: #475569; font-family: monospace;">${esc(r.tx_date || '-')}</td>
+        <td style="padding: 7px 8px; text-align: right; font-size: 12px; color: #1e293b;">${esc(r.description)}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 11px; color: #64748b; font-family: monospace;">${esc(r.ref || '-')}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 12px; color: #1d4ed8; font-weight: 700;">${r.debit !== null ? formatNumber(r.debit) : '-'}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 12px; color: #047857; font-weight: 700;">${r.credit !== null ? formatNumber(r.credit) : '-'}</td>
+        <td style="padding: 7px 6px; text-align: center; font-size: 12px; color: #0f172a; font-weight: 800;">${formatNumber(r.balance)} ج.م</td>
+      </tr>
+    `
+  }).join('')
 
-  doc.text(shapeArabicText(doc, `رقم الهاتف: ${supplier.phone || 'غير مسجل'}`), 14, 36, { align: 'left' })
-  doc.text(shapeArabicText(doc, dateRangeLabel), 14, 43, { align: 'left' })
+  const html = `
+    <div style="${COMMON_STYLES}">
+      <!-- Header Banner -->
+      <div style="background: linear-gradient(135deg, #1e3a8a, #0f172a); color: #ffffff; padding: 18px 22px; border-radius: 12px; text-align: center; margin-bottom: 18px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 800;">${esc(companyName)}</h1>
+        <div style="margin-top: 4px; font-size: 14px; opacity: 0.9; font-weight: 600;">كشف حساب مورد تفصيلي (تراكمي)</div>
+      </div>
 
-  const head = [[
-    shapeArabicTableCell(doc, 'الرصيد التراكمي'),
-    shapeArabicTableCell(doc, 'دائن (-) مشتريات'),
-    shapeArabicTableCell(doc, 'مدين (+) سدادات'),
-    shapeArabicTableCell(doc, 'المرجع'),
-    shapeArabicTableCell(doc, 'البيان والتفاصيل'),
-    shapeArabicTableCell(doc, 'التاريخ'),
-    shapeArabicTableCell(doc, '#'),
-  ]]
+      <!-- Info Card -->
+      <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+        <div>
+          <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">المورد: ${esc(supplier.name)}</div>
+          <div style="color: #64748b;">رصيد أول المدة: <b style="color: #334155;">${formatNumber(supplier.opening_balance || 0)} ج.م</b></div>
+        </div>
+        <div style="text-align: left;">
+          <div style="color: #334155; margin-bottom: 4px;">رقم الهاتف: <b style="font-family: monospace; color: #0f172a;">${esc(supplier.phone || 'غير مسجل')}</b></div>
+          <div style="color: #64748b; font-weight: 600;">${esc(dateRangeLabel)}</div>
+        </div>
+      </div>
 
-  const body = statementRows.map((r) => [
-    `${formatNumber(r.balance)} ج.م`,
-    r.credit !== null ? formatNumber(r.credit) : '-',
-    r.debit !== null ? formatNumber(r.debit) : '-',
-    r.ref ? String(r.ref) : '-',
-    shapeArabicTableCell(doc, r.description),
-    r.tx_date || '-',
-    r.row_no === 0 ? shapeArabicTableCell(doc, 'رصيد سابق') : String(r.row_no),
-  ])
+      <!-- Table -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 11px;">
+        <thead>
+          <tr style="background-color: #1e3a8a; color: #ffffff; font-weight: 700;">
+            <th style="padding: 9px 6px; text-align: center; width: 45px;">#</th>
+            <th style="padding: 9px 6px; text-align: center; width: 85px;">التاريخ</th>
+            <th style="padding: 9px 8px; text-align: right;">البيان والتفاصيل</th>
+            <th style="padding: 9px 6px; text-align: center; width: 75px;">المرجع</th>
+            <th style="padding: 9px 6px; text-align: center; width: 85px;">مدين (+) سداد</th>
+            <th style="padding: 9px 6px; text-align: center; width: 85px;">دائن (-) شراء</th>
+            <th style="padding: 9px 6px; text-align: center; width: 110px;">المستحق للمورد</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+        <tfoot>
+          <tr style="background-color: #e2e8f0; font-weight: 800; border-top: 2px solid #0f172a;">
+            <td colspan="4" style="padding: 9px 8px; text-align: center; font-size: 12px; color: #1e293b;">الإجمالي والرصيد المستحق للمورد</td>
+            <td style="padding: 9px 6px; text-align: center; font-size: 12px; color: #1d4ed8;">${formatNumber(totalDebit)}</td>
+            <td style="padding: 9px 6px; text-align: center; font-size: 12px; color: #047857;">${formatNumber(totalCredit)}</td>
+            <td style="padding: 9px 6px; text-align: center; font-size: 13px; color: #0f172a;">${formatNumber(finalBalance)} ج.م</td>
+          </tr>
+        </tfoot>
+      </table>
 
-  const totalDebit = statementRows.reduce((acc, r) => acc + (r.debit || 0), 0)
-  const totalCredit = statementRows.reduce((acc, r) => acc + (r.credit || 0), 0)
-  const finalBalance = statementRows[statementRows.length - 1]?.balance ?? 0
+      <!-- Footer Notes -->
+      <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b;">
+        <span>تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}</span>
+        <span>كشف حساب مالي صادر من نظام الإدارة المالية</span>
+      </div>
+    </div>
+  `
 
-  const foot = [[
-    `${formatNumber(finalBalance)} ج.م`,
-    formatNumber(totalCredit),
-    formatNumber(totalDebit),
-    '',
-    shapeArabicTableCell(doc, 'الإجمالي والرصيد المستحق للمورد'),
-    '',
-    '',
-  ]]
-
-  autoTable(doc, {
-    startY: 48,
-    head,
-    body,
-    foot,
-    styles: {
-      font: 'Amiri',
-      fontSize: 9,
-      cellPadding: 2.5,
-      halign: 'center',
-    },
-    headStyles: {
-      font: 'Amiri',
-      fillColor: [31, 78, 121],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    footStyles: {
-      font: 'Amiri',
-      fillColor: [230, 238, 246],
-      textColor: [31, 78, 121],
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    columnStyles: {
-      0: { halign: 'center', fontStyle: 'bold' },
-      4: { halign: 'right' },
-    },
-    theme: 'grid',
-    margin: { left: 12, right: 12, top: 48, bottom: 20 },
-  })
-
-  const totalPages = doc.getNumberOfPages()
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setTextColor(130, 130, 130)
-    doc.text(
-      shapeArabicText(doc, `صفحة ${i} من ${totalPages}`),
-      pageWidth / 2,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: 'center' }
-    )
-    doc.text(
-      shapeArabicText(doc, `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`),
-      14,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: 'left' }
-    )
-  }
-
+  const blob = await generatePdfFromHtml(html)
   const filename = `كشف_حساب_مورد_${supplier.name}_${new Date().toISOString().slice(0, 10)}.pdf`
   const message = `السلام عليكم ورحمة الله،\nمرفق كشف حساب للمورد: ${supplier.name}\nالمتبقي المستحق: ${formatNumber(finalBalance)} ج.م.`
 
-  return await sharePdfViaWhatsApp({
-    doc,
+  return await sharePdfBlobViaWhatsApp({
+    blob,
     filename,
     recipientPhone: supplier.phone,
     message,
@@ -299,7 +243,7 @@ export async function shareSupplierStatementWhatsApp({
 }
 
 /**
- * Generate and share a Product Price List / Catalog PDF via WhatsApp.
+ * Product Price List / Catalog HTML Template & PDF generator
  */
 export async function shareProductCatalogWhatsApp({
   products,
@@ -310,102 +254,73 @@ export async function shareProductCatalogWhatsApp({
   categoryFilter?: string
   companyName?: string
 }) {
-  const doc = await createArabicPdf('p')
-  const pageWidth = doc.internal.pageSize.getWidth()
-
-  // Header banner
-  doc.setFillColor(31, 78, 121)
-  doc.rect(0, 0, pageWidth, 28, 'F')
-
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(16)
-  doc.text(shapeArabicText(doc, companyName), pageWidth / 2, 11, { align: 'center' })
-  doc.setFontSize(11)
-  doc.text(shapeArabicText(doc, 'كتالوج وقائمة الأسعار المعتمدة'), pageWidth / 2, 20, { align: 'center' })
-
-  // Subheader
-  doc.setTextColor(50, 50, 50)
-  doc.setFontSize(10)
   const catLabel = categoryFilter === 'all' ? 'جميع التصنيفات' : categoryFilter
-  doc.text(shapeArabicText(doc, `التصنيف: ${catLabel}`), pageWidth - 14, 36, { align: 'right' })
-  doc.text(shapeArabicText(doc, `عدد الأصناف: ${products.length}`), 14, 36, { align: 'left' })
 
-  const head = [[
-    shapeArabicTableCell(doc, 'السعر (ج.م)'),
-    shapeArabicTableCell(doc, 'الوحدة'),
-    shapeArabicTableCell(doc, 'التصنيف'),
-    shapeArabicTableCell(doc, 'كود الصنف SKU'),
-    shapeArabicTableCell(doc, 'اسم الصنف بالإنجليزية'),
-    shapeArabicTableCell(doc, 'اسم الصنف'),
-    shapeArabicTableCell(doc, '#'),
-  ]]
+  const rowsHtml = products.map((p, idx) => `
+    <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0;">
+      <td style="padding: 8px 6px; text-align: center; font-size: 11px; color: #64748b;">${idx + 1}</td>
+      <td style="padding: 8px 10px; text-align: right; font-size: 13px; font-weight: 700; color: #0f172a;">${esc(p.name_ar)}</td>
+      <td style="padding: 8px 8px; text-align: left; font-size: 11px; color: #64748b; font-family: sans-serif;">${esc(p.name_en || '-')}</td>
+      <td style="padding: 8px 6px; text-align: center; font-size: 11px; color: #475569; font-family: monospace;">${esc(p.sku || '-')}</td>
+      <td style="padding: 8px 6px; text-align: center; font-size: 12px; color: #334155;">${esc(p.category || '-')}</td>
+      <td style="padding: 8px 6px; text-align: center; font-size: 12px; color: #475569;">${esc(p.unit || 'قطعة')}</td>
+      <td style="padding: 8px 10px; text-align: center; font-size: 14px; font-weight: 800; color: #1e3a8a;">${formatNumber(p.price)} ج.م</td>
+    </tr>
+  `).join('')
 
-  const body = products.map((p, index) => [
-    `${formatNumber(p.price)} ج.م`,
-    shapeArabicTableCell(doc, p.unit || 'قطعة'),
-    shapeArabicTableCell(doc, p.category || '-'),
-    p.sku || '-',
-    p.name_en || '-',
-    shapeArabicTableCell(doc, p.name_ar),
-    String(index + 1),
-  ])
+  const html = `
+    <div style="${COMMON_STYLES}">
+      <!-- Header Banner -->
+      <div style="background: linear-gradient(135deg, #1e3a8a, #0f172a); color: #ffffff; padding: 18px 22px; border-radius: 12px; text-align: center; margin-bottom: 18px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 800;">${esc(companyName)}</h1>
+        <div style="margin-top: 4px; font-size: 14px; opacity: 0.9; font-weight: 600;">كتالوج وقائمة الأسعار المعتمدة</div>
+      </div>
 
-  autoTable(doc, {
-    startY: 42,
-    head,
-    body,
-    styles: {
-      font: 'Amiri',
-      fontSize: 9,
-      cellPadding: 2.5,
-      halign: 'center',
-    },
-    headStyles: {
-      font: 'Amiri',
-      fillColor: [31, 78, 121],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    columnStyles: {
-      0: { halign: 'center', fontStyle: 'bold' },
-      5: { halign: 'right', fontStyle: 'bold' },
-    },
-    theme: 'grid',
-    margin: { left: 12, right: 12, top: 42, bottom: 20 },
-  })
+      <!-- Info Bar -->
+      <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px 18px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+        <div style="color: #0f172a; font-weight: 700;">التصنيف المختار: <span style="color: #1e3a8a;">${esc(catLabel)}</span></div>
+        <div style="color: #64748b;">إجمالي عدد الأصناف: <b style="color: #0f172a;">${products.length} صنف</b></div>
+      </div>
 
-  const totalPages = doc.getNumberOfPages()
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setTextColor(130, 130, 130)
-    doc.text(
-      shapeArabicText(doc, `صفحة ${i} من ${totalPages}`),
-      pageWidth / 2,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: 'center' }
-    )
-    doc.text(
-      shapeArabicText(doc, `تاريخ الإصدار: ${new Date().toLocaleDateString('ar-EG')}`),
-      14,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: 'left' }
-    )
-  }
+      <!-- Products Table -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px;">
+        <thead>
+          <tr style="background-color: #1e3a8a; color: #ffffff; font-weight: 700;">
+            <th style="padding: 9px 6px; text-align: center; width: 40px;">#</th>
+            <th style="padding: 9px 10px; text-align: right;">اسم الصنف</th>
+            <th style="padding: 9px 8px; text-align: left; width: 120px;">English Name</th>
+            <th style="padding: 9px 6px; text-align: center; width: 90px;">كود الصنف (SKU)</th>
+            <th style="padding: 9px 6px; text-align: center; width: 90px;">التصنيف</th>
+            <th style="padding: 9px 6px; text-align: center; width: 70px;">الوحدة</th>
+            <th style="padding: 9px 10px; text-align: center; width: 110px;">السعر المعتمد</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
 
+      <!-- Footer Notes -->
+      <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b;">
+        <span>تاريخ الإصدار: ${new Date().toLocaleDateString('ar-EG')}</span>
+        <span>الأسعار شاملة الضريبة وفق اللائحة المعتمدة</span>
+      </div>
+    </div>
+  `
+
+  const blob = await generatePdfFromHtml(html)
   const filename = `قائمة_الأسعار_${new Date().toISOString().slice(0, 10)}.pdf`
   const message = `السلام عليكم ورحمة الله،\nمرفق قائمة الأسعار والكتالوج المعتمد لمنتجات ${companyName}.`
 
-  return await sharePdfViaWhatsApp({
-    doc,
+  return await sharePdfBlobViaWhatsApp({
+    blob,
     filename,
     message,
   })
 }
 
 /**
- * Generate and share general Reports (from ReportModal) via WhatsApp.
+ * General Financial Reports HTML Template & PDF generator
  */
 export async function shareGeneralReportWhatsApp({
   report,
@@ -414,119 +329,94 @@ export async function shareGeneralReportWhatsApp({
   report: Report
   companyName?: string
 }) {
-  const doc = await createArabicPdf('p')
-  const pageWidth = doc.internal.pageSize.getWidth()
+  const sectionsHtml = report.sections.map((section) => {
+    const headHtml = section.columns.map((c) => `<th style="padding: 8px 6px; text-align: center; border: 1px solid #cbd5e1;">${esc(c)}</th>`).join('')
 
-  // Header banner
-  doc.setFillColor(31, 78, 121)
-  doc.rect(0, 0, pageWidth, 28, 'F')
-
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(16)
-  doc.text(shapeArabicText(doc, companyName), pageWidth / 2, 11, { align: 'center' })
-  doc.setFontSize(11)
-  doc.text(shapeArabicText(doc, report.title), pageWidth / 2, 20, { align: 'center' })
-
-  // Filters text
-  doc.setTextColor(60, 60, 60)
-  doc.setFontSize(9)
-  if (report.subtitle) {
-    doc.text(shapeArabicText(doc, report.subtitle), pageWidth / 2, 34, { align: 'center' })
-  }
-  if (report.filters && report.filters.length > 0) {
-    doc.text(shapeArabicText(doc, report.filters.join(' • ')), pageWidth / 2, 40, { align: 'center' })
-  }
-
-  let currentY = 46
-
-  for (const section of report.sections) {
-    // Section Title
-    doc.setFontSize(11)
-    doc.setTextColor(31, 78, 121)
-    doc.text(shapeArabicText(doc, section.title), pageWidth - 14, currentY, { align: 'right' })
-    currentY += 4
-
-    // Reverse columns and cell order for RTL view
-    const head = [section.columns.slice().reverse().map((c) => shapeArabicTableCell(doc, c))]
-    const body = section.rows.map((row) =>
-      row.slice().reverse().map((cell) => {
+    const bodyHtml = section.rows.map((row, idx) => {
+      const cellsHtml = row.map((cell) => {
+        let val = ''
         if (typeof cell === 'object' && cell !== null) {
-          if ('date' in cell) return cell.date || '-'
-          if ('money' in cell) return `${formatNumber(cell.money)} ج.م`
+          if ('date' in cell) val = cell.date || '-'
+          else if ('money' in cell) val = `${formatNumber(cell.money)} ج.م`
+        } else if (typeof cell === 'number') {
+          val = formatNumber(cell)
+        } else {
+          val = esc(cell)
         }
-        if (typeof cell === 'number') return formatNumber(cell)
-        return shapeArabicTableCell(doc, cell)
-      })
-    )
+        return `<td style="padding: 7px 6px; text-align: center; border: 1px solid #e2e8f0;">${val}</td>`
+      }).join('')
 
-    let foot: any = undefined
+      return `<tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">${cellsHtml}</tr>`
+    }).join('')
+
+    let footHtml = ''
     if (section.totals) {
-      foot = [section.totals.slice().reverse().map((cell) => {
+      const footCells = section.totals.map((cell) => {
+        let val = ''
         if (typeof cell === 'object' && cell !== null) {
-          if ('date' in cell) return cell.date || '-'
-          if ('money' in cell) return `${formatNumber(cell.money)} ج.م`
+          if ('date' in cell) val = cell.date || '-'
+          else if ('money' in cell) val = `${formatNumber(cell.money)} ج.م`
+        } else if (typeof cell === 'number') {
+          val = formatNumber(cell)
+        } else {
+          val = esc(cell)
         }
-        if (typeof cell === 'number') return formatNumber(cell)
-        return shapeArabicTableCell(doc, cell)
-      })]
+        return `<td style="padding: 8px 6px; text-align: center; border: 1px solid #cbd5e1; font-weight: 800;">${val}</td>`
+      }).join('')
+      footHtml = `<tr style="background-color: #e2e8f0;">${footCells}</tr>`
     }
 
-    autoTable(doc, {
-      startY: currentY,
-      head,
-      body,
-      foot,
-      styles: {
-        font: 'Amiri',
-        fontSize: 8.5,
-        cellPadding: 2,
-        halign: 'center',
-      },
-      headStyles: {
-        font: 'Amiri',
-        fillColor: [31, 78, 121],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        halign: 'center',
-      },
-      footStyles: {
-        font: 'Amiri',
-        fillColor: [230, 238, 246],
-        textColor: [31, 78, 121],
-        fontStyle: 'bold',
-        halign: 'center',
-      },
-      theme: 'grid',
-      margin: { left: 12, right: 12, bottom: 20 },
-    })
+    return `
+      <div style="margin-bottom: 20px;">
+        <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 800; color: #1e3a8a; background-color: #e0f2fe; padding: 6px 12px; border-radius: 6px;">${esc(section.title)}</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+          <thead>
+            <tr style="background-color: #1e3a8a; color: #ffffff;">
+              ${headHtml}
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyHtml}
+          </tbody>
+          ${footHtml ? `<tfoot>${footHtml}</tfoot>` : ''}
+        </table>
+      </div>
+    `
+  }).join('')
 
-    currentY = (doc as any).lastAutoTable.finalY + 10
-  }
+  const html = `
+    <div style="${COMMON_STYLES}">
+      <!-- Header Banner -->
+      <div style="background: linear-gradient(135deg, #1e3a8a, #0f172a); color: #ffffff; padding: 18px 22px; border-radius: 12px; text-align: center; margin-bottom: 18px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 800;">${esc(companyName)}</h1>
+        <div style="margin-top: 4px; font-size: 14px; opacity: 0.9; font-weight: 600;">${esc(report.title)}</div>
+        ${report.subtitle ? `<div style="font-size: 12px; opacity: 0.8; margin-top: 2px;">${esc(report.subtitle)}</div>` : ''}
+      </div>
 
-  const totalPages = doc.getNumberOfPages()
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setTextColor(130, 130, 130)
-    doc.text(
-      shapeArabicText(doc, `صفحة ${i} من ${totalPages}`),
-      pageWidth / 2,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: 'center' }
-    )
-    doc.text(
-      shapeArabicText(doc, `تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}`),
-      14,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: 'left' }
-    )
-  }
+      <!-- Filters Summary -->
+      ${report.filters && report.filters.length > 0 ? `
+        <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; font-size: 11px; color: #475569; text-align: center;">
+          ${report.filters.map(esc).join(' • ')}
+        </div>
+      ` : ''}
 
+      <!-- Sections -->
+      ${sectionsHtml}
+
+      <!-- Footer Notes -->
+      <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b;">
+        <span>تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}</span>
+        <span>تقرير مالي صادر من نظام الإدارة</span>
+      </div>
+    </div>
+  `
+
+  const blob = await generatePdfFromHtml(html)
   const filename = `${report.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
   const message = `السلام عليكم ورحمة الله،\nمرفق تقرير: ${report.title}`
 
-  return await sharePdfViaWhatsApp({
-    doc,
+  return await sharePdfBlobViaWhatsApp({
+    blob,
     filename,
     message,
   })

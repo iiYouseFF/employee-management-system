@@ -1,89 +1,8 @@
+import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
-let cachedFontBase64: string | null = null
-
-async function loadAmiriFont(): Promise<string | null> {
-  if (cachedFontBase64) return cachedFontBase64
-  try {
-    const res = await fetch('/fonts/Amiri-Regular.ttf')
-    if (!res.ok) return null
-    const buffer = await res.arrayBuffer()
-    let binary = ''
-    const bytes = new Uint8Array(buffer)
-    const len = bytes.byteLength
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i])
-    }
-    cachedFontBase64 = btoa(binary)
-    return cachedFontBase64
-  } catch (err) {
-    console.warn('Could not load Amiri font, falling back to default font:', err)
-    return null
-  }
-}
-
 /**
- * Configure jsPDF document with Arabic font.
- */
-export async function createArabicPdf(orientation: 'p' | 'l' = 'p'): Promise<jsPDF> {
-  const doc = new jsPDF({
-    orientation,
-    unit: 'mm',
-    format: 'a4',
-  })
-
-  const fontBase64 = await loadAmiriFont()
-  if (fontBase64) {
-    doc.addFileToVFS('Amiri.ttf', fontBase64)
-    doc.addFont('Amiri.ttf', 'Amiri', 'normal')
-    doc.addFont('Amiri.ttf', 'Amiri', 'bold')
-    doc.setFont('Amiri', 'normal')
-  }
-
-  return doc
-}
-
-/**
- * Shape Arabic text and order characters for direct canvas rendering (doc.text headers, footers, meta labels).
- * jsPDF doc.text renders characters LTR; this function shapes Arabic words via processArabic
- * and orders the tokens and glyphs right-to-left so text renders correctly.
- */
-export function shapeArabicText(doc: jsPDF, text: string | number | null | undefined): string {
-  if (text === null || text === undefined) return ''
-  const str = String(text)
-  if (!/[\u0600-\u06FF]/.test(str)) return str
-
-  try {
-    const tokens =
-      str.match(
-        /[\u0600-\u06FF]+|\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}|\d+(?:\.\d+)?|[A-Za-z0-9_-]+|[^\u0600-\u06FF0-9A-Za-z\s]+|\s+/g
-      ) || [str]
-
-    const processed = tokens.map((t) => {
-      if (/[\u0600-\u06FF]/.test(t)) {
-        return Array.from(doc.processArabic(t)).reverse().join('')
-      }
-      return t
-    })
-
-    return processed.reverse().join('')
-  } catch {
-    return str
-  }
-}
-
-/**
- * For table cells (autoTable), autoTable's internal layout renders plain text
- * with proper BiDi ordering automatically when using TTF fonts like Amiri.
- */
-export function shapeArabicTableCell(_doc: jsPDF, text: string | number | null | undefined): string {
-  if (text === null || text === undefined) return ''
-  return String(text)
-}
-
-/**
- * Format a phone number to WhatsApp international standard.
- * Handles Egyptian local numbers (+20, 01xxxxxxxxx).
+ * Clean & normalize a phone number for WhatsApp wa.me links.
  */
 export function cleanWhatsAppPhone(phone?: string | null): string {
   if (!phone) return ''
@@ -91,14 +10,13 @@ export function cleanWhatsAppPhone(phone?: string | null): string {
   if (cleaned.startsWith('+')) {
     cleaned = cleaned.substring(1)
   } else if (cleaned.startsWith('01')) {
-    // Default Egyptian mobile without country code -> add 20
     cleaned = '20' + cleaned.substring(1)
   }
   return cleaned
 }
 
 /**
- * Open WhatsApp chat with optional message and pre-filled recipient.
+ * Open WhatsApp chat with optional message and recipient.
  */
 export function openWhatsAppChat(phone: string | null | undefined, message: string): void {
   const cleanPhone = cleanWhatsAppPhone(phone)
@@ -110,26 +28,88 @@ export function openWhatsAppChat(phone: string | null | undefined, message: stri
 }
 
 /**
- * Share or trigger WhatsApp sharing for a generated PDF file.
- * If Web Share API supports file sharing (standard on mobile browsers),
- * it opens the native share sheet directly targeting WhatsApp.
- * Otherwise, downloads the PDF and opens WhatsApp with a pre-filled message.
+ * Converts an HTML string or element into a pixel-perfect A4 PDF using HTML5 canvas.
+ * This completely eliminates Arabic reversed text or detached letter issues, because
+ * the browser's own native typography & shaping engine (Tajawal font) renders the layout!
  */
-export async function sharePdfViaWhatsApp({
-  doc,
+export async function generatePdfFromHtml(htmlContent: string): Promise<Blob> {
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.left = '-9999px'
+  container.style.top = '0'
+  container.style.width = '794px' // Standard A4 width at 96 DPI (210mm)
+  container.style.backgroundColor = '#ffffff'
+  container.style.zIndex = '-9999'
+  container.setAttribute('dir', 'rtl')
+  container.innerHTML = htmlContent
+
+  document.body.appendChild(container)
+
+  // Allow any webfonts to apply
+  if (document.fonts) {
+    try {
+      await document.fonts.ready
+    } catch {
+      // ignore
+    }
+  }
+
+  try {
+    const canvas = await html2canvas(container, {
+      scale: 2, // High-DPI retina sharpness
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: 794,
+    })
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95)
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = pdf.internal.pageSize.getHeight()
+
+    const canvasWidth = canvas.width
+    const canvasHeight = canvas.height
+    const imgHeight = (canvasHeight * pdfWidth) / canvasWidth
+
+    let heightLeft = imgHeight
+    let position = 0
+
+    // Add first page
+    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight, undefined, 'FAST')
+    heightLeft -= pdfHeight
+
+    // Add subsequent pages if multi-page document
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight
+      pdf.addPage()
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight, undefined, 'FAST')
+      heightLeft -= pdfHeight
+    }
+
+    return pdf.output('blob')
+  } finally {
+    document.body.removeChild(container)
+  }
+}
+
+/**
+ * Share or trigger WhatsApp sharing for a generated PDF file.
+ */
+export async function sharePdfBlobViaWhatsApp({
+  blob,
   filename,
   recipientPhone,
   message,
 }: {
-  doc: jsPDF
+  blob: Blob
   filename: string
   recipientPhone?: string | null
   message: string
 }): Promise<{ sharedViaNative: boolean }> {
-  const blob = doc.output('blob')
   const file = new File([blob], filename, { type: 'application/pdf' })
 
-  // 1. Try native Web Share API (supported on mobile Chrome / Safari / Edge)
+  // 1. Native mobile share sheet
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
@@ -139,16 +119,14 @@ export async function sharePdfViaWhatsApp({
       })
       return { sharedViaNative: true }
     } catch (err: any) {
-      // User canceled share sheet or permission denied - return without fallback if dismissed
       if (err?.name === 'AbortError') {
         return { sharedViaNative: false }
       }
-      console.warn('Native share failed, falling back to download + WhatsApp link:', err)
+      console.warn('Native share failed, using fallback:', err)
     }
   }
 
-  // 2. Desktop / Unsupported fallback:
-  // Trigger file download so user has the PDF ready, then launch WhatsApp Web/App
+  // 2. Desktop fallback: download PDF file and launch WhatsApp chat
   const fileUrl = URL.createObjectURL(blob)
   const downloadLink = document.createElement('a')
   downloadLink.href = fileUrl
@@ -158,7 +136,6 @@ export async function sharePdfViaWhatsApp({
   document.body.removeChild(downloadLink)
   setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)
 
-  // Open WhatsApp chat
   openWhatsAppChat(recipientPhone, message)
 
   return { sharedViaNative: false }
