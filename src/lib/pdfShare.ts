@@ -23,7 +23,7 @@ async function loadAmiriFont(): Promise<string | null> {
 }
 
 /**
- * Configure jsPDF document with Arabic font and automatic BiDi text handling.
+ * Configure jsPDF document with Arabic font.
  */
 export async function createArabicPdf(orientation: 'p' | 'l' = 'p'): Promise<jsPDF> {
   const doc = new jsPDF({
@@ -40,34 +40,43 @@ export async function createArabicPdf(orientation: 'p' | 'l' = 'p'): Promise<jsP
     doc.setFont('Amiri', 'normal')
   }
 
-  // Intercept doc.text to ensure isInputVisual is always false.
-  // jsPDF's built-in BiDi engine shapes Arabic glyphs and correctly reorders
-  // both words, mixed numbers, and letters in true RTL when isInputVisual is false.
-  const originalText = doc.text.bind(doc)
-  doc.text = function (...args: any[]) {
-    const text = args[0]
-    const x = args[1]
-    const y = args[2]
-    const options = typeof args[3] === 'object' && args[3] !== null ? args[3] : {}
-    const transform = args[4]
-
-    const mergedOptions = {
-      ...options,
-      isInputVisual: false,
-    }
-
-    return (originalText as any)(text, x, y, mergedOptions, transform)
-  }
-
   return doc
 }
 
 /**
- * Helper to ensure text strings passed to PDF tables/headers are valid strings.
- * Note: Since doc.text is configured with isInputVisual: false, jsPDF automatically
- * handles Arabic letter shaping and BiDi reordering natively without double-inverting.
+ * Shape Arabic text and order characters for direct canvas rendering (doc.text headers, footers, meta labels).
+ * jsPDF doc.text renders characters LTR; this function shapes Arabic words via processArabic
+ * and orders the tokens and glyphs right-to-left so text renders correctly.
  */
-export function shapeArabic(_doc: jsPDF, text: string | number | null | undefined): string {
+export function shapeArabicText(doc: jsPDF, text: string | number | null | undefined): string {
+  if (text === null || text === undefined) return ''
+  const str = String(text)
+  if (!/[\u0600-\u06FF]/.test(str)) return str
+
+  try {
+    const tokens =
+      str.match(
+        /[\u0600-\u06FF]+|\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}|\d+(?:\.\d+)?|[A-Za-z0-9_-]+|[^\u0600-\u06FF0-9A-Za-z\s]+|\s+/g
+      ) || [str]
+
+    const processed = tokens.map((t) => {
+      if (/[\u0600-\u06FF]/.test(t)) {
+        return Array.from(doc.processArabic(t)).reverse().join('')
+      }
+      return t
+    })
+
+    return processed.reverse().join('')
+  } catch {
+    return str
+  }
+}
+
+/**
+ * For table cells (autoTable), autoTable's internal layout renders plain text
+ * with proper BiDi ordering automatically when using TTF fonts like Amiri.
+ */
+export function shapeArabicTableCell(_doc: jsPDF, text: string | number | null | undefined): string {
   if (text === null || text === undefined) return ''
   return String(text)
 }

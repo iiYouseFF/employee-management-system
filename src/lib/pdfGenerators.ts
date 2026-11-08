@@ -1,5 +1,5 @@
 import autoTable from 'jspdf-autotable'
-import { createArabicPdf, shapeArabic, sharePdfViaWhatsApp } from './pdfShare'
+import { createArabicPdf, shapeArabicText, shapeArabicTableCell, sharePdfViaWhatsApp } from './pdfShare'
 import { formatNumber } from './format'
 import type { StatementRow } from '../hooks/useStatements'
 import type { Product } from '../hooks/useProducts'
@@ -36,9 +36,9 @@ export async function shareCustomerStatementWhatsApp({
   // Header title
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(16)
-  doc.text(shapeArabic(doc, companyName), pageWidth / 2, 11, { align: 'center' })
+  doc.text(shapeArabicText(doc, companyName), pageWidth / 2, 11, { align: 'center' })
   doc.setFontSize(11)
-  doc.text(shapeArabic(doc, `كشف حساب عميل تفصيلي (تراكمي)`), pageWidth / 2, 20, { align: 'center' })
+  doc.text(shapeArabicText(doc, `كشف حساب عميل تفصيلي - تراكمي`), pageWidth / 2, 20, { align: 'center' })
 
   // Customer & Meta Info Card
   doc.setTextColor(40, 40, 40)
@@ -48,21 +48,21 @@ export async function shareCustomerStatementWhatsApp({
     ? `الفترة: من ${fromDate || 'البداية'} إلى ${toDate || 'اليوم'}`
     : 'الفترة: كشف حساب شامل'
 
-  doc.text(shapeArabic(doc, `العميل: ${customer.name}`), pageWidth - 14, 36, { align: 'right' })
-  doc.text(shapeArabic(doc, `المندوب: ${customer.representative_name || '-'}`), pageWidth - 14, 43, { align: 'right' })
+  doc.text(shapeArabicText(doc, `العميل: ${customer.name}`), pageWidth - 14, 36, { align: 'right' })
+  doc.text(shapeArabicText(doc, `المندوب: ${customer.representative_name || '-'}`), pageWidth - 14, 43, { align: 'right' })
 
-  doc.text(shapeArabic(doc, `رقم الهاتف: ${customer.phone || 'غير مسجل'}`), 14, 36, { align: 'left' })
-  doc.text(shapeArabic(doc, dateRangeLabel), 14, 43, { align: 'left' })
+  doc.text(shapeArabicText(doc, `رقم الهاتف: ${customer.phone || 'غير مسجل'}`), 14, 36, { align: 'left' })
+  doc.text(shapeArabicText(doc, dateRangeLabel), 14, 43, { align: 'left' })
 
   // Prepare table data (Columns ordered right-to-left: #, التاريخ, البيان, المرجع, مدين, دائن, الرصيد)
   const head = [[
-    shapeArabic(doc, 'الرصيد التراكمي'),
-    shapeArabic(doc, 'دائن (-)'),
-    shapeArabic(doc, 'مدين (+)'),
-    shapeArabic(doc, 'المرجع'),
-    shapeArabic(doc, 'البيان والتفاصيل'),
-    shapeArabic(doc, 'التاريخ'),
-    shapeArabic(doc, '#'),
+    shapeArabicTableCell(doc, 'الرصيد التراكمي'),
+    shapeArabicTableCell(doc, 'دائن (-)'),
+    shapeArabicTableCell(doc, 'مدين (+)'),
+    shapeArabicTableCell(doc, 'المرجع'),
+    shapeArabicTableCell(doc, 'البيان والتفاصيل'),
+    shapeArabicTableCell(doc, 'التاريخ'),
+    shapeArabicTableCell(doc, '#'),
   ]]
 
   const body = statementRows.map((r) => [
@@ -70,9 +70,9 @@ export async function shareCustomerStatementWhatsApp({
     r.credit !== null ? formatNumber(r.credit) : '-',
     r.debit !== null ? formatNumber(r.debit) : '-',
     r.ref ? String(r.ref) : '-',
-    shapeArabic(doc, r.description),
+    shapeArabicTableCell(doc, r.description),
     r.tx_date || '-',
-    r.row_no === 0 ? shapeArabic(doc, 'رصيد سابق') : String(r.row_no),
+    r.row_no === 0 ? shapeArabicTableCell(doc, 'رصيد سابق') : String(r.row_no),
   ])
 
   // Calculate totals
@@ -85,7 +85,7 @@ export async function shareCustomerStatementWhatsApp({
     formatNumber(totalCredit),
     formatNumber(totalDebit),
     '',
-    shapeArabic(doc, 'الإجمالي والرصيد الختامي'),
+    shapeArabicTableCell(doc, 'الإجمالي والرصيد الختامي'),
     '',
     '',
   ]]
@@ -130,13 +130,13 @@ export async function shareCustomerStatementWhatsApp({
     doc.setFontSize(8)
     doc.setTextColor(130, 130, 130)
     doc.text(
-      shapeArabic(doc, `صفحة ${i} من ${totalPages}`),
+      shapeArabicText(doc, `صفحة ${i} من ${totalPages}`),
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'center' }
     )
     doc.text(
-      shapeArabic(doc, `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`),
+      shapeArabicText(doc, `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`),
       14,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'left' }
@@ -184,9 +184,9 @@ export async function shareSupplierStatementWhatsApp({
 
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(16)
-  doc.text(shapeArabic(doc, companyName), pageWidth / 2, 11, { align: 'center' })
+  doc.text(shapeArabicText(doc, companyName), pageWidth / 2, 11, { align: 'center' })
   doc.setFontSize(11)
-  doc.text(shapeArabic(doc, `كشف حساب مورد تفصيلي (تراكمي)`), pageWidth / 2, 20, { align: 'center' })
+  doc.text(shapeArabicText(doc, `كشف حساب مورد تفصيلي - تراكمي`), pageWidth / 2, 20, { align: 'center' })
 
   doc.setTextColor(40, 40, 40)
   doc.setFontSize(10)
@@ -195,20 +195,20 @@ export async function shareSupplierStatementWhatsApp({
     ? `الفترة: من ${fromDate || 'البداية'} إلى ${toDate || 'اليوم'}`
     : 'الفترة: كشف حساب شامل'
 
-  doc.text(shapeArabic(doc, `المورد: ${supplier.name}`), pageWidth - 14, 36, { align: 'right' })
-  doc.text(shapeArabic(doc, `رصيد أول المدة: ${formatNumber(supplier.opening_balance || 0)} ج.م`), pageWidth - 14, 43, { align: 'right' })
+  doc.text(shapeArabicText(doc, `المورد: ${supplier.name}`), pageWidth - 14, 36, { align: 'right' })
+  doc.text(shapeArabicText(doc, `رصيد أول المدة: ${formatNumber(supplier.opening_balance || 0)} ج.م`), pageWidth - 14, 43, { align: 'right' })
 
-  doc.text(shapeArabic(doc, `رقم الهاتف: ${supplier.phone || 'غير مسجل'}`), 14, 36, { align: 'left' })
-  doc.text(shapeArabic(doc, dateRangeLabel), 14, 43, { align: 'left' })
+  doc.text(shapeArabicText(doc, `رقم الهاتف: ${supplier.phone || 'غير مسجل'}`), 14, 36, { align: 'left' })
+  doc.text(shapeArabicText(doc, dateRangeLabel), 14, 43, { align: 'left' })
 
   const head = [[
-    shapeArabic(doc, 'الرصيد التراكمي'),
-    shapeArabic(doc, 'دائن (-) مشتريات'),
-    shapeArabic(doc, 'مدين (+) سدادات'),
-    shapeArabic(doc, 'المرجع'),
-    shapeArabic(doc, 'البيان والتفاصيل'),
-    shapeArabic(doc, 'التاريخ'),
-    shapeArabic(doc, '#'),
+    shapeArabicTableCell(doc, 'الرصيد التراكمي'),
+    shapeArabicTableCell(doc, 'دائن (-) مشتريات'),
+    shapeArabicTableCell(doc, 'مدين (+) سدادات'),
+    shapeArabicTableCell(doc, 'المرجع'),
+    shapeArabicTableCell(doc, 'البيان والتفاصيل'),
+    shapeArabicTableCell(doc, 'التاريخ'),
+    shapeArabicTableCell(doc, '#'),
   ]]
 
   const body = statementRows.map((r) => [
@@ -216,9 +216,9 @@ export async function shareSupplierStatementWhatsApp({
     r.credit !== null ? formatNumber(r.credit) : '-',
     r.debit !== null ? formatNumber(r.debit) : '-',
     r.ref ? String(r.ref) : '-',
-    shapeArabic(doc, r.description),
+    shapeArabicTableCell(doc, r.description),
     r.tx_date || '-',
-    r.row_no === 0 ? shapeArabic(doc, 'رصيد سابق') : String(r.row_no),
+    r.row_no === 0 ? shapeArabicTableCell(doc, 'رصيد سابق') : String(r.row_no),
   ])
 
   const totalDebit = statementRows.reduce((acc, r) => acc + (r.debit || 0), 0)
@@ -230,7 +230,7 @@ export async function shareSupplierStatementWhatsApp({
     formatNumber(totalCredit),
     formatNumber(totalDebit),
     '',
-    shapeArabic(doc, 'الإجمالي والرصيد المستحق للمورد'),
+    shapeArabicTableCell(doc, 'الإجمالي والرصيد المستحق للمورد'),
     '',
     '',
   ]]
@@ -274,13 +274,13 @@ export async function shareSupplierStatementWhatsApp({
     doc.setFontSize(8)
     doc.setTextColor(130, 130, 130)
     doc.text(
-      shapeArabic(doc, `صفحة ${i} من ${totalPages}`),
+      shapeArabicText(doc, `صفحة ${i} من ${totalPages}`),
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'center' }
     )
     doc.text(
-      shapeArabic(doc, `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`),
+      shapeArabicText(doc, `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG')}`),
       14,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'left' }
@@ -319,34 +319,34 @@ export async function shareProductCatalogWhatsApp({
 
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(16)
-  doc.text(shapeArabic(doc, companyName), pageWidth / 2, 11, { align: 'center' })
+  doc.text(shapeArabicText(doc, companyName), pageWidth / 2, 11, { align: 'center' })
   doc.setFontSize(11)
-  doc.text(shapeArabic(doc, 'كتالوج وقائمة الأسعار المعتمدة'), pageWidth / 2, 20, { align: 'center' })
+  doc.text(shapeArabicText(doc, 'كتالوج وقائمة الأسعار المعتمدة'), pageWidth / 2, 20, { align: 'center' })
 
   // Subheader
   doc.setTextColor(50, 50, 50)
   doc.setFontSize(10)
   const catLabel = categoryFilter === 'all' ? 'جميع التصنيفات' : categoryFilter
-  doc.text(shapeArabic(doc, `التصنيف: ${catLabel}`), pageWidth - 14, 36, { align: 'right' })
-  doc.text(shapeArabic(doc, `عدد الأصناف: ${products.length}`), 14, 36, { align: 'left' })
+  doc.text(shapeArabicText(doc, `التصنيف: ${catLabel}`), pageWidth - 14, 36, { align: 'right' })
+  doc.text(shapeArabicText(doc, `عدد الأصناف: ${products.length}`), 14, 36, { align: 'left' })
 
   const head = [[
-    shapeArabic(doc, 'السعر (ج.م)'),
-    shapeArabic(doc, 'الوحدة'),
-    shapeArabic(doc, 'التصنيف'),
-    shapeArabic(doc, 'كود الصنف SKU'),
-    shapeArabic(doc, 'اسم الصنف بالإنجليزية'),
-    shapeArabic(doc, 'اسم الصنف'),
-    shapeArabic(doc, '#'),
+    shapeArabicTableCell(doc, 'السعر (ج.م)'),
+    shapeArabicTableCell(doc, 'الوحدة'),
+    shapeArabicTableCell(doc, 'التصنيف'),
+    shapeArabicTableCell(doc, 'كود الصنف SKU'),
+    shapeArabicTableCell(doc, 'اسم الصنف بالإنجليزية'),
+    shapeArabicTableCell(doc, 'اسم الصنف'),
+    shapeArabicTableCell(doc, '#'),
   ]]
 
   const body = products.map((p, index) => [
     `${formatNumber(p.price)} ج.م`,
-    shapeArabic(doc, p.unit || 'قطعة'),
-    shapeArabic(doc, p.category || '-'),
+    shapeArabicTableCell(doc, p.unit || 'قطعة'),
+    shapeArabicTableCell(doc, p.category || '-'),
     p.sku || '-',
     p.name_en || '-',
-    shapeArabic(doc, p.name_ar),
+    shapeArabicTableCell(doc, p.name_ar),
     String(index + 1),
   ])
 
@@ -381,13 +381,13 @@ export async function shareProductCatalogWhatsApp({
     doc.setFontSize(8)
     doc.setTextColor(130, 130, 130)
     doc.text(
-      shapeArabic(doc, `صفحة ${i} من ${totalPages}`),
+      shapeArabicText(doc, `صفحة ${i} من ${totalPages}`),
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'center' }
     )
     doc.text(
-      shapeArabic(doc, `تاريخ الإصدار: ${new Date().toLocaleDateString('ar-EG')}`),
+      shapeArabicText(doc, `تاريخ الإصدار: ${new Date().toLocaleDateString('ar-EG')}`),
       14,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'left' }
@@ -423,18 +423,18 @@ export async function shareGeneralReportWhatsApp({
 
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(16)
-  doc.text(shapeArabic(doc, companyName), pageWidth / 2, 11, { align: 'center' })
+  doc.text(shapeArabicText(doc, companyName), pageWidth / 2, 11, { align: 'center' })
   doc.setFontSize(11)
-  doc.text(shapeArabic(doc, report.title), pageWidth / 2, 20, { align: 'center' })
+  doc.text(shapeArabicText(doc, report.title), pageWidth / 2, 20, { align: 'center' })
 
   // Filters text
   doc.setTextColor(60, 60, 60)
   doc.setFontSize(9)
   if (report.subtitle) {
-    doc.text(shapeArabic(doc, report.subtitle), pageWidth / 2, 34, { align: 'center' })
+    doc.text(shapeArabicText(doc, report.subtitle), pageWidth / 2, 34, { align: 'center' })
   }
   if (report.filters && report.filters.length > 0) {
-    doc.text(shapeArabic(doc, report.filters.join(' • ')), pageWidth / 2, 40, { align: 'center' })
+    doc.text(shapeArabicText(doc, report.filters.join(' • ')), pageWidth / 2, 40, { align: 'center' })
   }
 
   let currentY = 46
@@ -443,11 +443,11 @@ export async function shareGeneralReportWhatsApp({
     // Section Title
     doc.setFontSize(11)
     doc.setTextColor(31, 78, 121)
-    doc.text(shapeArabic(doc, section.title), pageWidth - 14, currentY, { align: 'right' })
+    doc.text(shapeArabicText(doc, section.title), pageWidth - 14, currentY, { align: 'right' })
     currentY += 4
 
     // Reverse columns and cell order for RTL view
-    const head = [section.columns.slice().reverse().map((c) => shapeArabic(doc, c))]
+    const head = [section.columns.slice().reverse().map((c) => shapeArabicTableCell(doc, c))]
     const body = section.rows.map((row) =>
       row.slice().reverse().map((cell) => {
         if (typeof cell === 'object' && cell !== null) {
@@ -455,7 +455,7 @@ export async function shareGeneralReportWhatsApp({
           if ('money' in cell) return `${formatNumber(cell.money)} ج.م`
         }
         if (typeof cell === 'number') return formatNumber(cell)
-        return shapeArabic(doc, cell)
+        return shapeArabicTableCell(doc, cell)
       })
     )
 
@@ -467,7 +467,7 @@ export async function shareGeneralReportWhatsApp({
           if ('money' in cell) return `${formatNumber(cell.money)} ج.م`
         }
         if (typeof cell === 'number') return formatNumber(cell)
-        return shapeArabic(doc, cell)
+        return shapeArabicTableCell(doc, cell)
       })]
     }
 
@@ -509,13 +509,13 @@ export async function shareGeneralReportWhatsApp({
     doc.setFontSize(8)
     doc.setTextColor(130, 130, 130)
     doc.text(
-      shapeArabic(doc, `صفحة ${i} من ${totalPages}`),
+      shapeArabicText(doc, `صفحة ${i} من ${totalPages}`),
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'center' }
     )
     doc.text(
-      shapeArabic(doc, `تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}`),
+      shapeArabicText(doc, `تاريخ التقرير: ${new Date().toLocaleDateString('ar-EG')}`),
       14,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'left' }
