@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import StatementTable from './StatementTable'
+import WhatsAppShareButton from './WhatsAppShareButton'
 import { useSupplierStatement } from '../hooks/useStatements'
+import { useSettings } from '../hooks/useData'
 import { exportCSV } from '../lib/csv'
 import { formatNumber } from '../lib/format'
+import { shareSupplierStatementWhatsApp } from '../lib/pdfGenerators'
 
 interface SupplierStatementModalProps {
   supplier: {
@@ -21,6 +24,9 @@ export default function SupplierStatementModal({
 }: SupplierStatementModalProps) {
   const [fromDate, setFromDate] = useState<string>('')
   const [toDate, setToDate] = useState<string>('')
+  const [sharing, setSharing] = useState<boolean>(false)
+
+  const { data: settings } = useSettings()
 
   const { data: statementRows = [], isLoading } = useSupplierStatement(
     supplier.id,
@@ -30,6 +36,24 @@ export default function SupplierStatementModal({
 
   const handlePrint = () => {
     window.print()
+  }
+
+  const handleShareWhatsApp = async () => {
+    if (!statementRows || statementRows.length === 0) return
+    setSharing(true)
+    try {
+      await shareSupplierStatementWhatsApp({
+        supplier,
+        statementRows,
+        companyName: settings?.title || 'شركة توريد',
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+      })
+    } catch (err) {
+      console.error('Failed to share supplier statement via WhatsApp:', err)
+    } finally {
+      setSharing(false)
+    }
   }
 
   const handleExportCsv = () => {
@@ -79,7 +103,12 @@ export default function SupplierStatementModal({
               <span>رصيد أول المدة: <b className="font-mono text-slate-700">{formatNumber(Number(supplier.opening_balance || 0))} ج.م</b></span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <WhatsAppShareButton
+              onClick={handleShareWhatsApp}
+              loading={sharing}
+              title="مشاركة كشف حساب PDF عبر واتساب مع المورد"
+            />
             <button
               onClick={handlePrint}
               className="app-btn app-btn-ghost py-2 text-xs font-semibold"

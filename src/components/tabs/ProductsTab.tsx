@@ -6,9 +6,12 @@ import {
   useDeleteProduct,
   type Product,
 } from '../../hooks/useProducts'
+import { useSettings } from '../../hooks/useData'
 import { formatNumber } from '../../lib/format'
 import Modal from '../Modal'
 import CategorySelect from '../CategorySelect'
+import WhatsAppShareButton from '../WhatsAppShareButton'
+import { shareProductCatalogWhatsApp } from '../../lib/pdfGenerators'
 
 interface ProductsTabProps {
   isReadOnly?: boolean
@@ -16,6 +19,7 @@ interface ProductsTabProps {
 
 export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
   const { data: products = [], isLoading } = useProducts()
+  const { data: settings } = useSettings()
   const addProduct = useAddProduct()
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
@@ -24,6 +28,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [sharing, setSharing] = useState(false)
 
   const [form, setForm] = useState({
     name_ar: '',
@@ -118,6 +123,22 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
     window.print()
   }
 
+  const handleShareWhatsApp = async () => {
+    if (!filteredProducts || filteredProducts.length === 0) return
+    setSharing(true)
+    try {
+      await shareProductCatalogWhatsApp({
+        products: filteredProducts,
+        categoryFilter: selectedCategory,
+        companyName: settings?.title || 'شركة توريد',
+      })
+    } catch (err) {
+      console.error('Failed to share product catalog via WhatsApp:', err)
+    } finally {
+      setSharing(false)
+    }
+  }
+
   return (
     <div className="space-y-5" dir="rtl">
       {/* Header & Controls (Hidden when printing) */}
@@ -159,6 +180,13 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
             <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             <span>طباعة القائمة (A4)</span>
           </button>
+
+          <WhatsAppShareButton
+            onClick={handleShareWhatsApp}
+            loading={sharing}
+            label="مشاركة الكتالوج (PDF)"
+            title="مشاركة كتالوج المنتجات كملف PDF عبر واتساب"
+          />
 
           {!isReadOnly && (
             <button

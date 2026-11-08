@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import StatementTable from './StatementTable'
+import WhatsAppShareButton from './WhatsAppShareButton'
 import { useCustomerStatement } from '../hooks/useStatements'
+import { useSettings } from '../hooks/useData'
 import { exportCSV } from '../lib/csv'
+import { shareCustomerStatementWhatsApp } from '../lib/pdfGenerators'
 
 interface CumulativeCustomerStatementModalProps {
   customer: {
@@ -20,6 +23,9 @@ export default function CumulativeCustomerStatementModal({
 }: CumulativeCustomerStatementModalProps) {
   const [fromDate, setFromDate] = useState<string>('')
   const [toDate, setToDate] = useState<string>('')
+  const [sharing, setSharing] = useState<boolean>(false)
+
+  const { data: settings } = useSettings()
 
   const { data: statementRows = [], isLoading } = useCustomerStatement(
     customer.id,
@@ -29,6 +35,24 @@ export default function CumulativeCustomerStatementModal({
 
   const handlePrint = () => {
     window.print()
+  }
+
+  const handleShareWhatsApp = async () => {
+    if (!statementRows || statementRows.length === 0) return
+    setSharing(true)
+    try {
+      await shareCustomerStatementWhatsApp({
+        customer,
+        statementRows,
+        companyName: settings?.title || 'شركة توريد',
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+      })
+    } catch (err) {
+      console.error('Failed to share customer statement via WhatsApp:', err)
+    } finally {
+      setSharing(false)
+    }
   }
 
   const handleExportCsv = () => {
@@ -78,7 +102,12 @@ export default function CumulativeCustomerStatementModal({
               <span>المندوب المخصص: <b className="text-slate-700">{customer.representative_name || '-'}</b></span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <WhatsAppShareButton
+              onClick={handleShareWhatsApp}
+              loading={sharing}
+              title="مشاركة كشف حساب PDF عبر واتساب مع العميل"
+            />
             <button
               onClick={handlePrint}
               className="app-btn app-btn-ghost py-2 text-xs font-semibold"

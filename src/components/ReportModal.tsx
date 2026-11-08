@@ -7,8 +7,10 @@ import {
 } from '../hooks/useInvoices'
 import { useReps, useSettings } from '../hooks/useData'
 import Modal from './Modal'
+import WhatsAppShareButton from './WhatsAppShareButton'
 import { REPORT_SECTIONS, buildReport, exportReportCsv, printReport } from '../lib/report'
 import { getTodayISO } from '../lib/format'
+import { shareGeneralReportWhatsApp } from '../lib/pdfGenerators'
 
 interface ReportModalProps {
   onClose: () => void
@@ -49,6 +51,7 @@ export default function ReportModal({
   const [repId, setRepId] = useState(defaultRepFilter !== 'all' ? defaultRepFilter : '')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [sharing, setSharing] = useState(false)
 
   const toggleSection = (key: string) => {
     setSections((prev) =>
@@ -90,13 +93,53 @@ export default function ReportModal({
     onClose()
   }
 
+  const handleShareWhatsApp = async () => {
+    if (!sections.length) {
+      showToast('يرجى اختيار قسم واحد على الأقل للتقرير')
+      return
+    }
+    if (from && to && from > to) {
+      showToast('تاريخ البداية يجب أن يكون قبل تاريخ النهاية')
+      return
+    }
+
+    const company = settings?.title || 'المؤسسة المصرية لتوزيع المواد الغذائية'
+    const report = buildReport(
+      { sections, customerId, repId, from, to, company },
+      { cashInvoices, creditInvoices, payments, customers, reps }
+    )
+
+    const totalRows = report.sections.reduce((sum, section) => sum + section.rows.length, 0)
+    if (!totalRows) {
+      showToast('لا توجد بيانات مطابقة للفلاتر المحددة')
+      return
+    }
+
+    setSharing(true)
+    try {
+      await shareGeneralReportWhatsApp({ report, companyName: company })
+      showToast('تم تجهيز التقرير للمشاركة عبر واتساب')
+    } catch (err) {
+      console.error('Failed to share general report via WhatsApp:', err)
+      showToast('تعذر مشاركة التقرير عبر واتساب')
+    } finally {
+      setSharing(false)
+    }
+  }
+
   return (
     <Modal
       title="طباعة وتصدير التقارير المالية"
       onClose={onClose}
       wide
       footer={
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <WhatsAppShareButton
+            onClick={handleShareWhatsApp}
+            loading={sharing}
+            label="مشاركة واتساب (PDF)"
+            title="إنشاء ملف PDF ومشاركته مباشرة عبر واتساب"
+          />
           <button
             onClick={onClose}
             className="app-btn app-btn-ghost px-5"
