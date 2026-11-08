@@ -16,6 +16,7 @@ import RepsTab from '../components/tabs/RepsTab'
 import Toast from '../components/Toast'
 import ReportModal from '../components/ReportModal'
 import RepModal from '../components/RepModal'
+import ChangePasswordModal from '../components/ChangePasswordModal'
 import { useToast } from '../hooks/useToast'
 import { friendlyError } from '../lib/errors'
 import type { RepFormValues } from '../types/reps'
@@ -53,6 +54,7 @@ export default function Sheet() {
   const [reportAction, setReportAction] = useState<'print' | 'csv' | null>(null)
   const [repModalOpen, setRepModalOpen] = useState(false)
   const [editingRep, setEditingRep] = useState<(RepFormValues & { id?: string }) | null>(null)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
   // For Reps, repFilter is permanently fixed to their rep ID
   const effectiveRepFilter = isRep && repProfile?.id ? repProfile.id : repFilter
@@ -209,6 +211,14 @@ export default function Sheet() {
               </button>
 
               <button
+                onClick={() => setChangePasswordOpen(true)}
+                className="app-btn-header"
+                title="تغيير كلمة المرور الخاصة بحسابك"
+              >
+                تغيير كلمة المرور
+              </button>
+
+              <button
                 onClick={handleLogout}
                 className="app-btn-header hover:bg-rose-600/40 hover:border-rose-400/50"
                 title="تسجيل الخروج من الحساب"
@@ -358,6 +368,12 @@ export default function Sheet() {
           onClose={() => setReportAction(null)}
         />
       )}
+
+      <ChangePasswordModal
+        isOpen={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+        onSuccess={(msg) => showToast(msg)}
+      />
 
       <Toast message={toast} />
     </div>
