@@ -11,6 +11,7 @@ import {
 } from '../../hooks/useSuppliers'
 import FormModal from '../FormModal'
 import SupplierStatementModal from '../SupplierStatementModal'
+import Pagination from '../Pagination'
 import { formatNumber, getTodayISO } from '../../lib/format'
 
 const emptyPurchase = () => ({
@@ -55,6 +56,16 @@ export default function SuppliersTab({ showToast }: any) {
         s.name.toLowerCase().includes(term) || (s.phone && s.phone.includes(term))
     )
   }, [suppliers, searchTerm])
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+
+  const totalPages = Math.ceil(filteredSuppliers.length / pageSize) || 1
+  const paginatedSuppliers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredSuppliers.slice(start, start + pageSize)
+  }, [filteredSuppliers, currentPage, pageSize])
 
   const balances = useMemo(() => {
     const map = new Map<string, number>()
@@ -205,8 +216,8 @@ export default function SuppliersTab({ showToast }: any) {
         </div>
       </div>
 
-      {/* Suppliers Table */}
-      <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+      {/* Desktop Suppliers Table */}
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
           <thead>
             <tr>
@@ -220,12 +231,12 @@ export default function SuppliersTab({ showToast }: any) {
             </tr>
           </thead>
           <tbody>
-            {filteredSuppliers.map((supplier: any, idx: number) => {
+            {paginatedSuppliers.map((supplier: any, idx: number) => {
               const balance = balances.get(supplier.id) ?? 0
               return (
                 <tr key={supplier.id}>
                   <td className="text-center text-xs text-slate-400 font-mono">
-                    {filteredSuppliers.length - idx}
+                    {filteredSuppliers.length - ((currentPage - 1) * pageSize + idx)}
                   </td>
                   <td className="font-semibold text-slate-900">
                     <button
@@ -285,6 +296,82 @@ export default function SuppliersTab({ showToast }: any) {
           </tbody>
         </table>
       </div>
+
+      {/* Mobile Card View (Optimized for phone screens) */}
+      <div className="md:hidden space-y-3">
+        {paginatedSuppliers.map((supplier: any) => {
+          const balance = balances.get(supplier.id) ?? 0
+          return (
+            <div key={supplier.id} className="app-card p-3.5 shadow-sm space-y-2.5">
+              <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                <div>
+                  <button
+                    onClick={() => setStatementSupplier(supplier)}
+                    className="font-extrabold text-slate-900 text-sm block text-start hover:text-primary-700"
+                  >
+                    {supplier.name}
+                  </button>
+                  {supplier.phone ? (
+                    <a
+                      href={`tel:${supplier.phone}`}
+                      className="font-mono text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block mt-1"
+                      dir="ltr"
+                    >
+                      {supplier.phone}
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-slate-400">لا يوجد رقم هاتف</span>
+                  )}
+                </div>
+                <div className="text-end">
+                  <span className={`font-mono font-black text-base block ${balance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    {formatNumber(balance)}
+                  </span>
+                  <span className="text-[10px] text-slate-400">المستحق الحالي (ج.م)</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl">
+                <span className="text-slate-500 text-[11px]">رصيد أول المدة:</span>
+                <span className="font-mono font-bold text-slate-700">
+                  {formatNumber(Number(supplier.opening_balance || 0))} ج.م
+                </span>
+              </div>
+
+              <div className="flex gap-2 pt-1 border-t border-slate-100">
+                <button
+                  onClick={() => setStatementSupplier(supplier)}
+                  className="app-btn app-btn-success app-btn-sm flex-1 py-1.5 text-xs font-bold"
+                >
+                  كشف حساب
+                </button>
+                <button
+                  onClick={() => openEdit(supplier)}
+                  className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs font-semibold text-blue-700 border-blue-200"
+                >
+                  تعديل
+                </button>
+                <button
+                  onClick={() => handleDelete(supplier)}
+                  className="app-btn app-btn-ghost app-btn-sm px-2.5 py-1.5 text-xs text-rose-600 border-rose-200"
+                >
+                  حذف
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Pagination Component */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredSuppliers.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {filteredSuppliers.length === 0 && (
         <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">

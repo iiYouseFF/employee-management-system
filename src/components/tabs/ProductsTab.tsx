@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   useProducts,
   useAddProduct,
@@ -12,6 +12,7 @@ import Modal from '../Modal'
 import CategorySelect from '../CategorySelect'
 import WhatsAppShareButton from '../WhatsAppShareButton'
 import { shareProductCatalogWhatsApp } from '../../lib/pdfGenerators'
+import Pagination from '../Pagination'
 
 interface ProductsTabProps {
   isReadOnly?: boolean
@@ -61,6 +62,20 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
       return matchSearch && matchCat
     })
   }, [products, searchTerm, selectedCategory])
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedCategory])
+
+  const totalPages = Math.ceil(filteredProducts.length / pageSize) || 1
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredProducts.slice(start, start + pageSize)
+  }, [filteredProducts, currentPage, pageSize])
 
   const openModal = (product?: Product) => {
     if (product) {
@@ -210,8 +225,8 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         </div>
       </div>
 
-      {/* Modern Products Table */}
-      <div className="overflow-x-auto rounded-2xl border border-border shadow-sm print:border-none print:shadow-none">
+      {/* Desktop Products Table */}
+      <div className="hidden md:block print:hidden overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
           <thead>
             <tr>
@@ -223,7 +238,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
               <th className="text-center w-20">الوحدة</th>
               <th className="text-center font-bold w-36 text-primary-800">سعر البيع المعتمد</th>
               {!isReadOnly && (
-                <th className="text-center w-28 print:hidden">إجراءات</th>
+                <th className="text-center w-28">إجراءات</th>
               )}
             </tr>
           </thead>
@@ -244,12 +259,11 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
                 </td>
               </tr>
             ) : (
-              filteredProducts.map((p: Product, index: number) => (
-                <tr
-                  key={p.id}
-                  className="print:break-inside-avoid"
-                >
-                  <td className="text-center font-mono text-xs text-slate-400">{index + 1}</td>
+              paginatedProducts.map((p: Product, index: number) => (
+                <tr key={p.id}>
+                  <td className="text-center font-mono text-xs text-slate-400">
+                    {(currentPage - 1) * pageSize + index + 1}
+                  </td>
                   <td className="font-bold text-slate-900">{p.name_ar}</td>
                   <td className="text-slate-500 text-xs font-sans" dir="ltr">{p.name_en || '-'}</td>
                   <td className="text-center font-mono text-xs text-slate-700" dir="ltr">
@@ -271,11 +285,11 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
                     )}
                   </td>
                   <td className="text-center text-slate-600 text-xs">{p.unit || 'قطعة'}</td>
-                  <td className="text-center font-mono font-extrabold text-base text-primary-800 print:text-black whitespace-nowrap">
+                  <td className="text-center font-mono font-extrabold text-base text-primary-800 whitespace-nowrap">
                     {formatNumber(p.price)} <span className="text-xs font-normal text-slate-500">ج.م</span>
                   </td>
                   {!isReadOnly && (
-                    <td className="text-center print:hidden">
+                    <td className="text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => openModal(p)}
@@ -303,6 +317,133 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards View */}
+      <div className="md:hidden print:hidden space-y-3">
+        {isLoading ? (
+          <div className="bg-card rounded-2xl border border-border p-8 text-center text-slate-400">
+            <div className="inline-flex items-center gap-2">
+              <span className="h-4 w-4 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
+              <span>جاري تحميل قائمة الأسعار...</span>
+            </div>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="bg-card rounded-2xl border border-border p-8 text-center text-slate-400">
+            لا توجد أصناف مطابقة لشروط البحث أو التصنيف المختار.
+          </div>
+        ) : (
+          paginatedProducts.map((p: Product, index: number) => (
+            <div
+              key={p.id}
+              className="bg-card rounded-2xl p-4 border border-border shadow-xs hover:border-primary-300 transition-all space-y-3"
+            >
+              {/* Header: Name, Unit/Category, Price */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-mono font-bold text-slate-400">
+                      #{(currentPage - 1) * pageSize + index + 1}
+                    </span>
+                    <h3 className="font-bold text-slate-900 text-sm">{p.name_ar}</h3>
+                  </div>
+                  {p.name_en && (
+                    <p className="text-xs text-slate-500 font-sans" dir="ltr">{p.name_en}</p>
+                  )}
+                </div>
+                <div className="text-end">
+                  <span className="font-mono font-black text-base text-primary-800">
+                    {formatNumber(p.price)}
+                  </span>
+                  <span className="text-xs text-slate-500 ms-1">ج.م</span>
+                </div>
+              </div>
+
+              {/* Badges: Category, Unit, SKU */}
+              <div className="flex items-center gap-1.5 flex-wrap text-xs pt-1 border-t border-border/40">
+                {p.category && (
+                  <span className="badge badge-neutral text-xs">
+                    {p.category}
+                  </span>
+                )}
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
+                  الوحدة: {p.unit || 'قطعة'}
+                </span>
+                {p.sku && (
+                  <span className="font-mono text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200" dir="ltr">
+                    {p.sku}
+                  </span>
+                )}
+              </div>
+
+              {/* Actions */}
+              {!isReadOnly && (
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+                  <button
+                    onClick={() => openModal(p)}
+                    className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
+                  >
+                    تعديل
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (confirm(`هل أنت متأكد من حذف الصنف ${p.name_ar}؟`)) {
+                        await deleteProduct.mutateAsync(p.id)
+                      }
+                    }}
+                    className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+                  >
+                    حذف
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Printable Full Table (Only for physical print/PDF) */}
+      <div className="hidden print:block">
+        <table className="w-full text-xs border border-slate-400">
+          <thead>
+            <tr className="bg-slate-100 border-b border-slate-400">
+              <th className="p-2 text-center border-l border-slate-300 w-10">#</th>
+              <th className="p-2 text-start border-l border-slate-300">اسم الصنف (بالعربية)</th>
+              <th className="p-2 text-start border-l border-slate-300">الاسم بالإنجليزية</th>
+              <th className="p-2 text-center border-l border-slate-300 w-24">كود الصنف</th>
+              <th className="p-2 text-center border-l border-slate-300">التصنيف</th>
+              <th className="p-2 text-center border-l border-slate-300 w-16">الوحدة</th>
+              <th className="p-2 text-center w-28">السعر المعتمد</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredProducts.map((p: Product, index: number) => (
+              <tr key={p.id} className="border-b border-slate-300 break-inside-avoid">
+                <td className="p-1.5 text-center font-mono border-l border-slate-300">{index + 1}</td>
+                <td className="p-1.5 font-bold border-l border-slate-300">{p.name_ar}</td>
+                <td className="p-1.5 font-sans border-l border-slate-300" dir="ltr">{p.name_en || '-'}</td>
+                <td className="p-1.5 text-center font-mono border-l border-slate-300" dir="ltr">{p.sku || '-'}</td>
+                <td className="p-1.5 text-center border-l border-slate-300">{p.category || '-'}</td>
+                <td className="p-1.5 text-center border-l border-slate-300">{p.unit || 'قطعة'}</td>
+                <td className="p-1.5 text-center font-mono font-bold whitespace-nowrap">
+                  {formatNumber(p.price)} ج.م
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="print:hidden">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredProducts.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Modal for Add / Edit Product */}

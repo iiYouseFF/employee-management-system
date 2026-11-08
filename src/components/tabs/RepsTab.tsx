@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useRepDirectory } from '../../hooks/useData'
 import { cn, formatNumber } from '../../lib/format'
 import type { RepDirectoryRow, RepFormValues } from '../../types/reps'
+import Pagination from '../Pagination'
 
 interface RepsTabProps {
   onAdd: () => void
@@ -43,6 +44,20 @@ export default function RepsTab({ onAdd, onEdit, onDelete, showToast }: RepsTabP
       )
     })
   }, [reps, search, linkFilter, showInactive])
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, linkFilter, showInactive])
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1
+  const paginatedReps = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filtered.slice(start, start + pageSize)
+  }, [filtered, currentPage, pageSize])
 
   const totals = useMemo(() => {
     return reps.reduce(
@@ -203,9 +218,10 @@ export default function RepsTab({ onAdd, onEdit, onDelete, showToast }: RepsTabP
           <p className="text-xs text-slate-500 mt-1">جرّب تغيير البحث أو الفلتر، أو أضف مندوباً جديداً.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filtered.map((rep) => {
-            const sales = num(rep.cash_total) + num(rep.credit_total)
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {paginatedReps.map((rep) => {
+              const sales = num(rep.cash_total) + num(rep.credit_total)
             const target = num(rep.monthly_target)
             const monthSales = num(rep.month_sales)
             const progress = target > 0 ? Math.min(100, (monthSales / target) * 100) : 0
@@ -249,7 +265,13 @@ export default function RepsTab({ onAdd, onEdit, onDelete, showToast }: RepsTabP
                         {rep.email || '— بدون بريد —'}
                       </div>
                       <div dir="ltr" className="tabular-nums">
-                        {rep.phone || '— بدون جوال —'}
+                        {rep.phone ? (
+                          <a href={`tel:${rep.phone}`} className="hover:text-primary-700 hover:underline">
+                            {rep.phone}
+                          </a>
+                        ) : (
+                          '— بدون جوال —'
+                        )}
                       </div>
                     </div>
                   </div>
@@ -380,6 +402,16 @@ export default function RepsTab({ onAdd, onEdit, onDelete, showToast }: RepsTabP
             )
           })}
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
+      </>
       )}
     </div>
   )

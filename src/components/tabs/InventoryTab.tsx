@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   useProductStock,
   useStockMovements,
@@ -11,6 +11,7 @@ import {
 import { useProducts } from '../../hooks/useProducts'
 import { formatNumber, getTodayISO } from '../../lib/format'
 import Modal from '../Modal'
+import Pagination from '../Pagination'
 
 // ─── Stock-in form modal ──────────────────────────────────────────────────────
 function StockInModal({
@@ -283,6 +284,32 @@ export default function InventoryTab() {
 
   const lowStockCount = stock.filter((r: ProductStockRow) => Number(r.on_hand) <= 0).length
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeSection, search, filterCategory, movFilter.productId, movFilter.from, movFilter.to])
+
+  const totalStockPages = Math.ceil(filteredStock.length / pageSize) || 1
+  const paginatedStock = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredStock.slice(start, start + pageSize)
+  }, [filteredStock, currentPage, pageSize])
+
+  const totalMovementPages = Math.ceil(movements.length / pageSize) || 1
+  const paginatedMovements = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return movements.slice(start, start + pageSize)
+  }, [movements, currentPage, pageSize])
+
+  const totalValuationPages = Math.ceil((valuation as ProductStockRow[]).length / pageSize) || 1
+  const paginatedValuation = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return (valuation as ProductStockRow[]).slice(start, start + pageSize)
+  }, [valuation, currentPage, pageSize])
+
   if (loadingProducts || loadingStock) {
     return (
       <div className="flex justify-center items-center py-16 text-slate-500 gap-3">
@@ -390,7 +417,8 @@ export default function InventoryTab() {
             </select>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+          {/* Desktop On-Hand Table */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
             <table className="app-table">
               <thead>
                 <tr>
@@ -405,7 +433,7 @@ export default function InventoryTab() {
                 </tr>
               </thead>
               <tbody>
-                {filteredStock.map((row: ProductStockRow) => {
+                {paginatedStock.map((row: ProductStockRow) => {
                   const onHand = Number(row.on_hand)
                   const isLow = onHand <= 0
                   return (
@@ -474,6 +502,97 @@ export default function InventoryTab() {
               </div>
             )}
           </div>
+
+          {/* Mobile On-Hand Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredStock.length === 0 ? (
+              <div className="bg-card rounded-2xl border border-border p-8 text-center text-slate-400 text-sm">
+                لا توجد منتجات مطابقة للبحث
+              </div>
+            ) : (
+              paginatedStock.map((row: ProductStockRow) => {
+                const onHand = Number(row.on_hand)
+                const isLow = onHand <= 0
+                return (
+                  <div
+                    key={row.product_id}
+                    className={`bg-card rounded-2xl p-4 border shadow-xs transition-all space-y-3 ${
+                      isLow ? 'border-amber-300 bg-amber-50/40' : 'border-border'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm">{row.name_ar}</h3>
+                        {row.name_en && <p className="text-xs text-slate-400 font-sans" dir="ltr">{row.name_en}</p>}
+                      </div>
+                      <div className="text-end">
+                        <span
+                          className={`font-mono font-black text-base ${
+                            isLow ? 'text-rose-600' : onHand < 10 ? 'text-amber-700' : 'text-emerald-700'
+                          }`}
+                        >
+                          {formatNumber(onHand)}
+                        </span>
+                        <span className="text-xs text-slate-500 ms-1">{row.unit || 'وحدة'}</span>
+                        {isLow && <span className="block text-[10px] text-rose-500 font-semibold">نفد المخزون</span>}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs pt-1 border-t border-border/40">
+                      {row.category && <span className="badge badge-neutral text-xs">{row.category}</span>}
+                      {row.sku && (
+                        <span className="font-mono text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200" dir="ltr">
+                          {row.sku}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                      <div>
+                        <div className="text-[10px] text-slate-500">متوسط التكلفة</div>
+                        <div className="font-mono font-bold text-slate-700 mt-0.5">{formatNumber(row.avg_cost)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500">قيمة المخزون</div>
+                        <div className="font-mono font-bold text-slate-800 mt-0.5">{formatNumber(row.stock_value)}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500">سعر البيع</div>
+                        <div className="font-mono font-bold text-primary-800 mt-0.5">{formatNumber(row.price)}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+                      <button
+                        onClick={() => setStockInOpen(true)}
+                        className="app-btn app-btn-sm app-btn-ghost text-xs text-emerald-700 hover:border-emerald-400"
+                      >
+                        + وارد
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAdjustDefaultId(row.product_id)
+                          setAdjustOpen(true)
+                        }}
+                        className="app-btn app-btn-sm app-btn-ghost text-xs text-amber-700 hover:border-amber-400"
+                      >
+                        تسوية
+                      </button>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalStockPages}
+            totalItems={filteredStock.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
 
@@ -513,7 +632,8 @@ export default function InventoryTab() {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+          {/* Desktop Movements Table */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
             <table className="app-table">
               <thead>
                 <tr>
@@ -539,7 +659,7 @@ export default function InventoryTab() {
                     </td>
                   </tr>
                 ) : (
-                  movements.map((m: StockMovementRow) => (
+                  paginatedMovements.map((m: StockMovementRow) => (
                     <tr key={m.id}>
                       <td className="text-center text-xs font-mono text-slate-500 whitespace-nowrap">
                         {new Date(m.created_at).toLocaleDateString('ar-EG')}
@@ -578,6 +698,71 @@ export default function InventoryTab() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Movements Cards */}
+          <div className="md:hidden space-y-3">
+            {loadingMovements ? (
+              <div className="bg-card rounded-2xl border border-border p-8 text-center text-slate-400 text-sm">
+                جاري التحميل...
+              </div>
+            ) : movements.length === 0 ? (
+              <div className="bg-card rounded-2xl border border-border p-8 text-center text-slate-400 text-sm">
+                لا توجد حركات مطابقة
+              </div>
+            ) : (
+              paginatedMovements.map((m: StockMovementRow) => (
+                <div key={m.id} className="bg-card rounded-2xl p-4 border border-border shadow-xs space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm">{m.product_name}</h3>
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">
+                        {new Date(m.created_at).toLocaleDateString('ar-EG')} • {new Date(m.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <div className="text-end">
+                      <div className="font-mono font-bold text-base">
+                        <span className={m.qty > 0 ? 'text-emerald-700' : 'text-rose-600'}>
+                          {m.qty > 0 ? '+' : ''}{formatNumber(m.qty)}
+                        </span>
+                      </div>
+                      <div className="mt-0.5">
+                        <MovementTypeLabel type={m.movement_type} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50">
+                    <span className="text-slate-500">التكلفة للوحدة:</span>
+                    <span className="font-mono font-bold text-slate-700">{formatNumber(m.unit_cost)} ج.م</span>
+                  </div>
+
+                  {(m.reference_type || m.notes) && (
+                    <div className="text-xs text-slate-600 bg-slate-50 rounded-xl p-2.5 border border-slate-100">
+                      {m.reference_type && (
+                        <span className="font-bold text-slate-700 me-1">
+                          {m.reference_type === 'cash_invoice' ? 'فاتورة كاش' :
+                           m.reference_type === 'credit_invoice' ? 'فاتورة آجل' :
+                           m.reference_type === 'manual' ? 'استلام يدوي' :
+                           m.reference_type === 'adjustment' ? 'تسوية' :
+                           m.reference_type}:
+                        </span>
+                      )}
+                      <span>{m.notes || '—'}</span>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalMovementPages}
+            totalItems={movements.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
 
@@ -593,7 +778,8 @@ export default function InventoryTab() {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+          {/* Desktop Valuation Table */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
             <table className="app-table">
               <thead>
                 <tr>
@@ -608,25 +794,27 @@ export default function InventoryTab() {
               <tbody>
                 {loadingValuation ? (
                   <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">جاري التحميل...</td></tr>
-                ) : (valuation as ProductStockRow[]).map((r) => (
-                  <tr key={r.product_id}>
-                    <td>
-                      <div className="font-semibold text-slate-800">{r.name_ar}</div>
-                      {r.sku && <span className="text-[10px] font-mono text-slate-400">{r.sku}</span>}
-                    </td>
-                    <td className="text-center text-xs text-slate-600">{r.category || '-'}</td>
-                    <td className="text-center text-xs text-slate-600">{r.unit || '-'}</td>
-                    <td className="text-center font-mono font-bold text-slate-900">
-                      {formatNumber(r.on_hand)}
-                    </td>
-                    <td className="text-center font-mono text-xs text-slate-700">
-                      {formatNumber(r.avg_cost)}
-                    </td>
-                    <td className="text-center font-mono font-bold text-emerald-800 text-sm">
-                      {formatNumber(r.stock_value)}
-                    </td>
-                  </tr>
-                ))}
+                ) : (
+                  paginatedValuation.map((r) => (
+                    <tr key={r.product_id}>
+                      <td>
+                        <div className="font-semibold text-slate-800">{r.name_ar}</div>
+                        {r.sku && <span className="text-[10px] font-mono text-slate-400">{r.sku}</span>}
+                      </td>
+                      <td className="text-center text-xs text-slate-600">{r.category || '-'}</td>
+                      <td className="text-center text-xs text-slate-600">{r.unit || '-'}</td>
+                      <td className="text-center font-mono font-bold text-slate-900">
+                        {formatNumber(r.on_hand)}
+                      </td>
+                      <td className="text-center font-mono text-xs text-slate-700">
+                        {formatNumber(r.avg_cost)}
+                      </td>
+                      <td className="text-center font-mono font-bold text-emerald-800 text-sm">
+                        {formatNumber(r.stock_value)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
               <tfoot className="bg-slate-50 border-t-2 border-slate-200">
                 <tr>
@@ -640,6 +828,58 @@ export default function InventoryTab() {
               </tfoot>
             </table>
           </div>
+
+          {/* Mobile Valuation Cards */}
+          <div className="md:hidden space-y-3">
+            {loadingValuation ? (
+              <div className="bg-card rounded-2xl border border-border p-8 text-center text-slate-400 text-sm">
+                جاري التحميل...
+              </div>
+            ) : valuation.length === 0 ? (
+              <div className="bg-card rounded-2xl border border-border p-8 text-center text-slate-400 text-sm">
+                لا توجد بيانات تقييم مخزون
+              </div>
+            ) : (
+              paginatedValuation.map((r) => (
+                <div key={r.product_id} className="bg-card rounded-2xl p-4 border border-border shadow-xs space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm">{r.name_ar}</h3>
+                      {r.sku && (
+                        <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                          {r.sku}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-end">
+                      <div className="font-mono font-black text-emerald-800 text-base">
+                        {formatNumber(r.stock_value)} <span className="text-xs font-normal text-slate-500">ج.م</span>
+                      </div>
+                      <div className="text-xs text-slate-500 font-medium mt-0.5">
+                        الكمية: <span className="font-mono font-bold text-slate-800">{formatNumber(r.on_hand)}</span> {r.unit || ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50">
+                    <span className="text-slate-500">التصنيف: {r.category || '-'}</span>
+                    <span className="text-slate-600">
+                      متوسط التكلفة: <strong className="font-mono">{formatNumber(r.avg_cost)}</strong> ج.م
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalValuationPages}
+            totalItems={valuation.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
 

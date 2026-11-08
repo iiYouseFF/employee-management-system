@@ -7,6 +7,7 @@ import {
 } from '../../hooks/useInvoices'
 import { useReps } from '../../hooks/useData'
 import FormModal from '../FormModal'
+import Pagination from '../Pagination'
 import CumulativeCustomerStatementModal from '../CumulativeCustomerStatementModal'
 
 export default function CustomersTab({ showToast, repFilter, isReadOnly = false }: any) {
@@ -27,6 +28,16 @@ export default function CustomersTab({ showToast, repFilter, isReadOnly = false 
         c.name.toLowerCase().includes(term) || (c.phone && c.phone.includes(term))
     )
   }, [customers, searchTerm])
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+
+  const totalPages = Math.ceil(filteredCustomers.length / pageSize) || 1
+  const paginatedCustomers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredCustomers.slice(start, start + pageSize)
+  }, [filteredCustomers, currentPage, pageSize])
 
   const repName = (customer: any) => {
     if (customer.representative_id) {
@@ -129,8 +140,8 @@ export default function CustomersTab({ showToast, repFilter, isReadOnly = false 
         </div>
       </div>
 
-      {/* Modern Customers Table */}
-      <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+      {/* Desktop Customers Table */}
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
           <thead>
             <tr>
@@ -144,10 +155,10 @@ export default function CustomersTab({ showToast, repFilter, isReadOnly = false 
             </tr>
           </thead>
           <tbody>
-            {filteredCustomers.map((customer: any, idx: number) => (
+            {paginatedCustomers.map((customer: any, idx: number) => (
               <tr key={customer.id}>
                 <td className="text-center text-xs text-slate-400 font-mono">
-                  {filteredCustomers.length - idx}
+                  {filteredCustomers.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
                 <td className="text-center text-xs font-mono text-slate-500">
                   <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">
@@ -211,6 +222,80 @@ export default function CustomersTab({ showToast, repFilter, isReadOnly = false 
           </tbody>
         </table>
       </div>
+
+      {/* Mobile Card View (Optimized for field reps on phones) */}
+      <div className="md:hidden space-y-3">
+        {paginatedCustomers.map((customer: any) => (
+          <div key={customer.id} className="app-card p-3.5 shadow-sm space-y-2.5">
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              <div>
+                <button
+                  onClick={() => setStatementCustomer(customer)}
+                  className="font-extrabold text-slate-900 text-sm block text-start hover:text-primary-700"
+                >
+                  {customer.name}
+                </button>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  كود: {customer.id.slice(0, 8)}
+                </span>
+              </div>
+              {customer.phone && (
+                <a
+                  href={`tel:${customer.phone}`}
+                  className="font-mono text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200"
+                  dir="ltr"
+                >
+                  {customer.phone}
+                </a>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px]">
+                المندوب: {repName(customer)}
+              </span>
+              <span className="text-[11px] text-slate-400">
+                تسجيل: {new Date(customer.created_at).toLocaleDateString('ar-EG')}
+              </span>
+            </div>
+
+            <div className="flex gap-2 pt-1 border-t border-slate-100">
+              <button
+                onClick={() => setStatementCustomer(customer)}
+                className="app-btn app-btn-success app-btn-sm flex-1 py-1.5 text-xs font-bold"
+              >
+                كشف حساب تراكمي
+              </button>
+              {!isReadOnly && (
+                <>
+                  <button
+                    onClick={() => openEdit(customer)}
+                    className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs font-semibold text-blue-700 border-blue-200"
+                  >
+                    تعديل
+                  </button>
+                  <button
+                    onClick={() => handleDelete(customer)}
+                    className="app-btn app-btn-ghost app-btn-sm px-2.5 py-1.5 text-xs text-rose-600 border-rose-200"
+                  >
+                    حذف
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination Component */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredCustomers.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {filteredCustomers.length === 0 && (
         <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">

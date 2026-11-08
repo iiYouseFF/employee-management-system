@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { getTodayISO, formatNumber } from '../../lib/format'
 import FormModal from '../FormModal'
+import Pagination from '../Pagination'
 import {
   useAddPayment,
   useUpdatePayment,
@@ -91,6 +92,16 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
 
   const total = payments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0)
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+
+  const totalPages = Math.ceil(payments.length / pageSize) || 1
+  const paginatedPayments = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return payments.slice(start, start + pageSize)
+  }, [payments, currentPage, pageSize])
+
   const getMethodBadge = (method?: string) => {
     switch (method) {
       case 'نقدي':
@@ -135,8 +146,8 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
         </div>
       </div>
 
-      {/* Modern Payments Table */}
-      <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+      {/* Desktop Payments Table */}
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
           <thead>
             <tr>
@@ -151,10 +162,10 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
             </tr>
           </thead>
           <tbody>
-            {payments.map((payment: any, idx: number) => (
+            {(paginatedPayments as any[]).map((payment: any, idx: number) => (
               <tr key={payment.id}>
                 <td className="text-center text-xs text-slate-400 font-mono">
-                  {payments.length - idx}
+                  {payments.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
                 <td className="text-center text-xs text-slate-600 font-medium whitespace-nowrap">
                   {formatDate(payment.date)}
@@ -218,6 +229,75 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
           )}
         </table>
       </div>
+
+      {/* Mobile Card View (Optimized for field reps on phones) */}
+      <div className="md:hidden space-y-3">
+        {(paginatedPayments as any[]).map((payment: any) => (
+          <div key={payment.id} className="app-card p-3.5 shadow-sm space-y-2.5">
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              <div>
+                <span className="font-extrabold text-slate-800 text-sm block">
+                  {customerName(payment.customer_id)}
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  {formatDate(payment.date)}
+                </span>
+              </div>
+              <div className="text-end">
+                <span className="font-mono font-black text-emerald-700 text-base block">
+                  {formatNumber(payment.amount || 0)}
+                </span>
+                <span className="text-[10px] text-slate-400">ج.م محصل</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px]">
+                المندوب: {repName(payment.rep_id)}
+              </span>
+              <div>
+                {getMethodBadge(payment.method)}
+              </div>
+            </div>
+
+            {payment.credit_invoice_id && (
+              <div className="text-xs bg-blue-50/60 p-2 rounded-xl flex items-center justify-between">
+                <span className="text-slate-500 text-[11px]">الفاتورة الآجلة المربوطة:</span>
+                <span className="font-mono font-bold text-blue-800" dir="ltr">
+                  {invoiceNo(payment.credit_invoice_id)}
+                </span>
+              </div>
+            )}
+
+            {!isReadOnly && (
+              <div className="flex gap-2 pt-1 border-t border-slate-100">
+                <button
+                  onClick={() => openEdit(payment)}
+                  className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
+                >
+                  تعديل الدفعة
+                </button>
+                <button
+                  onClick={() => handleDelete(payment)}
+                  className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+                >
+                  حذف
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination Component */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={payments.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {payments.length === 0 && (
         <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">

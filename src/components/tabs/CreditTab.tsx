@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { getTodayISO, addDays, formatNumber } from '../../lib/format'
 import Modal from '../Modal'
 import SearchableCustomer from '../SearchableCustomer'
 import InvoiceLineEditor, { type LineItem } from '../InvoiceLineEditor'
+import Pagination from '../Pagination'
 import {
   useCreditInvoices,
   useCustomers,
@@ -300,6 +301,16 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
     { amount: 0, paid: 0, remaining: 0 }
   )
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+
+  const totalPages = Math.ceil(invoices.length / pageSize) || 1
+  const paginatedInvoices = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return invoices.slice(start, start + pageSize)
+  }, [invoices, currentPage, pageSize])
+
   return (
     <div>
       <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -355,10 +366,10 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
             </tr>
           </thead>
           <tbody>
-            {(invoices as any[]).map((invoice: any, idx: number) => (
+            {(paginatedInvoices as any[]).map((invoice: any, idx: number) => (
               <tr key={invoice.id}>
                 <td className="text-center text-xs text-slate-400 font-mono">
-                  {invoices.length - idx}
+                  {invoices.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
                 <td className="text-center text-xs text-slate-600 font-medium whitespace-nowrap">
                   {formatDate(invoice.date)}
@@ -438,7 +449,7 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
 
       {/* Mobile Card View (Optimized for field reps on phones) */}
       <div className="md:hidden space-y-3">
-        {(invoices as any[]).map((invoice: any) => (
+        {(paginatedInvoices as any[]).map((invoice: any) => (
           <div key={invoice.id} className="app-card p-3.5 shadow-sm space-y-2.5">
             <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
               <div>
@@ -505,6 +516,16 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
           </div>
         ))}
       </div>
+
+      {/* Pagination Component */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={invoices.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {invoices.length === 0 && (
         <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">

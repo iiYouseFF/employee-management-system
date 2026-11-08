@@ -7,6 +7,7 @@ import {
 } from '../../hooks/useExpenses'
 import { formatNumber, getTodayISO } from '../../lib/format'
 import FormModal from '../FormModal'
+import Pagination from '../Pagination'
 
 const categories = [
   'إيجار',
@@ -40,6 +41,16 @@ export default function ExpensesTab({ showToast }: any) {
     () => filteredExpenses.reduce((sum: number, e: any) => sum + Number(e.amount), 0),
     [filteredExpenses]
   )
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+
+  const totalPages = Math.ceil(filteredExpenses.length / pageSize) || 1
+  const paginatedExpenses = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredExpenses.slice(start, start + pageSize)
+  }, [filteredExpenses, currentPage, pageSize])
 
   const openNew = () => {
     setEditing({ date: getTodayISO(), category: '', amount: '', description: '' })
@@ -129,7 +140,8 @@ export default function ExpensesTab({ showToast }: any) {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+      {/* Desktop Expenses Table */}
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
           <thead>
             <tr>
@@ -142,10 +154,10 @@ export default function ExpensesTab({ showToast }: any) {
             </tr>
           </thead>
           <tbody>
-            {filteredExpenses.map((expense: any, idx: number) => (
+            {paginatedExpenses.map((expense: any, idx: number) => (
               <tr key={expense.id}>
                 <td className="text-center text-xs text-slate-400 font-mono">
-                  {filteredExpenses.length - idx}
+                  {filteredExpenses.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
                 <td className="text-center text-xs text-slate-500 font-mono">
                   {expense.date}
@@ -182,6 +194,61 @@ export default function ExpensesTab({ showToast }: any) {
           </tbody>
         </table>
       </div>
+
+      {/* Mobile Card View (Optimized for field reps / mobile view) */}
+      <div className="md:hidden space-y-3">
+        {paginatedExpenses.map((expense: any) => (
+          <div key={expense.id} className="app-card p-3.5 shadow-sm space-y-2.5">
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              <div>
+                <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  {expense.category}
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-1 font-mono">
+                  {expense.date}
+                </span>
+              </div>
+              <div className="text-end">
+                <span className="font-mono font-black text-rose-600 text-base block">
+                  {formatNumber(Number(expense.amount))}
+                </span>
+                <span className="text-[10px] text-slate-400">ج.م</span>
+              </div>
+            </div>
+
+            {expense.description && (
+              <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-xl">
+                {expense.description}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1 border-t border-slate-100">
+              <button
+                onClick={() => openEdit(expense)}
+                className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200"
+              >
+                تعديل المصروف
+              </button>
+              <button
+                onClick={() => handleDelete(expense)}
+                className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600 border-rose-200"
+              >
+                حذف
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination Component */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredExpenses.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {filteredExpenses.length === 0 && (
         <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">
