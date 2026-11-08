@@ -23,7 +23,7 @@ async function loadAmiriFont(): Promise<string | null> {
 }
 
 /**
- * Configure jsPDF document with Arabic font and RTL settings if available.
+ * Configure jsPDF document with Arabic font and automatic BiDi text handling.
  */
 export async function createArabicPdf(orientation: 'p' | 'l' = 'p'): Promise<jsPDF> {
   const doc = new jsPDF({
@@ -40,39 +40,36 @@ export async function createArabicPdf(orientation: 'p' | 'l' = 'p'): Promise<jsP
     doc.setFont('Amiri', 'normal')
   }
 
+  // Intercept doc.text to ensure isInputVisual is always false.
+  // jsPDF's built-in BiDi engine shapes Arabic glyphs and correctly reorders
+  // both words, mixed numbers, and letters in true RTL when isInputVisual is false.
+  const originalText = doc.text.bind(doc)
+  doc.text = function (...args: any[]) {
+    const text = args[0]
+    const x = args[1]
+    const y = args[2]
+    const options = typeof args[3] === 'object' && args[3] !== null ? args[3] : {}
+    const transform = args[4]
+
+    const mergedOptions = {
+      ...options,
+      isInputVisual: false,
+    }
+
+    return (originalText as any)(text, x, y, mergedOptions, transform)
+  }
+
   return doc
 }
 
 /**
- * Shape and properly reverse Arabic text for PDF output.
- * Standard PDF viewers render characters LTR; this function applies Arabic contextual
- * letter shaping via jsPDF's processArabic, reverses individual Arabic word character sequences,
- * and maintains right-to-left word/token ordering so Arabic displays connected and readable.
+ * Helper to ensure text strings passed to PDF tables/headers are valid strings.
+ * Note: Since doc.text is configured with isInputVisual: false, jsPDF automatically
+ * handles Arabic letter shaping and BiDi reordering natively without double-inverting.
  */
-export function shapeArabic(doc: jsPDF, text: string | number | null | undefined): string {
+export function shapeArabic(_doc: jsPDF, text: string | number | null | undefined): string {
   if (text === null || text === undefined) return ''
-  const str = String(text)
-  if (!str) return ''
-  // If the text contains no Arabic characters, return as is
-  if (!/[\u0600-\u06FF]/.test(str)) return str
-
-  try {
-    // Tokenize into Arabic words, whitespace, and non-Arabic segments
-    const tokens = str.match(/[\u0600-\u06FF]+|[^\u0600-\u06FF\s]+|\s+/g) || [str]
-    const processed = tokens.map((token) => {
-      if (/[\u0600-\u06FF]/.test(token)) {
-        // Shape the Arabic word into connected glyphs, then reverse character order for LTR canvas
-        const shaped = doc.processArabic(token)
-        return Array.from(shaped).reverse().join('')
-      }
-      return token
-    })
-
-    // In RTL reading order, tokens appear from right to left
-    return processed.reverse().join('')
-  } catch {
-    return str
-  }
+  return String(text)
 }
 
 /**
