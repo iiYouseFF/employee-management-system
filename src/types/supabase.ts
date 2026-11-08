@@ -348,6 +348,30 @@ export type Database = {
         }
         Relationships: []
       }
+      product_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       reps: {
         Row: {
           created_at: string
@@ -627,6 +651,7 @@ export type Database = {
       current_role_name: { Args: never; Returns: string }
       get_current_rep_id: { Args: never; Returns: string }
       get_current_rep_owner_id: { Args: never; Returns: string }
+      get_email_by_phone: { Args: { p_phone: string }; Returns: Json }
       get_manager_id: { Args: never; Returns: string }
       is_manager: { Args: never; Returns: boolean }
       is_rep_user: { Args: never; Returns: boolean }
