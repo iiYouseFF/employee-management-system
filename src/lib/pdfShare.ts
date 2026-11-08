@@ -44,21 +44,35 @@ export async function createArabicPdf(orientation: 'p' | 'l' = 'p'): Promise<jsP
 }
 
 /**
- * Shape Arabic text for PDF output using jsPDF's built-in processArabic.
+ * Shape and properly reverse Arabic text for PDF output.
+ * Standard PDF viewers render characters LTR; this function applies Arabic contextual
+ * letter shaping via jsPDF's processArabic, reverses individual Arabic word character sequences,
+ * and maintains right-to-left word/token ordering so Arabic displays connected and readable.
  */
 export function shapeArabic(doc: jsPDF, text: string | number | null | undefined): string {
   if (text === null || text === undefined) return ''
   const str = String(text)
   if (!str) return ''
-  // If the text contains Arabic characters, shape it
-  if (/[\u0600-\u06FF]/.test(str)) {
-    try {
-      return doc.processArabic(str)
-    } catch {
-      return str
-    }
+  // If the text contains no Arabic characters, return as is
+  if (!/[\u0600-\u06FF]/.test(str)) return str
+
+  try {
+    // Tokenize into Arabic words, whitespace, and non-Arabic segments
+    const tokens = str.match(/[\u0600-\u06FF]+|[^\u0600-\u06FF\s]+|\s+/g) || [str]
+    const processed = tokens.map((token) => {
+      if (/[\u0600-\u06FF]/.test(token)) {
+        // Shape the Arabic word into connected glyphs, then reverse character order for LTR canvas
+        const shaped = doc.processArabic(token)
+        return Array.from(shaped).reverse().join('')
+      }
+      return token
+    })
+
+    // In RTL reading order, tokens appear from right to left
+    return processed.reverse().join('')
+  } catch {
+    return str
   }
-  return str
 }
 
 /**
