@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          id: string
+          owner_id: string
+          actor_id: string | null
+          actor_email: string | null
+          actor_name: string | null
+          actor_role: string | null
+          table_name: string
+          record_id: string
+          action: 'INSERT' | 'UPDATE' | 'DELETE'
+          old_data: Json | null
+          new_data: Json | null
+          changed_fields: string[] | null
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          actor_id?: string | null
+          actor_email?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          table_name: string
+          record_id: string
+          action: 'INSERT' | 'UPDATE' | 'DELETE'
+          old_data?: Json | null
+          new_data?: Json | null
+          changed_fields?: string[] | null
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          actor_id?: string | null
+          actor_email?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          table_name?: string
+          record_id?: string
+          action?: 'INSERT' | 'UPDATE' | 'DELETE'
+          old_data?: Json | null
+          new_data?: Json | null
+          changed_fields?: string[] | null
+          description?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           id: string

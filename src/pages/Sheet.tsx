@@ -14,6 +14,7 @@ import ProductsTab from '../components/tabs/ProductsTab'
 import ManagerDashboardTab from '../components/tabs/ManagerDashboardTab'
 import RepsTab from '../components/tabs/RepsTab'
 import InventoryTab from '../components/tabs/InventoryTab'
+import AuditLogsTab from '../components/tabs/AuditLogsTab'
 import Toast from '../components/Toast'
 import ReportModal from '../components/ReportModal'
 import RepModal from '../components/RepModal'
@@ -120,6 +121,7 @@ export default function Sheet() {
     inventory: 'المخزون',
     products: 'قائمة الأسعار والكتالوج',
     kpi: 'مؤشرات الأداء المالي (KPIs)',
+    audit_logs: 'سجل العمليات والأمان',
   }
 
   const customTabNames =
@@ -171,8 +173,11 @@ export default function Sheet() {
         },
         {
           id: 'team',
-          label: 'إدارة الفريق',
-          tabs: [{ id: 'reps', label: getTabLabel('reps') }],
+          label: 'إدارة الفريق والأمان',
+          tabs: [
+            { id: 'reps', label: getTabLabel('reps') },
+            { id: 'audit_logs', label: getTabLabel('audit_logs') },
+          ],
         },
       ]
     : [
@@ -411,6 +416,7 @@ export default function Sheet() {
             <ProductsTab isReadOnly={isReadOnly} />
           )}
           {activeTab === 'kpi' && isManager && <ManagerDashboardTab />}
+          {activeTab === 'audit_logs' && isManager && <AuditLogsTab />}
         </div>
       </main>
 
