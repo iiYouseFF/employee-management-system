@@ -18,6 +18,7 @@ import Toast from '../components/Toast'
 import ReportModal from '../components/ReportModal'
 import RepModal from '../components/RepModal'
 import ChangePasswordModal from '../components/ChangePasswordModal'
+import AppNavigation, { type NavGroup } from '../components/AppNavigation'
 import { useToast } from '../hooks/useToast'
 import { friendlyError } from '../lib/errors'
 import type { RepFormValues } from '../types/reps'
@@ -115,12 +116,72 @@ export default function Sheet() {
     return customTabNames[key] || defaultTabNames[key] || key
   }
 
-  // Available tabs based on role:
-  // Managers see all tabs including suppliers and executive KPI dashboard.
-  // Sales reps only see cash, credit, payments, statement, customers, and products catalog.
-  const availableTabs = isManager
-    ? ['cash', 'credit', 'payments', 'statement', 'monthly', 'customers', 'reps', 'suppliers', 'expenses', 'inventory', 'products', 'kpi']
-    : ['cash', 'credit', 'payments', 'statement', 'customers', 'products']
+  // Navigation groups for structured menu layout
+  const navGroups: NavGroup[] = isManager
+    ? [
+        {
+          id: 'sales',
+          label: 'المبيعات والعملاء',
+          tabs: [
+            { id: 'cash', label: getTabLabel('cash') },
+            { id: 'credit', label: getTabLabel('credit') },
+            { id: 'payments', label: getTabLabel('payments') },
+            { id: 'customers', label: getTabLabel('customers') },
+          ],
+        },
+        {
+          id: 'purchases',
+          label: 'المشتريات والموردين',
+          tabs: [
+            { id: 'suppliers', label: getTabLabel('suppliers') },
+            { id: 'expenses', label: getTabLabel('expenses') },
+          ],
+        },
+        {
+          id: 'inventory_section',
+          label: 'المخزون والمنتجات',
+          tabs: [
+            { id: 'inventory', label: getTabLabel('inventory') },
+            { id: 'products', label: getTabLabel('products') },
+          ],
+        },
+        {
+          id: 'reports',
+          label: 'الحسابات والتقارير',
+          tabs: [
+            { id: 'statement', label: getTabLabel('statement') },
+            { id: 'monthly', label: getTabLabel('monthly') },
+            { id: 'kpi', label: getTabLabel('kpi') },
+          ],
+        },
+        {
+          id: 'team',
+          label: 'إدارة الفريق',
+          tabs: [{ id: 'reps', label: getTabLabel('reps') }],
+        },
+      ]
+    : [
+        {
+          id: 'sales',
+          label: 'فواتيري',
+          tabs: [
+            { id: 'cash', label: getTabLabel('cash') },
+            { id: 'credit', label: getTabLabel('credit') },
+            { id: 'payments', label: getTabLabel('payments') },
+            { id: 'customers', label: getTabLabel('customers') },
+          ],
+        },
+        {
+          id: 'statements',
+          label: 'كشوف الحسابات',
+          tabs: [{ id: 'statement', label: getTabLabel('statement') }],
+        },
+        {
+          id: 'catalog',
+          label: 'قائمة الأسعار',
+          tabs: [{ id: 'products', label: getTabLabel('products') }],
+        },
+      ]
 
   const handleSaveRep = async (values: RepFormValues) => {
     try {
@@ -167,30 +228,30 @@ export default function Sheet() {
           backgroundImage: 'linear-gradient(135deg, #102a43 0%, #1a4971 60%, #245e8e 100%)',
         }}
       >
-        <div className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-8 py-3.5">
+        <div className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Logo and system title */}
             <div className="flex items-center gap-3.5">
-              <div className="h-11 w-11 rounded-2xl bg-white text-[#1a4971] grid place-items-center font-extrabold text-xl shadow-card border border-white/20">
+              <div className="h-10 w-10 rounded-2xl bg-white text-[#1a4971] grid place-items-center font-extrabold text-xl shadow-card border border-white/20">
                 م
               </div>
               <div>
-                <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white">
+                <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight">
                   {settings?.title || 'المؤسسة المصرية لتوزيع المواد الغذائية'}
                 </h1>
-                <p className="text-xs text-white/80 font-medium">نظام مبيعات وحسابات بقيمة الفاتورة</p>
+                <p className="text-[11px] text-white/75 font-medium">نظام مبيعات وحسابات بقيمة الفاتورة</p>
               </div>
             </div>
 
             {/* User status & Actions */}
             <div className="flex items-center gap-2 flex-wrap">
               {isRep ? (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-400 text-amber-950 font-bold rounded-xl text-xs shadow-sm border border-amber-300">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-400 text-amber-950 font-bold rounded-xl text-xs shadow-sm border border-amber-300">
                   <span className="h-2 w-2 rounded-full bg-amber-700" />
                   <span>المندوب: {repProfile?.name} (عرض مقيد)</span>
                 </div>
               ) : (
-                <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 bg-white/15 text-white border border-white/20 rounded-xl text-xs font-semibold backdrop-blur-sm">
+                <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-white/15 text-white border border-white/20 rounded-xl text-xs font-semibold backdrop-blur-sm">
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   <span>وضع المدير (صلاحيات كاملة)</span>
                 </div>
@@ -230,25 +291,12 @@ export default function Sheet() {
             </div>
           </div>
 
-          {/* Tab Navigation Pill Bar */}
-          <div className="mt-3.5 flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {availableTabs.map((tab) => {
-              const active = activeTab === tab
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-xl whitespace-nowrap text-xs sm:text-sm font-semibold transition-all duration-150 ${
-                    active
-                      ? 'bg-white text-[#1a4971] shadow-float font-bold'
-                      : 'bg-white/10 text-white hover:bg-white/20'
-                  }`}
-                >
-                  {getTabLabel(tab)}
-                </button>
-              )
-            })}
-          </div>
+          {/* Grouped App Navigation */}
+          <AppNavigation
+            groups={navGroups}
+            activeTab={activeTab}
+            onSelectTab={setActiveTab}
+          />
         </div>
       </header>
 

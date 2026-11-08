@@ -147,15 +147,19 @@
   }
 
   .app-table thead tr {
-    @apply bg-slate-50/90 border-b border-border;
+    @apply bg-slate-50/95 border-b border-border sticky top-0 z-10 backdrop-blur-sm;
   }
 
   .app-table thead th {
-    @apply font-bold text-slate-700 border-b border-border px-3.5 py-3 whitespace-nowrap text-start text-xs tracking-wide;
+    @apply font-bold text-slate-700 border-b border-border px-3.5 py-3 whitespace-nowrap text-start text-xs tracking-wide bg-slate-50/95;
   }
 
   .app-table tbody tr {
-    @apply border-b border-slate-100 transition-colors duration-100 hover:bg-slate-50/80;
+    @apply border-b border-slate-100 transition-colors duration-100 hover:bg-blue-50/40;
+  }
+
+  .app-table tbody tr:nth-child(even) {
+    @apply bg-slate-50/30;
   }
 
   .app-table tbody td {

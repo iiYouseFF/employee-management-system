@@ -335,7 +335,8 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
           <thead>
             <tr>
@@ -433,6 +434,76 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
             </tfoot>
           )}
         </table>
+      </div>
+
+      {/* Mobile Card View (Optimized for field reps on phones) */}
+      <div className="md:hidden space-y-3">
+        {(invoices as any[]).map((invoice: any) => (
+          <div key={invoice.id} className="app-card p-3.5 shadow-sm space-y-2.5">
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              <div>
+                <span className="font-extrabold text-slate-800 text-sm block">
+                  {customerName(invoice.customer_id)}
+                </span>
+                <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
+                  {invoice.invoice_no} • {formatDate(invoice.date)}
+                </span>
+              </div>
+              <div className="text-end">
+                <span className="font-mono font-black text-slate-900 text-base block">
+                  {formatNumber(invoice.amount || 0)}
+                </span>
+                <span className="text-[10px] text-slate-400">ج.م آجل</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl">
+              <div>
+                <span className="text-slate-400 block text-[10px]">المسدد:</span>
+                <span className="font-mono font-bold text-emerald-700 text-xs">
+                  {formatNumber(parseFloat(invoice.paid || 0) + parseFloat(invoice.linked_payments || 0))} ج.م
+                </span>
+              </div>
+              <div className="text-center">
+                <span className="text-slate-400 block text-[10px]">المتبقي:</span>
+                <span className="font-mono font-extrabold text-rose-700 text-xs">
+                  {formatNumber(invoice.remaining || 0)} ج.م
+                </span>
+              </div>
+              <div className="text-end">
+                {getStatusBadge(invoice)}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px]">
+                المندوب: {repName(invoice.rep_id)}
+              </span>
+              {invoice.due_date && (
+                <span className="text-[11px] text-slate-500 font-mono">
+                  استحقاق: {formatDate(invoice.due_date)}
+                </span>
+              )}
+            </div>
+
+            {!isReadOnly && (
+              <div className="flex gap-2 pt-1 border-t border-slate-100">
+                <button
+                  onClick={() => setEditing({ ...invoice })}
+                  className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
+                >
+                  تعديل الفاتورة
+                </button>
+                <button
+                  onClick={() => handleDelete(invoice)}
+                  className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+                >
+                  حذف
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {invoices.length === 0 && (

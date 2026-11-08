@@ -281,7 +281,8 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
           <thead>
             <tr>
@@ -356,6 +357,58 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
             </tfoot>
           )}
         </table>
+      </div>
+
+      {/* Mobile Card View (Optimized for field reps on phones) */}
+      <div className="md:hidden space-y-3">
+        {(invoices as Record<string, unknown>[]).map((invoice) => (
+          <div key={invoice.id as string} className="app-card p-3.5 shadow-sm space-y-2.5">
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              <div>
+                <span className="font-extrabold text-slate-800 text-sm block">
+                  {customerName(invoice.customer_id as string)}
+                </span>
+                <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
+                  {invoice.invoice_no as string} • {formatDate(invoice.date as string)}
+                </span>
+              </div>
+              <div className="text-end">
+                <span className="font-mono font-black text-emerald-700 text-base block">
+                  {formatNumber(invoice.amount as number || 0)}
+                </span>
+                <span className="text-[10px] text-slate-400">ج.م نقدي</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px]">
+                المندوب: {repName(invoice.rep_id as string)}
+              </span>
+              {((invoice.item as string) || (invoice.notes as string)) && (
+                <span className="text-[11px] text-slate-500 truncate max-w-[150px]">
+                  {(invoice.item as string) || (invoice.notes as string)}
+                </span>
+              )}
+            </div>
+
+            {!isReadOnly && (
+              <div className="flex gap-2 pt-1 border-t border-slate-100">
+                <button
+                  onClick={() => setEditing({ ...invoice })}
+                  className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
+                >
+                  تعديل الفاتورة
+                </button>
+                <button
+                  onClick={() => handleDelete(invoice)}
+                  className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+                >
+                  حذف
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {invoices.length === 0 && (

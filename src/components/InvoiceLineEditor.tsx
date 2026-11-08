@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import type { Product } from '../hooks/useProducts'
 import { formatNumber } from '../lib/format'
+import SearchableProductCombobox from './SearchableProductCombobox'
 
 export interface LineItem {
   /** temporary client-side key */
@@ -141,36 +142,14 @@ export default function InvoiceLineEditor({
               return (
                 <tr key={line._key} className={`group ${lowStock ? 'bg-amber-50' : 'bg-white'}`}>
                   {/* Product selector */}
-                  <td className="px-2 py-1.5">
-                    {disabled ? (
-                      <span className="font-semibold text-slate-800">{line.product_name || '-'}</span>
-                    ) : (
-                      <div>
-                        <select
-                          value={line.product_id}
-                          onChange={(e) => setField(line._key, 'product_id', e.target.value)}
-                          className="app-select text-xs py-1.5"
-                        >
-                          <option value="">— اختر منتجاً —</option>
-                          {products
-                            .filter((p) => p.is_active)
-                            .map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name_ar} {p.sku ? `(${p.sku})` : ''}
-                              </option>
-                            ))}
-                        </select>
-                        {line.product_id && (
-                          <span
-                            className={`text-[10px] mt-0.5 block font-medium ${
-                              onHand < line.qty ? 'text-amber-700' : 'text-slate-400'
-                            }`}
-                          >
-                            المتاح: {formatNumber(onHand)} {line.unit}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                  <td className="px-2 py-1.5 min-w-[200px]">
+                    <SearchableProductCombobox
+                      products={products}
+                      stockMap={stockMap}
+                      value={line.product_id}
+                      onChange={(id) => setField(line._key, 'product_id', id)}
+                      disabled={disabled}
+                    />
                   </td>
 
                   {/* Qty */}
