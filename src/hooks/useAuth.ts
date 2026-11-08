@@ -64,7 +64,13 @@ async function resolveProfile(currentUser: User | null, showLoading = true) {
     return
   }
 
-  setState(showLoading ? { user: currentUser, loading: true } : { user: currentUser })
+  // Only set loading: true if we don't already have a valid user loaded,
+  // preventing screen unmount/flicker when returning to the window/tab.
+  if (showLoading && !state.user) {
+    setState({ user: currentUser, loading: true })
+  } else {
+    setState({ user: currentUser })
+  }
 
   let nextRole: AppRole | null = null
   let nextRepProfile: RepProfile | null = null

@@ -51,7 +51,22 @@ export default function Sheet() {
   const updateRep = useUpdateRep()
   const deleteRep = useDeleteRep()
   const { toast, showToast } = useToast()
-  const [activeTab, setActiveTab] = useState('cash')
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem('ems:activeTab') || 'cash'
+    } catch {
+      return 'cash'
+    }
+  })
+
+  const handleSelectTab = (tab: string) => {
+    setActiveTab(tab)
+    try {
+      sessionStorage.setItem('ems:activeTab', tab)
+    } catch {
+      /* ignore */
+    }
+  }
   const [repFilter, setRepFilter] = useState<string>('all')
   const [reportAction, setReportAction] = useState<'print' | 'csv' | null>(null)
   const [repModalOpen, setRepModalOpen] = useState(false)
@@ -295,7 +310,7 @@ export default function Sheet() {
           <AppNavigation
             groups={navGroups}
             activeTab={activeTab}
-            onSelectTab={setActiveTab}
+            onSelectTab={handleSelectTab}
           />
         </div>
       </header>
