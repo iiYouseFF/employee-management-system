@@ -14,7 +14,20 @@ export interface ProductStockRow {
   on_hand: number
   avg_cost: number
   stock_value: number
+  min_stock_alert: number
+  expiry_date: string | null
+  batch_number: string | null
+  days_to_expiry: number | null
+  alert_status: 'out_of_stock' | 'low_stock' | 'expired' | 'expiring_soon' | 'ok'
   is_active: boolean
+}
+
+export interface StockAlertsSummary {
+  out_of_stock_count: number
+  low_stock_count: number
+  expired_count: number
+  expiring_soon_count: number
+  total_alerts_count: number
 }
 
 export interface StockMovementRow {
@@ -28,6 +41,8 @@ export interface StockMovementRow {
   reference_type: string | null
   reference_id: string | null
   notes: string | null
+  expiry_date?: string | null
+  batch_number?: string | null
   created_at: string
 }
 
@@ -39,14 +54,32 @@ export interface InvoiceLine {
 
 // ─── Hooks ───────────────────────────────────────────────────────────────────
 
-/** On-hand quantity, average cost, and stock value per product. Manager only. */
+/** On-hand quantity, average cost, expiry, alerts, and stock value per product. Manager only. */
 export function useProductStock() {
   return useQuery({
     queryKey: ['product_stock'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('product_stock_summary')
+      const { data, error } = await supabase.rpc('product_stock_summary_v2')
       if (error) throw error
       return (data || []) as ProductStockRow[]
+    },
+  })
+}
+
+/** Stock alerts summary counts (expired, expiring soon, low stock, out of stock). */
+export function useStockAlertsSummary() {
+  return useQuery({
+    queryKey: ['stock_alerts_summary'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('stock_alerts_summary')
+      if (error) throw error
+      return (data || {
+        out_of_stock_count: 0,
+        low_stock_count: 0,
+        expired_count: 0,
+        expiring_soon_count: 0,
+        total_alerts_count: 0,
+      }) as unknown as StockAlertsSummary
     },
   })
 }
@@ -83,7 +116,7 @@ export function useStockValuation() {
   })
 }
 
-/** Manual stock-in (receive goods). */
+/** Manual stock-in (receive goods) with optional expiry and batch number. */
 export function useReceiveStock() {
   const qc = useQueryClient()
   return useMutation({
@@ -93,12 +126,16 @@ export function useReceiveStock() {
       unitCost,
       notes,
       reference,
+      expiryDate,
+      batchNumber,
     }: {
       productId: string
       qty: number
       unitCost: number
       notes?: string
       reference?: string
+      expiryDate?: string
+      batchNumber?: string
     }) => {
       const { data, error } = await supabase.rpc('receive_stock', {
         p_product_id: productId,
@@ -106,12 +143,16 @@ export function useReceiveStock() {
         p_unit_cost: unitCost,
         p_notes: notes ?? null,
         p_reference: reference ?? null,
+        p_expiry_date: expiryDate || null,
+        p_batch_number: batchNumber || null,
       })
       if (error) throw error
       return data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['product_stock'] })
+      qc.invalidateQueries({ queryKey: ['stock_alerts_summary'] })
+      qc.invalidateQueries({ queryKey: ['products'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
       qc.invalidateQueries({ queryKey: ['stock_valuation'] })
     },

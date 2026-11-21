@@ -373,6 +373,9 @@ export type Database = {
           sort_order: number
           unit: string | null
           updated_at: string
+          min_stock_alert: number
+          expiry_date: string | null
+          batch_number: string | null
         }
         Insert: {
           category?: string | null
@@ -386,6 +389,9 @@ export type Database = {
           sort_order?: number
           unit?: string | null
           updated_at?: string
+          min_stock_alert?: number
+          expiry_date?: string | null
+          batch_number?: string | null
         }
         Update: {
           category?: string | null
@@ -399,6 +405,9 @@ export type Database = {
           sort_order?: number
           unit?: string | null
           updated_at?: string
+          min_stock_alert?: number
+          expiry_date?: string | null
+          batch_number?: string | null
         }
         Relationships: []
       }
@@ -866,6 +875,27 @@ export type Database = {
           is_active: boolean
         }[]
       }
+      product_stock_summary_v2: {
+        Args: Record<string, never>
+        Returns: {
+          product_id: string
+          name_ar: string
+          name_en: string | null
+          sku: string | null
+          unit: string | null
+          category: string | null
+          price: number
+          on_hand: number
+          avg_cost: number
+          stock_value: number
+          min_stock_alert: number
+          expiry_date: string | null
+          batch_number: string | null
+          days_to_expiry: number | null
+          alert_status: string
+          is_active: boolean
+        }[]
+      }
       stock_movement_history: {
         Args: {
           p_product_id?: string | null
@@ -898,6 +928,10 @@ export type Database = {
           stock_value: number
         }[]
       }
+      stock_alerts_summary: {
+        Args: Record<string, never>
+        Returns: Json
+      }
       receive_stock: {
         Args: {
           p_product_id: string
@@ -905,6 +939,8 @@ export type Database = {
           p_unit_cost: number
           p_notes?: string | null
           p_reference?: string | null
+          p_expiry_date?: string | null
+          p_batch_number?: string | null
         }
         Returns: string
       }

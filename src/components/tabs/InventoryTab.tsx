@@ -29,6 +29,8 @@ function StockInModal({
     qty: '',
     unit_cost: '',
     notes: '',
+    expiry_date: '',
+    batch_number: '',
   })
   const [err, setErr] = useState('')
 
@@ -47,6 +49,8 @@ function StockInModal({
         qty,
         unitCost: cost,
         notes: form.notes || undefined,
+        expiryDate: form.expiry_date || undefined,
+        batchNumber: form.batch_number || undefined,
       })
       onSuccess()
     } catch (e: unknown) {
@@ -90,6 +94,29 @@ function StockInModal({
               value={form.unit_cost}
               onChange={(e) => setForm((f) => ({ ...f, unit_cost: e.target.value }))}
               className="app-input font-mono" dir="ltr" placeholder="0.00"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">تاريخ انتهاء الصلاحية</label>
+            <input
+              type="date"
+              value={form.expiry_date}
+              onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))}
+              className="app-input text-xs"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">رقم التشغيلة (Batch/Lot)</label>
+            <input
+              type="text"
+              value={form.batch_number}
+              onChange={(e) => setForm((f) => ({ ...f, batch_number: e.target.value }))}
+              className="app-input font-mono text-xs"
+              dir="ltr"
+              placeholder="LOT-1234"
             />
           </div>
         </div>
@@ -234,13 +261,14 @@ function MovementTypeLabel({ type }: { type: string }) {
 export default function InventoryTab() {
   const { data: products = [], isLoading: loadingProducts } = useProducts()
   const { data: stock = [], isLoading: loadingStock } = useProductStock()
-  const [activeSection, setActiveSection] = useState<'onhand' | 'movements' | 'valuation'>('onhand')
+  const [activeSection, setActiveSection] = useState<'onhand' | 'movements' | 'valuation' | 'alerts'>('onhand')
   const [stockInOpen, setStockInOpen] = useState(false)
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [adjustDefaultId, setAdjustDefaultId] = useState<string | undefined>()
   const [toast, setToast] = useState('')
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
+  const [alertFilter, setAlertFilter] = useState<'all' | 'out_of_stock' | 'low_stock' | 'expired' | 'expiring_soon'>('all')
 
   // Movement filter
   const [movFilter, setMovFilter] = useState({
@@ -282,7 +310,17 @@ export default function InventoryTab() {
     [valuation]
   )
 
-  const lowStockCount = stock.filter((r: ProductStockRow) => Number(r.on_hand) <= 0).length
+  const lowStockCount = stock.filter((r: ProductStockRow) => r.alert_status === 'out_of_stock' || r.alert_status === 'low_stock').length
+  const expiredCount = stock.filter((r: ProductStockRow) => r.alert_status === 'expired').length
+  const expiringSoonCount = stock.filter((r: ProductStockRow) => r.alert_status === 'expiring_soon').length
+  const totalAlertsCount = stock.filter((r: ProductStockRow) => r.alert_status && r.alert_status !== 'ok').length
+
+  const alertProducts = useMemo(() => {
+    return stock.filter((r: ProductStockRow) => {
+      if (alertFilter === 'all') return r.alert_status && r.alert_status !== 'ok'
+      return r.alert_status === alertFilter
+    })
+  }, [stock, alertFilter])
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -290,7 +328,7 @@ export default function InventoryTab() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeSection, search, filterCategory, movFilter.productId, movFilter.from, movFilter.to])
+  }, [activeSection, search, filterCategory, alertFilter, movFilter.productId, movFilter.from, movFilter.to])
 
   const totalStockPages = Math.ceil(filteredStock.length / pageSize) || 1
   const paginatedStock = useMemo(() => {
@@ -309,6 +347,12 @@ export default function InventoryTab() {
     const start = (currentPage - 1) * pageSize
     return (valuation as ProductStockRow[]).slice(start, start + pageSize)
   }, [valuation, currentPage, pageSize])
+
+  const totalAlertPages = Math.ceil(alertProducts.length / pageSize) || 1
+  const paginatedAlerts = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return alertProducts.slice(start, start + pageSize)
+  }, [alertProducts, currentPage, pageSize])
 
   if (loadingProducts || loadingStock) {
     return (
@@ -359,11 +403,26 @@ export default function InventoryTab() {
             {formatNumber(totalStockValue)} <span className="text-sm font-bold text-slate-500">ج.م</span>
           </p>
         </div>
-        <div className={`app-card p-4 ${lowStockCount > 0 ? 'border-amber-300 bg-amber-50/50' : ''}`}>
-          <p className="text-xs text-slate-500 font-medium">منتجات نفد مخزونها</p>
-          <p className={`text-2xl font-extrabold mt-1 ${lowStockCount > 0 ? 'text-amber-700' : 'text-slate-800'}`}>
-            {lowStockCount}
+        <div
+          onClick={() => { setActiveSection('alerts'); setAlertFilter('all') }}
+          className={`app-card p-4 cursor-pointer transition-all hover:shadow-md ${
+            totalAlertsCount > 0 ? 'border-amber-300 bg-amber-50/50' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-500 font-medium">تنبيهات المخزون والصلاحية</p>
+            {totalAlertsCount > 0 && (
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+            )}
+          </div>
+          <p className={`text-2xl font-extrabold mt-1 ${totalAlertsCount > 0 ? 'text-amber-700' : 'text-slate-800'}`}>
+            {totalAlertsCount}
           </p>
+          <div className="text-[10px] text-slate-500 mt-1 flex gap-2">
+            <span>نفد/منخفض: {lowStockCount}</span>
+            <span>•</span>
+            <span>صلاحية: {expiredCount + expiringSoonCount}</span>
+          </div>
         </div>
         <div className="app-card p-4">
           <p className="text-xs text-slate-500 font-medium">حركات اليوم</p>
@@ -377,19 +436,29 @@ export default function InventoryTab() {
       <div className="flex gap-2 border-b border-border pb-0">
         {[
           { key: 'onhand', label: 'الأرصدة الحالية' },
+          { 
+            key: 'alerts', 
+            label: `التنبيهات والصلاحية ${totalAlertsCount > 0 ? `(${totalAlertsCount})` : ''}`,
+            highlight: totalAlertsCount > 0
+          },
           { key: 'movements', label: 'تاريخ الحركات' },
           { key: 'valuation', label: 'تقييم المخزون' },
-        ].map(({ key, label }) => (
+        ].map(({ key, label, highlight }) => (
           <button
             key={key}
             onClick={() => setActiveSection(key as typeof activeSection)}
-            className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
+            className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors flex items-center gap-1.5 ${
               activeSection === key
                 ? 'border-primary-600 text-primary-700 bg-primary-50/60'
+                : highlight
+                ? 'border-transparent text-rose-600 hover:text-rose-700 font-bold'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            {label}
+            <span>{label}</span>
+            {highlight && activeSection !== key && (
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+            )}
           </button>
         ))}
       </div>
@@ -426,6 +495,7 @@ export default function InventoryTab() {
                   <th className="text-center">الفئة</th>
                   <th className="text-center">الوحدة</th>
                   <th className="text-center">الكمية المتاحة</th>
+                  <th className="text-center">الصلاحية والتنبيهات</th>
                   <th className="text-center">متوسط التكلفة</th>
                   <th className="text-center">قيمة المخزون</th>
                   <th className="text-center">سعر البيع</th>
@@ -459,6 +529,32 @@ export default function InventoryTab() {
                         </span>
                         {isLow && (
                           <span className="block text-[10px] text-rose-500 font-semibold">نفد المخزون</span>
+                        )}
+                      </td>
+                      <td className="text-center">
+                        {row.alert_status === 'out_of_stock' && (
+                          <span className="badge text-[10px] bg-rose-50 text-rose-700 border-rose-200">نفد المخزون</span>
+                        )}
+                        {row.alert_status === 'expired' && (
+                          <span className="badge text-[10px] bg-rose-100 text-rose-800 border-rose-300">منتهي الصلاحية</span>
+                        )}
+                        {row.alert_status === 'expiring_soon' && (
+                          <span className="badge text-[10px] bg-amber-50 text-amber-800 border-amber-300">
+                            ينتهي خلال {row.days_to_expiry} يوم
+                          </span>
+                        )}
+                        {row.alert_status === 'low_stock' && (
+                          <span className="badge text-[10px] bg-orange-50 text-orange-800 border-orange-300">
+                            مخزون منخفض (حد: {row.min_stock_alert})
+                          </span>
+                        )}
+                        {row.alert_status === 'ok' && row.expiry_date && (
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            صالح حتى {row.expiry_date}
+                          </span>
+                        )}
+                        {row.alert_status === 'ok' && !row.expiry_date && (
+                          <span className="text-[10px] text-slate-400">—</span>
                         )}
                       </td>
                       <td className="text-center font-mono text-xs text-slate-700">
@@ -545,6 +641,19 @@ export default function InventoryTab() {
                           {row.sku}
                         </span>
                       )}
+                      {row.alert_status === 'expired' && (
+                        <span className="badge text-xs bg-rose-100 text-rose-800 border-rose-300">منتهي الصلاحية</span>
+                      )}
+                      {row.alert_status === 'expiring_soon' && (
+                        <span className="badge text-xs bg-amber-50 text-amber-800 border-amber-300">
+                          ينتهي خلال {row.days_to_expiry} يوم
+                        </span>
+                      )}
+                      {row.alert_status === 'low_stock' && (
+                        <span className="badge text-xs bg-orange-50 text-orange-800 border-orange-300">
+                          مخزون منخفض (حد: {row.min_stock_alert})
+                        </span>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-3 gap-2 text-center text-xs bg-slate-50 rounded-xl p-2.5 border border-slate-100">
@@ -589,6 +698,217 @@ export default function InventoryTab() {
             currentPage={currentPage}
             totalPages={totalStockPages}
             totalItems={filteredStock.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+
+      {/* ── Alerts & Expiry Section ── */}
+      {activeSection === 'alerts' && (
+        <div className="space-y-4">
+          {/* Quick Filter Tabs for Alerts */}
+          <div className="flex flex-wrap gap-2 items-center">
+            {[
+              { id: 'all', label: `جميع التنبيهات (${totalAlertsCount})` },
+              { id: 'expired', label: `منتهي الصلاحية (${expiredCount})`, color: 'bg-rose-100 text-rose-800' },
+              { id: 'expiring_soon', label: `قريب الانتهاء (30 يوم) (${expiringSoonCount})`, color: 'bg-amber-100 text-amber-800' },
+              { id: 'out_of_stock', label: `نفد المخزون (${stock.filter(r => r.alert_status === 'out_of_stock').length})`, color: 'bg-red-100 text-red-800' },
+              { id: 'low_stock', label: `مخزون منخفض (${stock.filter(r => r.alert_status === 'low_stock').length})`, color: 'bg-orange-100 text-orange-800' },
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setAlertFilter(f.id as typeof alertFilter)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  alertFilter === f.id
+                    ? 'bg-slate-800 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Alert Table Desktop */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th className="text-start">المنتج</th>
+                  <th className="text-center">الفئة</th>
+                  <th className="text-center">الكمية الحالية</th>
+                  <th className="text-center">حد الأمان</th>
+                  <th className="text-center">تاريخ الصلاحية</th>
+                  <th className="text-center">التشغيلة (Batch)</th>
+                  <th className="text-center">حالة التنبيه</th>
+                  <th className="text-center w-28">إجراء سريع</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedAlerts.map((row: ProductStockRow) => {
+                  const onHand = Number(row.on_hand)
+                  return (
+                    <tr key={row.product_id} className="hover:bg-slate-50/70">
+                      <td>
+                        <div className="font-semibold text-slate-800 text-sm">{row.name_ar}</div>
+                        {row.name_en && <div className="text-xs text-slate-400">{row.name_en}</div>}
+                        {row.sku && (
+                          <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {row.sku}
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-center text-xs text-slate-600">{row.category || '-'}</td>
+                      <td className="text-center font-mono font-bold text-sm">
+                        <span className={onHand <= 0 ? 'text-rose-600' : 'text-slate-800'}>
+                          {formatNumber(onHand)} {row.unit || ''}
+                        </span>
+                      </td>
+                      <td className="text-center font-mono text-xs text-slate-600">
+                        {row.min_stock_alert > 0 ? formatNumber(row.min_stock_alert) : 'غير محدد'}
+                      </td>
+                      <td className="text-center text-xs font-mono">
+                        {row.expiry_date ? (
+                          <div className={row.alert_status === 'expired' ? 'text-rose-600 font-bold' : ''}>
+                            {row.expiry_date}
+                            {row.days_to_expiry !== null && (
+                              <span className="block text-[10px] text-slate-400">
+                                {row.days_to_expiry < 0
+                                  ? `(انتهى منذ ${Math.abs(row.days_to_expiry)} يوم)`
+                                  : `(متبقي ${row.days_to_expiry} يوم)`}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="text-center font-mono text-xs text-slate-600">
+                        {row.batch_number || '—'}
+                      </td>
+                      <td className="text-center">
+                        {row.alert_status === 'expired' && (
+                          <span className="badge badge-error text-[10px] bg-rose-100 text-rose-800 border-rose-300">
+                            منتهي الصلاحية
+                          </span>
+                        )}
+                        {row.alert_status === 'expiring_soon' && (
+                          <span className="badge text-[10px] bg-amber-100 text-amber-900 border-amber-300">
+                            ينتهي قريباً
+                          </span>
+                        )}
+                        {row.alert_status === 'out_of_stock' && (
+                          <span className="badge text-[10px] bg-red-50 text-red-700 border-red-200">
+                            نفد المخزون
+                          </span>
+                        )}
+                        {row.alert_status === 'low_stock' && (
+                          <span className="badge text-[10px] bg-orange-50 text-orange-800 border-orange-300">
+                            مخزون منخفض
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex gap-1 justify-center">
+                          <button
+                            onClick={() => setStockInOpen(true)}
+                            className="app-btn app-btn-sm app-btn-ghost text-[10px] text-emerald-700 hover:border-emerald-400"
+                          >
+                            + توريد
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAdjustDefaultId(row.product_id)
+                              setAdjustOpen(true)
+                            }}
+                            className="app-btn app-btn-sm app-btn-ghost text-[10px] text-amber-700 hover:border-amber-400"
+                          >
+                            تسوية
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {alertProducts.length === 0 && (
+              <div className="text-center py-12 text-slate-500 text-sm">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-2 font-bold text-lg">
+                  ✓
+                </div>
+                لا توجد أي تنبيهات حالياً في هذا القسم. جميع المنتجات بحالة ممتازة!
+              </div>
+            )}
+          </div>
+
+          {/* Alert Cards Mobile */}
+          <div className="md:hidden space-y-3">
+            {alertProducts.length === 0 ? (
+              <div className="bg-card rounded-2xl border border-border p-8 text-center text-slate-500 text-sm">
+                لا توجد أي تنبيهات حالياً
+              </div>
+            ) : (
+              paginatedAlerts.map((row: ProductStockRow) => (
+                <div key={row.product_id} className="bg-card rounded-2xl p-4 border border-border space-y-3 shadow-xs">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{row.name_ar}</h4>
+                      {row.sku && <span className="text-[10px] font-mono text-slate-400">{row.sku}</span>}
+                    </div>
+                    <div>
+                      {row.alert_status === 'expired' && (
+                        <span className="badge text-xs bg-rose-100 text-rose-800 border-rose-300">منتهي</span>
+                      )}
+                      {row.alert_status === 'expiring_soon' && (
+                        <span className="badge text-xs bg-amber-100 text-amber-900 border-amber-300">قريب الانتهاء</span>
+                      )}
+                      {row.alert_status === 'out_of_stock' && (
+                        <span className="badge text-xs bg-red-100 text-red-800 border-red-300">نفد</span>
+                      )}
+                      {row.alert_status === 'low_stock' && (
+                        <span className="badge text-xs bg-orange-100 text-orange-800 border-orange-300">منخفض</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">الكمية المتاحة</span>
+                      <span className="font-mono font-bold text-slate-800">{formatNumber(row.on_hand)} {row.unit}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">تاريخ الصلاحية</span>
+                      <span className="font-mono text-slate-800">{row.expiry_date || 'غير محدد'}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
+                    <button
+                      onClick={() => setStockInOpen(true)}
+                      className="app-btn app-btn-sm app-btn-ghost text-xs text-emerald-700"
+                    >
+                      + توريد
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAdjustDefaultId(row.product_id)
+                        setAdjustOpen(true)
+                      }}
+                      className="app-btn app-btn-sm app-btn-ghost text-xs text-amber-700"
+                    >
+                      تسوية
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalAlertPages}
+            totalItems={alertProducts.length}
             pageSize={pageSize}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
@@ -787,6 +1107,7 @@ export default function InventoryTab() {
                   <th className="text-center">الفئة</th>
                   <th className="text-center">الوحدة</th>
                   <th className="text-center">الكمية المتاحة</th>
+                  <th className="text-center">الصلاحية والتنبيهات</th>
                   <th className="text-center">متوسط التكلفة</th>
                   <th className="text-center">قيمة المخزون (ج.م)</th>
                 </tr>

@@ -38,6 +38,9 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
     category: '',
     unit: 'قطعة',
     price: 0,
+    min_stock_alert: 0,
+    expiry_date: '',
+    batch_number: '',
     is_active: true,
   })
 
@@ -87,6 +90,9 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         category: product.category || '',
         unit: product.unit || 'قطعة',
         price: Number(product.price),
+        min_stock_alert: Number(product.min_stock_alert || 0),
+        expiry_date: product.expiry_date || '',
+        batch_number: product.batch_number || '',
         is_active: product.is_active,
       })
     } else {
@@ -98,6 +104,9 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         category: '',
         unit: 'قطعة',
         price: 0,
+        min_stock_alert: 0,
+        expiry_date: '',
+        batch_number: '',
         is_active: true,
       })
     }
@@ -117,6 +126,9 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         category: form.category || null,
         unit: form.unit || null,
         price: form.price,
+        min_stock_alert: form.min_stock_alert,
+        expiry_date: form.expiry_date || null,
+        batch_number: form.batch_number || null,
         is_active: form.is_active,
       })
     } else {
@@ -127,6 +139,9 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         category: form.category || null,
         unit: form.unit || 'قطعة',
         price: form.price,
+        min_stock_alert: form.min_stock_alert,
+        expiry_date: form.expiry_date || null,
+        batch_number: form.batch_number || null,
         is_active: form.is_active,
         sort_order: products.length + 1,
       })
@@ -525,6 +540,49 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
                   className="app-input font-mono font-bold"
                   placeholder="0.00"
                 />
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                <span>تنبيهات المخزون وتاريخ الصلاحية</span>
+                <span className="text-[10px] text-slate-400 font-normal">اختياري</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">حد تنبيه المخزون</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={form.min_stock_alert || ''}
+                    onChange={(e) => setForm({ ...form, min_stock_alert: parseFloat(e.target.value) || 0 })}
+                    className="app-input font-mono text-xs"
+                    placeholder="مثال: 10"
+                  />
+                  <span className="text-[10px] text-slate-400">تنبيه عند وصول الرصيد لهذا الحد</span>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ انتهاء الصلاحية</label>
+                  <input
+                    type="date"
+                    value={form.expiry_date}
+                    onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
+                    className="app-input text-xs"
+                  />
+                  <span className="text-[10px] text-slate-400">تنبيه قبل الانتهاء بـ 30 يوماً</span>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">رقم التشغيلة (Batch/Lot)</label>
+                  <input
+                    type="text"
+                    value={form.batch_number}
+                    onChange={(e) => setForm({ ...form, batch_number: e.target.value })}
+                    className="app-input font-mono text-xs"
+                    dir="ltr"
+                    placeholder="LOT-2026-X"
+                  />
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
