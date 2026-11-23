@@ -53,7 +53,7 @@ Both Customer and Supplier statements use a chronological running balance model:
 
 - **Opening Balance (`رصيد أول المدة`)**:
   - Represents the account's historical balance before the filtered start date (`p_from`).
-  - Correctly calculated via the Postgres RPCs: [customer_statement](file:///c:/Users/youse/Programming/Employee%20Management%20System/supabase/migrations/0010_all_features_management.sql) and [supplier_statement](file:///c:/Users/youse/Programming/Employee%20Management%20System/supabase/migrations/0010_all_features_management.sql).
+  - Correctly calculated via the Postgres RPCs: [customer_statement](../supabase/migrations/0010_all_features_management.sql) (updated in [0013](../supabase/migrations/0013_simplify_suppliers.sql) and [0021](../supabase/migrations/0021_reservations_and_returns.sql)) and [supplier_statement](../supabase/migrations/0013_simplify_suppliers.sql).
 
 ---
 

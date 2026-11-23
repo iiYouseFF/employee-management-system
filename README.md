@@ -146,10 +146,10 @@ Two roles are stored and verified in Supabase:
 ### 🏭 Supplier Cash & Credit Management (الموردين — Accounts Payable)
 
 - Supplier profiles: name, phone, address, tax number, notes, opening balance, active flag.
-- **Cash purchases:** recorded with `payment_type = 'cash'` — cost is immediate; a matching payment row is created automatically.
+- **Cash purchases:** recorded with `payment_type = 'cash'` — cost is immediate and netted to zero on the payable ledger (no separate payment row is created).
 - **Credit purchases:** recorded with `payment_type = 'credit'` — increases the balance owed to the supplier.
-- **Supplier payments:** record money paid out to a supplier with date, amount, method, reference, and optional allocation to a specific purchase.
-- Supplier balance = opening + credit purchases − payments received.
+- **Supplier payments:** record money paid out to a supplier with date, amount, method, and reference.
+- Supplier balance = opening + credit purchases − payments made.
 - **Cumulative supplier statements:** same running-balance ledger structure as customer statements, with supplier sign conventions (payment = debit, credit purchase = credit).
 - Manager-only tab; RLS blocks all rep access at the database level.
 
@@ -254,7 +254,7 @@ All aggregations run as SQL functions (`kpi_summary`, `receivables_aging`, `cash
 | Frontend | React 19, TypeScript (strict), Vite 8 |
 | Routing | React Router v7 |
 | Data fetching | TanStack Query v5 |
-| Styling | Tailwind CSS v4 |
+| Styling | Tailwind CSS v3 |
 | Charts | Recharts |
 | PDF generation | html2canvas + jsPDF |
 | Backend / DB | Supabase (PostgreSQL, Auth, RLS, RPC) |
@@ -323,54 +323,65 @@ npm run dev
 
 ## Project Structure
 
+The frontend uses a **feature-based architecture** with the `@/` path alias mapped to `src/`.
+
 ```
 src/
-  components/
-    tabs/                        # One component per tab (CashTab, CreditTab, …)
-    ChangePasswordModal.tsx      # In-app password change modal
-    CustomerStatementModal.tsx
-    CumulativeCustomerStatementModal.tsx
-    SupplierStatementModal.tsx
-    StatementTable.tsx           # Shared running-balance ledger table
-    ReportModal.tsx
-    WhatsAppShareButton.tsx      # WhatsApp PDF sharing button
-    EditableTable.tsx
-    SearchableCustomer.tsx
-    RepModal.tsx, FormModal.tsx, Modal.tsx
-    Toast.tsx, ErrorBoundary.tsx
-  hooks/
-    useAuth.ts                   # Session + role resolution
-    useData.ts                   # Reps, customers, settings
-    useInvoices.ts               # Cash and credit invoice mutations
-    useSuppliers.ts              # Supplier CRUD and purchase/payment hooks
-    useProducts.ts               # Product price list hooks
-    useExpenses.ts               # Expense hooks
-    useStatements.ts             # Customer and supplier statement RPC hooks
-    useKpi.ts                    # KPI summary, aging, cashflow series hooks
-    useToast.ts
-  lib/
-    supabase.ts                  # Supabase client
-    pdfShare.ts                  # html2canvas → jsPDF, WhatsApp share logic
-    pdfGenerators.ts             # Per-view PDF HTML template generators
-    recoveryMode.ts              # sessionStorage helpers for password recovery
-    report.ts                    # CSV/print report logic
-    csv.ts, format.ts            # Formatting utilities
-    errors.ts, query.ts, tenant.ts
-  pages/
-    Login.tsx                    # Login, signup, forgot-password, recovery modes
-    Sheet.tsx                    # Main app shell with header, tabs, and modals
-  types/
-    supabase.ts                  # Generated + extended Supabase types
-    reps.ts
-  index.css                      # Tailwind base + design tokens + component classes
-  main.tsx
+  app/                           # Application shell & routing
+    main.tsx                     # Entry point (providers + render)
+    App.tsx                      # Route definitions / auth gate
+    Sheet.tsx                    # Main app shell: header, tabs, modals
+    AppNavigation.tsx            # Role-filtered navigation
+    ErrorBoundary.tsx
+  features/                      # One folder per business capability
+    auth/                        # Login, useAuth, ChangePasswordModal, recoveryMode
+    sales/                       # CashTab, CreditTab, ReturnsTab, invoice editor,
+                                 # bulk matrix, useInvoices, useSalesReturns
+    customers/                   # CustomersTab
+    payments/                    # PaymentsTab
+    suppliers/                   # SuppliersTab, SupplierStatementModal, useSuppliers
+    products/                    # ProductsTab, CategorySelect, useProducts, useProductCategories
+    inventory/                   # InventoryTab, useInventory
+    expenses/                    # ExpensesTab, useExpenses
+    statements/                  # StatementTab, StatementTable, cumulative modal, useStatements
+    reporting/                   # ReportModal, report.ts, pdfGenerators.ts, csv.ts
+    dashboard/                   # ManagerDashboardTab, MonthlyTab, useKpi
+    reps/                        # RepsTab, RepModal, useReps, reps.types
+    settings/                    # useSettings
+    audit/                       # AuditLogsTab, useAuditLogs, auditLogs.types
+  shared/                        # Cross-feature building blocks
+    ui/                          # Modal, FormModal, Pagination, Toast, WhatsAppShareButton
+    hooks/                       # useToast
+    lib/                         # supabase, tenant, format, errors, query, pdfShare
+    types/                       # supabase.ts (generated database types)
+  styles/
+    index.css                    # Tailwind base + design tokens + component classes
 supabase/
-  migrations/                    # Additive SQL migrations (001–005)
+  migrations/                    # Additive SQL migrations (0001–0021; 0004–0006 skipped historically)
 docs/
+  APP_SUMMARY.md                 # Technical reference: schema, RPCs, workflows
+  SYSTEM_ARCHITECTURE.md         # High-level architecture & tech stack
+  Playbook.md                    # End-user operational manual
   accounting-model.md            # Sign conventions, KPI formulas, cash/credit treatment
   deployment.md                  # Vercel deployment checklist
+  INVENTORY_AND_STOCK_REPORT.md  # Inventory / COGS / expiry / alerts guide
+  KNOWN_ISSUES.md                # Open SQL defects & architecture recommendations
+  docs.md                        # Consolidated snapshot of the docs above
+  workflows/TRACKS.md            # Agentic workflow: prompt tracks & verification gate
+  archive/                       # Historical briefs (original AGENTS.md feature brief)
 public/
 ```
+
+### Agentic workflow (for coding agents)
+
+Every prompt in this repo follows a defined **track** (feature, bugfix,
+migration, refactor, review, docs). The routing protocol lives in
+[`docs/workflows/TRACKS.md`](docs/workflows/TRACKS.md) and is loaded
+automatically via `opencode.jsonc`; project rules are in `AGENTS.md`.
+Slash commands (`.opencode/commands/`): `/track`, `/feature`, `/fix`,
+`/migrate`, `/refactor`, `/review`, `/docs`. Gate subagents
+(`.opencode/agents/`): `reviewer` (read-only review) and `verifier`
+(runs typecheck/lint/build only).
 
 ---
 
