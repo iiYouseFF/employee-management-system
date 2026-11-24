@@ -102,7 +102,7 @@ function SupplierPurchaseDetails({ id }: { id: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('supplier_purchases')
-        .select('id,purchase_date,invoice_no,total_amount,payment_type,notes,suppliers(name)')
+        .select('id,purchase_date,invoice_no,total_amount,payment_type,notes,suppliers(name),supplier_purchase_lines(qty,unit_cost,line_total,products(name_ar,unit))')
         .eq('id', id)
         .maybeSingle()
       if (error) throw error
@@ -113,6 +113,9 @@ function SupplierPurchaseDetails({ id }: { id: string }) {
   if (q.error) return <Err error={q.error as Error} />
   if (!q.data) return <Empty />
   const d = q.data
+  const purchaseLines = Array.isArray(d.supplier_purchase_lines)
+    ? d.supplier_purchase_lines as Array<Record<string, unknown>>
+    : []
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -122,6 +125,23 @@ function SupplierPurchaseDetails({ id }: { id: string }) {
         <Info label="الإجمالي" value={`${formatNumber(Number(d.total_amount || 0))} ج.م`} mono />
         <Info label="نوع العملية" value={d.payment_type === 'credit' ? 'آجل' : 'نقدي'} />
       </div>
+      {purchaseLines.length > 0 && (
+        <div className="rounded-xl border border-slate-200 overflow-hidden">
+          <div className="bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">الأصناف</div>
+          <div className="divide-y divide-slate-100">
+            {purchaseLines.map((line, index) => (
+              <div key={index} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs">
+                <span className="font-semibold text-slate-800">
+                  {String((line.products as Record<string, unknown> | null)?.name_ar || '-')}
+                </span>
+                <span className="font-mono text-slate-600">
+                  {formatNumber(Number(line.qty || 0))} × {formatNumber(Number(line.unit_cost || 0))} = {formatNumber(Number(line.line_total || 0))} ج.م
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {d.notes ? <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"><span className="font-bold text-slate-600">ملاحظات: </span>{String(d.notes)}</div> : null}
     </div>
   )

@@ -603,6 +603,60 @@ export type Database = {
           },
         ]
       }
+      supplier_purchase_lines: {
+        Row: {
+          batch_number: string | null
+          created_at: string
+          expiry_date: string | null
+          id: string
+          line_total: number | null
+          owner_id: string
+          product_id: string
+          purchase_id: string
+          qty: number
+          unit_cost: number
+        }
+        Insert: {
+          batch_number?: string | null
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          line_total?: number | null
+          owner_id?: string
+          product_id: string
+          purchase_id: string
+          qty: number
+          unit_cost: number
+        }
+        Update: {
+          batch_number?: string | null
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          line_total?: number | null
+          owner_id?: string
+          product_id?: string
+          purchase_id?: string
+          qty?: number
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_purchase_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_purchase_lines_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_purchases: {
         Row: {
           created_at: string
@@ -1102,6 +1156,14 @@ export type Database = {
         Args: {
           p_id: string
         }
+        Returns: undefined
+      }
+      save_supplier_purchase: {
+        Args: { p_purchase: Json; p_lines: Json }
+        Returns: string
+      }
+      delete_supplier_purchase: {
+        Args: { p_id: string }
         Returns: undefined
       }
       delete_cash_invoice: {
