@@ -34,21 +34,21 @@ export function paymentMethodBadgeClass(method?: string | null): string {
   const value = normalizePaymentMethod(method)
   switch (value) {
     case 'نقدي':
-      return 'badge badge-success'
+      return 'app-pill app-pill-cash'
     case 'تحويل بنكي':
-      return 'badge badge-primary'
+      return 'app-pill app-pill-bank'
     case 'شيك':
-      return 'badge badge-warning'
+      return 'app-pill app-pill-check'
     case 'فودافون كاش':
-      return 'badge badge-danger'
+      return 'app-pill app-pill-vodafone'
     case 'انستاباي':
-      return 'badge badge-info'
+      return 'app-pill app-pill-instapay'
     case 'آجل':
-      return 'badge badge-neutral'
+      return 'app-pill app-pill-neutral'
     case 'محفظة إلكترونية (قديمة)':
-      return 'badge badge-neutral'
+      return 'app-pill app-pill-neutral'
     default:
-      return 'badge badge-neutral'
+      return 'app-pill app-pill-neutral'
   }
 }
 

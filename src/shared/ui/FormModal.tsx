@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import Modal from '@/shared/ui/Modal'
-import SearchableCustomer from '@/features/sales/SearchableCustomer'
+import SearchableSelect from '@/shared/ui/SearchableSelect'
+import { type SearchableOption } from '@/shared/ui/searchableSelectUtils'
 
-export type FormFieldType = 'text' | 'number' | 'date' | 'select' | 'textarea' | 'customer'
+export type FormFieldType = 'text' | 'number' | 'date' | 'select' | 'textarea' | 'customer' | 'searchable'
 
 export interface FormField {
   name: string
@@ -15,8 +16,9 @@ export interface FormField {
   step?: string
   full?: boolean
   options?:
-    | { value: string; label: string }[]
-    | ((values: Record<string, any>) => { value: string; label: string }[])
+    | SearchableOption[]
+    | ((values: Record<string, any>) => SearchableOption[])
+  searchPlaceholder?: string
 }
 
 interface FormModalProps {
@@ -36,6 +38,8 @@ interface FormModalProps {
     values: Record<string, any>
   ) => Partial<Record<string, any>> | void
   validate?: (values: Record<string, any>) => string | null
+  /** Extra read-only context/actions (e.g. live balance + full settlement) rendered below the fields. */
+  renderExtras?: (values: Record<string, any>, setField: (name: string, value: any) => void) => ReactNode
 }
 
 export default function FormModal({
@@ -51,6 +55,7 @@ export default function FormModal({
   onSubmit,
   onFieldChange,
   validate,
+  renderExtras,
 }: FormModalProps) {
   const [values, setValues] = useState<Record<string, any>>(initialValues)
   const [error, setError] = useState<string | null>(null)
@@ -158,10 +163,24 @@ export default function FormModal({
                 </label>
 
                 {field.type === 'customer' ? (
-                  <SearchableCustomer
-                    customers={customers}
-                    value={value || null}
+                  <SearchableSelect
+                    options={customers.map((customer) => ({
+                      value: customer.id,
+                      label: customer.name,
+                      searchText: customer.phone || '',
+                    }))}
+                    value={value || ''}
                     onChange={(customerId) => setField(field.name, customerId)}
+                    placeholder="ابحث عن عميل بالاسم أو الهاتف..."
+                    searchPlaceholder="ابحث عن عميل بالاسم أو الهاتف..."
+                  />
+                ) : field.type === 'searchable' ? (
+                  <SearchableSelect
+                    options={options || []}
+                    value={value || ''}
+                    onChange={(selected) => setField(field.name, selected)}
+                    placeholder={field.placeholder || 'اختر من القائمة'}
+                    searchPlaceholder={field.searchPlaceholder || 'ابحث...'}
                   />
                 ) : field.type === 'select' ? (
                   <select
@@ -201,6 +220,8 @@ export default function FormModal({
             )
           })}
         </div>
+
+        {renderExtras?.(values, setField)}
 
         {error && (
           <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-sm font-medium text-rose-700 flex items-center gap-2 animate-slide-in">

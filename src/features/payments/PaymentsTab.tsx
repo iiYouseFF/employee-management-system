@@ -1,8 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { getTodayISO, formatNumber } from '@/shared/lib/format'
 import { CUSTOMER_PAYMENT_METHODS, paymentMethodBadgeClass, paymentMethodLabel } from '@/shared/lib/paymentMethods'
 import FormModal from '@/shared/ui/FormModal'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import { useDatePreset } from '@/shared/hooks/useDatePreset'
 import {
   useAddPayment,
   useUpdatePayment,
@@ -15,14 +19,16 @@ import {
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString('ar-EG') : '-'
 
-export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = false }: any) {
-  const { data: payments = [] } = usePayments(repFilter)
+export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = false, createSignal, onSignalHandled }: any) {
+  const { data: payments = [], isLoading: paymentsLoading, error: paymentsError } = usePayments(repFilter)
   const { data: creditInvoices = [] } = useCreditInvoices()
   const addPayment = useAddPayment()
   const updatePayment = useUpdatePayment()
   const deletePayment = useDeletePayment()
   const { data: customers = [] } = useCustomers()
   const [editing, setEditing] = useState<any | null>(null)
+
+  useEffect(() => { if (createSignal) { openNew(); onSignalHandled?.() } }, [createSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openNew = () => {
     const defaultRep = repFilter !== 'all' ? repFilter : reps[0]?.id || ''
@@ -89,51 +95,107 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
       )
       .sort((a: any, b: any) => String(a.date || '').localeCompare(String(b.date || '')))
 
-  const total = payments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0)
+  const balanceFor = (customerId?: string | null) =>
+    creditInvoices
+      .filter((inv: any) => inv.customer_id === customerId && inv.status !== 'cancelled')
+      .reduce((sum: number, inv: any) => sum + parseFloat(inv.remaining || 0), 0)
+
+  /** One-click settlement: fill the full remaining of the linked (or oldest open) invoice. */
+  const settleFullRemaining = (values: Record<string, any>, setField: (name: string, value: any) => void) => {
+    const customerId = values.customer_id
+    if (!customerId) return
+    const linked = creditInvoices.find(
+      (inv: any) => inv.id === values.credit_invoice_id && inv.customer_id === customerId
+    )
+    const target = linked || openInvoicesFor(customerId)[0]
+    if (!target) return
+    if (!linked) setField('credit_invoice_id', target.id)
+    setField('amount', String(Math.max(0, parseFloat(String(target.remaining || 0))).toFixed(2)))
+  }
+
+  const [searchTerm, setSearchTerm] = useState('')
+  const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
+
+  const filteredPayments = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    return (payments as any[]).filter((payment: any) => {
+      const date = String(payment.date || '')
+      if (from && date < from) return false
+      if (to && date > to) return false
+      if (!term) return true
+      const customerLabel = (customers as any[]).find((c: any) => c.id === payment.customer_id)?.name || ''
+      const invoiceLabel = creditInvoices.find((inv: any) => inv.id === payment.credit_invoice_id)?.invoice_no || ''
+      return [customerLabel, invoiceLabel, payment.method]
+        .some((value) => String(value || '').toLowerCase().includes(term))
+    })
+  }, [payments, searchTerm, from, to, customers, creditInvoices])
+
+  const filteredTotal = filteredPayments.reduce(
+    (sum: number, payment: any) => sum + parseFloat(payment.amount || 0),
+    0
+  )
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(15)
 
-  const totalPages = Math.ceil(payments.length / pageSize) || 1
+  const totalPages = Math.ceil(filteredPayments.length / pageSize) || 1
   const paginatedPayments = useMemo(() => {
     const start = (currentPage - 1) * pageSize
-    return payments.slice(start, start + pageSize)
-  }, [payments, currentPage, pageSize])
+    return filteredPayments.slice(start, start + pageSize)
+  }, [filteredPayments, currentPage, pageSize])
+
+  const hasActiveFilters = !!searchTerm.trim() || !!from || !!to
+  const resetFilters = () => {
+    setSearchTerm('')
+    reset()
+    setCurrentPage(1)
+  }
 
   const getMethodBadge = (method?: string) => {
     return <span className={paymentMethodBadgeClass(method)}>{paymentMethodLabel(method)}</span>
   }
 
   return (
-    <div>
-      {/* Tab Top Controls & Summary Chips */}
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-slate-800">سجل دفعات وتحصيلات العملاء</h2>
-          <span className="badge badge-primary">{payments.length} دفعة</span>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-emerald-800 shadow-sm">
-            <span>إجمالي التحصيلات:</span>
-            <span className="font-extrabold text-emerald-950 font-mono text-sm sm:text-base">
-              {formatNumber(total)} ج.م
-            </span>
+    <div className="app-page space-y-5">
+      <PageHeader
+        title="سجل دفعات وتحصيلات العملاء"
+        subtitle="سجّل وتابع دفعات العملاء وتحصيلات الذمم المدينة."
+        count={`${filteredPayments.length} دفعة`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+              <span>إجمالي التحصيلات:</span>
+              <span className="num font-extrabold text-sm">{formatNumber(filteredTotal)} ج.م</span>
+            </div>
+            {!isReadOnly && (
+              <button type="button" onClick={openNew} className="app-btn app-btn-primary">+ تسجيل دفعة جديدة</button>
+            )}
           </div>
+        }
+      />
 
-          {!isReadOnly && (
-            <button
-              onClick={openNew}
-              className="app-btn app-btn-primary py-2 text-xs sm:text-sm shadow-sm"
-            >
-              <span>+</span>
-              <span>تسجيل دفعة جديدة</span>
-            </button>
-          )}
-        </div>
-      </div>
+      <FilterToolbar
+        search={searchTerm}
+        onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1) }}
+        searchPlaceholder="بحث بالعميل أو رقم الفاتورة..."
+        preset={preset}
+        onPresetChange={(p) => { setPreset(p); setCurrentPage(1) }}
+        from={from}
+        to={to}
+        onFromChange={(v) => { setFrom(v); setCurrentPage(1) }}
+        onToChange={(v) => { setTo(v); setCurrentPage(1) }}
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
+      <ResponsiveDataView
+        loading={paymentsLoading}
+        error={paymentsError ? 'تعذّر تحميل الدفعات. أعد المحاولة لاحقاً.' : undefined}
+        hasData={filteredPayments.length > 0}
+        empty="لا توجد دفعات مطابقة للفلاتر الحالية."
+        table={(
+      <>
       {/* Desktop Payments Table */}
       <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
@@ -153,7 +215,7 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
             {(paginatedPayments as any[]).map((payment: any, idx: number) => (
               <tr key={payment.id}>
                 <td className="text-center text-xs text-slate-400 font-mono">
-                  {payments.length - ((currentPage - 1) * pageSize + idx)}
+                  {filteredPayments.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
                 <td className="text-center text-xs text-slate-600 font-medium whitespace-nowrap">
                   {formatDate(payment.date)}
@@ -202,14 +264,14 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
               </tr>
             ))}
           </tbody>
-          {payments.length > 0 && (
+          {filteredPayments.length > 0 && (
             <tfoot>
               <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-200">
                 <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={5}>
                   إجمالي المبالغ المحصلة
                 </td>
                 <td className="px-3.5 py-3 text-center text-emerald-800 font-mono text-base font-extrabold whitespace-nowrap">
-                  {formatNumber(total)} ج.م
+                  {formatNumber(filteredTotal)} ج.م
                 </td>
                 <td colSpan={!isReadOnly ? 2 : 1}></td>
               </tr>
@@ -281,20 +343,14 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
-        totalItems={payments.length}
+        totalItems={filteredPayments.length}
         pageSize={pageSize}
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
       />
-
-      {payments.length === 0 && (
-        <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">
-          <h3 className="text-slate-700 font-bold text-base mb-1">لا توجد دفعات مسجلة</h3>
-          <p className="text-slate-500 text-xs max-w-sm mx-auto">
-            لم يتم تسجيل أي دفعات سداد لهذا العرض حتى الآن. يمكنك تسجيل دفعة نقدية جديدة من الزر أعلاه.
-          </p>
-        </div>
-      )}
+      </>
+        )}
+      />
 
       {editing && (
         <FormModal
@@ -315,6 +371,26 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
               patch.credit_invoice_id = openInvoicesFor(value)[0]?.id || ''
             }
             return patch
+          }}
+          renderExtras={(values, setField) => {
+            const balance = balanceFor(values.customer_id)
+            return (
+              <div className="rounded-xl border border-primary-100 bg-primary-50/70 p-3 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-primary-900">رصيد العميل الحالي (الآجل غير المسدد)</span>
+                  <span className="num font-extrabold text-[13px] text-primary-900">{formatNumber(balance)} ج.م</span>
+                </div>
+                {values.customer_id && balance > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => settleFullRemaining(values, setField)}
+                    className="app-btn app-btn-secondary app-btn-sm mt-2 text-xs font-bold"
+                  >
+                    سداد كامل المتبقي
+                  </button>
+                )}
+              </div>
+            )
           }}
           fields={[
             { name: 'date', label: 'تاريخ الدفع والتحصيل', type: 'date', required: true },

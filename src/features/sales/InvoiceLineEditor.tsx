@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Product } from '@/features/products/useProducts'
 import { formatNumber } from '@/shared/lib/format'
-import SearchableProductCombobox from '@/features/sales/SearchableProductCombobox'
+import SearchableSelect from '@/shared/ui/SearchableSelect'
+import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import { isEmptyPlaceholderInvoiceLine } from '@/features/sales/invoiceLineUtils'
 
 export interface LineItem {
@@ -198,12 +199,22 @@ export default function InvoiceLineEditor({
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <SearchableProductCombobox
-                    products={products}
-                    stockMap={stockMap}
+                  <SearchableSelect
+                    options={toSearchableOptions(products.filter((p) => p.is_active))}
                     value={line.product_id}
                     onChange={(id) => setField(line._key, 'product_id', id)}
                     disabled={disabled}
+                    clearable={false}
+                    placeholder="— اختر منتجاً —"
+                    searchPlaceholder="ابحث باسم المنتج أو SKU..."
+                    renderOption={(option) => (
+                      <span className="flex items-center justify-between gap-2 w-full">
+                        <span className="truncate text-xs">{option.label}</span>
+                        <span className="text-[10px] text-slate-500 shrink-0">
+                          المتوفر: {formatNumber(stockMap[option.value] ?? 0)}
+                        </span>
+                      </span>
+                    )}
                   />
                 </div>
 
@@ -303,13 +314,14 @@ export default function InvoiceLineEditor({
         })}
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-        <div className="text-xs text-slate-600 font-medium">
-          الأصناف الصالحة: <span className="font-bold tabular-nums text-slate-900">{meaningfulLines.length}</span>
+      <div className="sticky bottom-0 z-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white/95 backdrop-blur px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 font-medium">
+          <span>عدد الأصناف: <span className="font-bold tabular-nums text-slate-900">{meaningfulLines.length}</span></span>
+          <span>إجمالي الكمية: <span className="font-bold tabular-nums text-slate-900">{formatNumber(meaningfulLines.reduce((s,l)=>s+(Number(l.qty)||0),0))}</span></span>
         </div>
         <div className="text-end">
-          <span className="text-xs text-slate-500 font-medium">الإجمالي الكلي للفاتورة: </span>
-          <span className="font-mono font-extrabold text-emerald-800 text-base tabular-nums">
+          <span className="text-xs text-slate-500 font-medium">الإجمالي الكلي: </span>
+          <span className="font-mono font-extrabold text-[var(--primary)] text-[18px] tabular-nums">
             {formatNumber(grandTotal)} ج.م
           </span>
         </div>
@@ -328,3 +340,4 @@ export default function InvoiceLineEditor({
     </div>
   )
 }
+

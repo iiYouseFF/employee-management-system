@@ -1,12 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
+﻿import { useState, useRef, useEffect } from 'react'
+import { formatNumber } from '@/shared/lib/format'
 
 interface SearchableCustomerProps {
   customers: any[]
   value: string | null
   onChange: (customerId: string) => void
+  balanceById?: Record<string, number>
 }
 
-export default function SearchableCustomer({ customers, value, onChange }: SearchableCustomerProps) {
+export default function SearchableCustomer({ customers, value, onChange, balanceById = {} }: SearchableCustomerProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
@@ -113,12 +115,19 @@ export default function SearchableCustomer({ customers, value, onChange }: Searc
                     </div>
                   )}
                 </div>
-                {customer.id === value && (
-                  <span className="text-xs text-primary-600 font-bold flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                    <span>محدد</span>
-                  </span>
-                )}
+                <div className="flex flex-col items-end gap-0.5">
+                  {Number(balanceById[customer.id] || 0) > 0 && (
+                    <span className="text-[11px] font-bold text-primary-700 tabular-nums">
+                      المتبقي: {formatNumber(balanceById[customer.id])} ج.م
+                    </span>
+                  )}
+                  {customer.id === value && (
+                    <span className="text-xs text-primary-600 font-bold flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                      <span>محدد</span>
+                    </span>
+                  )}
+                </div>
               </div>
             ))
           )}
@@ -127,3 +136,4 @@ export default function SearchableCustomer({ customers, value, onChange }: Searc
     </div>
   )
 }
+

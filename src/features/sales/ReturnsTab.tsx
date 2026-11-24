@@ -1,8 +1,13 @@
 import { useState, useMemo } from 'react'
 import { getTodayISO, formatNumber } from '@/shared/lib/format'
 import Modal from '@/shared/ui/Modal'
-import SearchableCustomer from '@/features/sales/SearchableCustomer'
+import SearchableSelect from '@/shared/ui/SearchableSelect'
+import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import { useDatePreset } from '@/shared/hooks/useDatePreset'
 import BulkProductMatrixModal, { type BulkMatrixLine } from '@/features/sales/BulkProductMatrixModal'
 import {
   useSalesReturns,
@@ -28,7 +33,7 @@ export default function ReturnsTab({
   showToast: (msg: string) => void
   isReadOnly?: boolean
 }) {
-  const { data: returns = [], isLoading } = useSalesReturns(repFilter)
+  const { data: returns = [], isLoading, error } = useSalesReturns(repFilter)
   const { data: customers = [] } = useCustomers()
   const processReturn = useProcessSalesReturn()
   const saveReturn = useSaveSalesReturn()
@@ -48,16 +53,8 @@ export default function ReturnsTab({
     notes: '',
   })
   const [err, setErr] = useState('')
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(15)
-
-  const totalPages = Math.ceil(returns.length / pageSize) || 1
-  const paginatedReturns = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return returns.slice(start, start + pageSize)
-  }, [returns, currentPage, pageSize])
+  const [searchTerm, setSearchTerm] = useState('')
+  const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
 
   const customerMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -71,10 +68,42 @@ export default function ReturnsTab({
     return map
   }, [reps])
 
+  const filteredReturns = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    return returns.filter((ret) => {
+      const date = String(ret.return_date || '')
+      if (from && date < from) return false
+      if (to && date > to) return false
+      if (!term) return true
+      return [
+        customerMap.get(ret.customer_id),
+        ret.rep_id ? repMap.get(ret.rep_id) : '',
+        ret.notes,
+      ].some((value) => String(value || '').toLowerCase().includes(term))
+    })
+  }, [returns, from, to, searchTerm, customerMap, repMap])
+
   const totalReturnAmount = useMemo(
-    () => returns.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0),
-    [returns]
+    () => filteredReturns.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0),
+    [filteredReturns]
   )
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+
+  const totalPages = Math.ceil(filteredReturns.length / pageSize) || 1
+  const paginatedReturns = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredReturns.slice(start, start + pageSize)
+  }, [filteredReturns, currentPage, pageSize])
+
+  const hasActiveFilters = !!searchTerm.trim() || !!from || !!to
+  const resetFilters = () => {
+    setSearchTerm('')
+    reset()
+    setCurrentPage(1)
+  }
 
   const resetForm = () => {
     setSelectedLines([])
@@ -193,32 +222,52 @@ export default function ReturnsTab({
   return (
     <div className="space-y-5" dir="rtl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-slate-800">مرتجعات المبيعات</h2>
-          <span className="badge badge-primary">{returns.length} مرتجع</span>
-        </div>
+      <PageHeader
+        title="مرتجعات المبيعات"
+        count={`${filteredReturns.length} مرتجع`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="inline-flex items-center gap-2 bg-rose-50 border border-rose-200/80 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-rose-800 shadow-sm">
+              <span>إجمالي المرتجعات:</span>
+              <span className="font-extrabold text-rose-950 font-mono text-sm sm:text-base">
+                {formatNumber(totalReturnAmount)} ج.م
+              </span>
+            </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="inline-flex items-center gap-2 bg-rose-50 border border-rose-200/80 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-rose-800 shadow-sm">
-            <span>إجمالي المرتجعات:</span>
-            <span className="font-extrabold text-rose-950 font-mono text-sm sm:text-base">
-              {formatNumber(totalReturnAmount)} ج.م
-            </span>
+            {!isReadOnly && (
+              <button
+                onClick={openNew}
+                className="app-btn app-btn-primary py-2 text-xs sm:text-sm shadow-sm"
+              >
+                <span>+</span>
+                <span>مرتجع مبيعات متعدد (Matrix)</span>
+              </button>
+            )}
           </div>
+        }
+      />
 
-          {!isReadOnly && (
-            <button
-              onClick={openNew}
-              className="app-btn app-btn-primary py-2 text-xs sm:text-sm shadow-sm"
-            >
-              <span>+</span>
-              <span>مرتجع مبيعات متعدد (Matrix)</span>
-            </button>
-          )}
-        </div>
-      </div>
+      <FilterToolbar
+        search={searchTerm}
+        onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1) }}
+        searchPlaceholder="بحث بالعميل أو الملاحظات..."
+        preset={preset}
+        onPresetChange={(p) => { setPreset(p); setCurrentPage(1) }}
+        from={from}
+        to={to}
+        onFromChange={(v) => { setFrom(v); setCurrentPage(1) }}
+        onToChange={(v) => { setTo(v); setCurrentPage(1) }}
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
+      <ResponsiveDataView
+        loading={isLoading}
+        error={error ? 'تعذّر تحميل المرتجعات. أعد المحاولة لاحقاً.' : undefined}
+        hasData={filteredReturns.length > 0}
+        empty="لا توجد مرتجعات مسجلة حتى الآن"
+        table={(
+          <>
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
@@ -356,13 +405,18 @@ export default function ReturnsTab({
         ))}
       </div>
 
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalItems={returns.length}
-        pageSize={pageSize}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
+          </>
+        )}
+        footer={
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredReturns.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        }
       />
 
       {/* Edit loader modal */}
@@ -434,27 +488,23 @@ export default function ReturnsTab({
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">المندوب *</label>
-                <select
-                  value={headerForm.rep_id}
-                  onChange={(e) => setHeaderForm((f) => ({ ...f, rep_id: e.target.value }))}
-                  className="app-select text-xs"
-                  required
-                >
-                  <option value="">اختر المندوب</option>
-                  {reps.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  options={toSearchableOptions(reps)}
+                  value={headerForm.rep_id || ''}
+                  onChange={(id) => setHeaderForm((f) => ({ ...f, rep_id: id }))}
+                  placeholder="اختر المندوب"
+                  searchPlaceholder="ابحث عن مندوب..."
+                />
               </div>
 
               <div className="col-span-2">
                 <label className="block text-xs font-bold text-slate-700 mb-1">العميل *</label>
-                <SearchableCustomer
-                  customers={customers as { id: string; name: string }[]}
-                  value={headerForm.customer_id || null}
-                  onChange={(id) => setHeaderForm((f) => ({ ...f, customer_id: id ?? '' }))}
+                <SearchableSelect
+                  options={toSearchableOptions(customers)}
+                  value={headerForm.customer_id || ''}
+                  onChange={(id) => setHeaderForm((f) => ({ ...f, customer_id: id }))}
+                  placeholder="ابحث عن عميل بالاسم أو الهاتف..."
+                  searchPlaceholder="ابحث عن عميل بالاسم أو الهاتف..."
                 />
               </div>
 

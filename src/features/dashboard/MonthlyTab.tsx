@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useCashInvoices, useCreditInvoices, usePayments } from '@/features/sales/useInvoices'
 import { formatNumber, monthNames } from '@/shared/lib/format'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 
 const emptyMonth = () => ({
   cashM: 0,
@@ -67,9 +70,14 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
   const currentMonth = new Date().getMonth()
   const [view, setView] = useState<'detailed' | 'matrix' | 'separate'>('detailed')
 
-  const { data: cashInvoices = [] } = useCashInvoices(repFilter)
-  const { data: creditInvoices = [] } = useCreditInvoices(repFilter)
-  const { data: payments = [] } = usePayments(repFilter)
+  const { data: cashInvoices = [], isLoading: loadingCash, error: cashError } = useCashInvoices(repFilter)
+  const { data: creditInvoices = [], isLoading: loadingCredit, error: creditError } = useCreditInvoices(repFilter)
+  const { data: payments = [], isLoading: loadingPayments, error: paymentsError } = usePayments(repFilter)
+
+  const loading = loadingCash || loadingCredit || loadingPayments
+  const error = cashError || creditError || paymentsError
+    ? 'تعذّر تحميل بيانات التقرير المالي.'
+    : undefined
 
   const visibleReps =
     repFilter && repFilter !== 'all' ? reps.filter((r: any) => r.id === repFilter) : reps
@@ -94,14 +102,15 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
   })
 
   return (
-    <div>
-      {/* Tab Header Controls */}
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-slate-800">الملخص والتقرير المالي الشهري - {currentYear}</h2>
-          <p className="text-xs text-slate-500 mt-0.5">مقارنة المبيعات النقدية والآجلة ونسب التحصيل على مدار العام</p>
-        </div>
+    <div className="app-page space-y-5">
+      {/* Header */}
+      <PageHeader
+        title={`الملخص والتقرير المالي الشهري - ${currentYear}`}
+        subtitle="مقارنة المبيعات النقدية والآجلة ونسب التحصيل على مدار العام"
+      />
 
+      {/* Tab Controls */}
+      <FilterToolbar>
         {/* View Mode Switcher */}
         <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
           <button
@@ -135,10 +144,15 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
             منفصل لكل مندوب
           </button>
         </div>
-      </div>
+      </FilterToolbar>
 
       {/* View 1: Detailed Monthly Table */}
       {view === 'detailed' && (
+        <ResponsiveDataView
+          loading={loading}
+          error={error}
+          hasData={detailedWithCarry.length > 0}
+          table={(
         <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
           <table className="app-table">
             <thead>
@@ -230,10 +244,17 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
             </tfoot>
           </table>
         </div>
+          )}
+        />
       )}
 
       {/* View 2: Rep Matrix Table */}
       {view === 'matrix' && (
+        <ResponsiveDataView
+          loading={loading}
+          error={error}
+          hasData={detailedData.length > 0}
+          table={(
         <div className="overflow-x-auto rounded-2xl border border-border shadow-sm">
           <table className="app-table text-xs">
             <thead>
@@ -284,17 +305,24 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
             </tfoot>
           </table>
         </div>
+          )}
+        />
       )}
 
       {/* View 3: Separate Rep Cards */}
       {view === 'separate' && (
-        <div className="space-y-6">
-          {repRows.length === 0 && (
+        <ResponsiveDataView
+          loading={loading}
+          error={error}
+          hasData={repRows.length > 0}
+          empty={
             <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
               <svg className="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               <h3 className="text-slate-700 font-bold text-base mb-1">لا يوجد مناديب مسجلين</h3>
             </div>
-          )}
+          }
+          table={(
+        <div className="space-y-6">
           {repRows.map(({ rep, months, totals }) => (
             <div key={rep.id} className="rounded-2xl border border-border shadow-sm overflow-hidden bg-white">
               <div className="bg-gradient-to-r from-slate-50 via-primary-50/30 to-white px-5 py-3.5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -357,6 +385,8 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
             </div>
           ))}
         </div>
+          )}
+        />
       )}
     </div>
   )

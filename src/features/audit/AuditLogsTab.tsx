@@ -3,6 +3,11 @@ import { useAuditLogs } from '@/features/audit/useAuditLogs'
 import type { AuditLogEntry } from '@/features/audit/auditLogs.types'
 import Modal from '@/shared/ui/Modal'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import { MobileCard, MobileCardRow } from '@/shared/ui/MobileCards'
+import { useDatePreset } from '@/shared/hooks/useDatePreset'
 
 // Table display translation dictionary
 const TABLE_LABELS: Record<string, string> = {
@@ -90,8 +95,7 @@ export default function AuditLogsTab() {
   const [selectedTable, setSelectedTable] = useState<string>('all')
   const [selectedAction, setSelectedAction] = useState<string>('all')
   const [search, setSearch] = useState<string>('')
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
+  const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
 
   // Detail Modal
   const [activeLog, setActiveLog] = useState<AuditLogEntry | null>(null)
@@ -100,18 +104,15 @@ export default function AuditLogsTab() {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(20)
 
-  const { data: logs = [], isLoading, refetch, isFetching } = useAuditLogs({
+  const { data: logs = [], isLoading, error, refetch, isFetching } = useAuditLogs({
     table_name: selectedTable === 'all' ? undefined : selectedTable,
     action: selectedAction === 'all' ? undefined : (selectedAction as any),
-    startDate: startDate || undefined,
-    endDate: endDate || undefined,
+    startDate: from || undefined,
+    endDate: to || undefined,
     search: search || undefined,
   })
 
-  // Reset to first page on filter change
-  useMemo(() => {
-    setCurrentPage(1)
-  }, [selectedTable, selectedAction, search, startDate, endDate])
+  const resetPage = () => setCurrentPage(1)
 
   // Total pages
   const totalPages = Math.ceil(logs.length / pageSize) || 1
@@ -133,8 +134,22 @@ export default function AuditLogsTab() {
     return { ins, upd, del, total: logs.length }
   }, [logs])
 
+  const hasActiveFilters = selectedTable !== 'all' || selectedAction !== 'all' || !!search || !!from || !!to
+  const resetFilters = () => {
+    setSelectedTable('all')
+    setSelectedAction('all')
+    setSearch('')
+    reset()
+    setCurrentPage(1)
+  }
+
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="app-page space-y-4" dir="rtl">
+      <PageHeader
+        title="سجل العمليات والنظام"
+        count={stats.total}
+      />
+
       {/* ── Summary KPI Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
@@ -156,225 +171,208 @@ export default function AuditLogsTab() {
       </div>
 
       {/* ── Filter Bar ── */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* Search box */}
-          <div className="lg:col-span-2">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              بحث في السجلات والمنفذين
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="ابحث باسم المندوب، الوصف، البريد أو رقم السجل..."
-                className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-[#1a4971] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1a4971]"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="absolute inset-y-0 end-2 flex items-center text-slate-400 hover:text-slate-600 text-xs"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Table select */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              القسم / الجدول
-            </label>
-            <select
-              value={selectedTable}
-              onChange={(e) => setSelectedTable(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-800 focus:border-[#1a4971] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1a4971]"
-            >
-              <option value="all">كل الأقسام والجداول</option>
-              {Object.entries(TABLE_LABELS).map(([tbl, label]) => (
-                <option key={tbl} value={tbl}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Action select */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              نوع العملية
-            </label>
-            <select
-              value={selectedAction}
-              onChange={(e) => setSelectedAction(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-800 focus:border-[#1a4971] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1a4971]"
-            >
-              <option value="all">جميع العمليات</option>
-              <option value="INSERT">إضافة (INSERT)</option>
-              <option value="UPDATE">تعديل (UPDATE)</option>
-              <option value="DELETE">حذف (DELETE)</option>
-            </select>
-          </div>
-
-          {/* Date Range */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              من تاريخ
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-800 focus:border-[#1a4971] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#1a4971]"
-            />
-          </div>
+      <FilterToolbar
+        search={search}
+        onSearchChange={(v) => { setSearch(v); resetPage() }}
+        searchPlaceholder="ابحث باسم المندوب، الوصف، البريد أو رقم السجل..."
+        preset={preset}
+        onPresetChange={(p) => { setPreset(p); resetPage() }}
+        from={from}
+        to={to}
+        onFromChange={(v) => { setFrom(v); resetPage() }}
+        onToChange={(v) => { setTo(v); resetPage() }}
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      >
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            القسم / الجدول
+          </label>
+          <select
+            value={selectedTable}
+            onChange={(e) => { setSelectedTable(e.target.value); resetPage() }}
+            className="app-input w-full sm:w-40"
+          >
+            <option value="all">كل الأقسام والجداول</option>
+            {Object.entries(TABLE_LABELS).map(([tbl, label]) => (
+              <option key={tbl} value={tbl}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Second row filters & refresh */}
-        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">إلى تاريخ:</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="rounded-xl border border-slate-300 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-800 focus:border-[#1a4971] focus:bg-white focus:outline-none"
-            />
-            {(selectedTable !== 'all' || selectedAction !== 'all' || search || startDate || endDate) && (
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            نوع العملية
+          </label>
+          <select
+            value={selectedAction}
+            onChange={(e) => { setSelectedAction(e.target.value); resetPage() }}
+            className="app-input w-full sm:w-40"
+          >
+            <option value="all">جميع العمليات</option>
+            <option value="INSERT">إضافة (INSERT)</option>
+            <option value="UPDATE">تعديل (UPDATE)</option>
+            <option value="DELETE">حذف (DELETE)</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+          className="app-btn app-btn-ghost app-btn-sm self-end"
+        >
+          <span className={`inline-block ${isFetching ? 'animate-spin' : ''}`}>🔄</span>
+          تحديث السجلات
+        </button>
+      </FilterToolbar>
+
+      {/* ── Main Logs View ── */}
+      <ResponsiveDataView
+        loading={isLoading}
+        error={error ? 'تعذّر تحميل سجل العمليات والأمان. أعد المحاولة لاحقاً.' : undefined}
+        hasData={logs.length > 0}
+        empty="لا توجد سجلات مطابقة للبحث أو الفلاتر المحددة."
+        cards={paginatedLogs.map((log) => {
+          const tableLabel = TABLE_LABELS[log.table_name] || log.table_name
+          return (
+            <MobileCard key={log.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-slate-800">{log.actor_name || 'غير معروف'}</span>
+                    <RoleBadge role={log.actor_role} />
+                  </div>
+                  {log.actor_email && (
+                    <div className="text-[10px] text-slate-400 font-mono" dir="ltr">
+                      {log.actor_email}
+                    </div>
+                  )}
+                </div>
+                <ActionBadge action={log.action} />
+              </div>
+              <div className="text-[11px] text-slate-500 font-mono">
+                {formatDate(log.created_at)}
+              </div>
+              <MobileCardRow
+                label="القسم / الجدول"
+                value={
+                  <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
+                    {tableLabel}
+                  </span>
+                }
+              />
+              <MobileCardRow
+                label="تفاصيل العملية"
+                value={<span className="text-start">{log.description || '-'}</span>}
+              />
+              {log.changed_fields && log.changed_fields.length > 0 && (
+                <div className="text-[11px] text-slate-400">
+                  الحقول المعدلة: {log.changed_fields.join(', ')}
+                </div>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedTable('all')
-                  setSelectedAction('all')
-                  setSearch('')
-                  setStartDate('')
-                  setEndDate('')
-                }}
-                className="text-xs text-rose-600 hover:underline ms-2 font-medium"
+                onClick={() => setActiveLog(log)}
+                className="rounded-lg bg-blue-50 hover:bg-blue-100 text-[#1a4971] px-2.5 py-1 font-bold text-[11px] transition"
               >
-                إعادة ضبط الفلاتر
+                عرض الفروقات 🔍
               </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            disabled={isFetching}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition"
-          >
-            <span className={`inline-block ${isFetching ? 'animate-spin' : ''}`}>🔄</span>
-            تحديث السجلات
-          </button>
-        </div>
-      </div>
-
-      {/* ── Main Logs Table ── */}
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                <th className="px-4 py-3 text-start whitespace-nowrap">الوقت والتاريخ</th>
-                <th className="px-4 py-3 text-start whitespace-nowrap">المستخدم (المنفذ)</th>
-                <th className="px-4 py-3 text-start whitespace-nowrap">النوع</th>
-                <th className="px-4 py-3 text-start whitespace-nowrap">القسم / الجدول</th>
-                <th className="px-4 py-3 text-start min-w-[280px]">تفاصيل العملية</th>
-                <th className="px-4 py-3 text-center whitespace-nowrap">التغييرات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    <div className="inline-block h-6 w-6 border-2 border-slate-300 border-t-[#1a4971] rounded-full animate-spin mb-2" />
-                    <div>جاري تحميل سجل العمليات والأمان...</div>
-                  </td>
-                </tr>
-              ) : paginatedLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    لا توجد سجلات مطابقة للبحث أو الفلاتر المحددة.
-                  </td>
-                </tr>
-              ) : (
-                paginatedLogs.map((log) => {
-                  const tableLabel = TABLE_LABELS[log.table_name] || log.table_name
-
-                  return (
-                    <tr
-                      key={log.id}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                      onClick={() => setActiveLog(log)}
-                    >
-                      {/* Timestamp */}
-                      <td className="px-4 py-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                        {formatDate(log.created_at)}
-                      </td>
-
-                      {/* Actor */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-800">
-                            {log.actor_name || 'غير معروف'}
-                          </span>
-                          <RoleBadge role={log.actor_role} />
-                        </div>
-                        {log.actor_email && (
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            {log.actor_email}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Action */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <ActionBadge action={log.action} />
-                      </td>
-
-                      {/* Table / Section */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
-                          {tableLabel}
-                        </span>
-                      </td>
-
-                      {/* Description */}
-                      <td className="px-4 py-3 text-slate-700 font-medium">
-                        {log.description || '-'}
-                        {log.changed_fields && log.changed_fields.length > 0 && (
-                          <div className="mt-0.5 text-[11px] text-slate-400">
-                            الحقول المعدلة: {log.changed_fields.join(', ')}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Action View Button */}
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setActiveLog(log)
-                          }}
-                          className="rounded-lg bg-blue-50 hover:bg-blue-100 text-[#1a4971] px-2.5 py-1 font-bold text-[11px] transition"
-                        >
-                          عرض الفروقات 🔍
-                        </button>
-                      </td>
+            </MobileCard>
+          )
+        })}
+        table={(
+          <>
+            <div className="hidden md:block rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-start text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                      <th className="px-4 py-3 text-start whitespace-nowrap">الوقت والتاريخ</th>
+                      <th className="px-4 py-3 text-start whitespace-nowrap">المستخدم (المنفذ)</th>
+                      <th className="px-4 py-3 text-start whitespace-nowrap">النوع</th>
+                      <th className="px-4 py-3 text-start whitespace-nowrap">القسم / الجدول</th>
+                      <th className="px-4 py-3 text-start min-w-[280px]">تفاصيل العملية</th>
+                      <th className="px-4 py-3 text-center whitespace-nowrap">التغييرات</th>
                     </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedLogs.map((log) => {
+                      const tableLabel = TABLE_LABELS[log.table_name] || log.table_name
 
-        {/* Pagination bar */}
-        {!isLoading && logs.length > 0 && (
+                      return (
+                        <tr
+                          key={log.id}
+                          className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                          onClick={() => setActiveLog(log)}
+                        >
+                          {/* Timestamp */}
+                          <td className="px-4 py-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+                            {formatDate(log.created_at)}
+                          </td>
+
+                          {/* Actor */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-800">
+                                {log.actor_name || 'غير معروف'}
+                              </span>
+                              <RoleBadge role={log.actor_role} />
+                            </div>
+                            {log.actor_email && (
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {log.actor_email}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Action */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <ActionBadge action={log.action} />
+                          </td>
+
+                          {/* Table / Section */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
+                              {tableLabel}
+                            </span>
+                          </td>
+
+                          {/* Description */}
+                          <td className="px-4 py-3 text-slate-700 font-medium">
+                            {log.description || '-'}
+                            {log.changed_fields && log.changed_fields.length > 0 && (
+                              <div className="mt-0.5 text-[11px] text-slate-400">
+                                الحقول المعدلة: {log.changed_fields.join(', ')}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Action View Button */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setActiveLog(log)
+                              }}
+                              className="rounded-lg bg-blue-50 hover:bg-blue-100 text-[#1a4971] px-2.5 py-1 font-bold text-[11px] transition"
+                            >
+                              عرض الفروقات 🔍
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+        footer={logs.length > 0 && (
           <div className="p-3 border-t border-slate-100">
             <Pagination
               currentPage={currentPage}
@@ -390,7 +388,7 @@ export default function AuditLogsTab() {
             />
           </div>
         )}
-      </div>
+      />
 
       {/* ── Log Detail Modal (Inspect JSON Diffs) ── */}
       {activeLog && (

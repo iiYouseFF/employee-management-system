@@ -8,6 +8,8 @@ import {
 import { useSettings } from '@/features/settings/useSettings'
 import { useReps } from '@/features/reps/useReps'
 import Modal from '@/shared/ui/Modal'
+import SearchableSelect from '@/shared/ui/SearchableSelect'
+import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import WhatsAppShareButton from '@/shared/ui/WhatsAppShareButton'
 import { REPORT_SECTIONS, buildReport, exportReportCsv, printReport } from '@/features/reporting/report'
 import { getTodayISO } from '@/shared/lib/format'
@@ -200,33 +202,23 @@ export default function ReportModal({
         <div className="grid gap-3.5 sm:grid-cols-2 bg-slate-50 p-4.5 rounded-2xl border border-slate-200">
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-700">تصفية حسب العميل</label>
-            <select
+            <SearchableSelect
+              options={toSearchableOptions(customers)}
               value={customerId}
-              onChange={(event) => setCustomerId(event.target.value)}
-              className="app-select"
-            >
-              <option value="">جميع العملاء</option>
-              {customers.map((customer: any) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
+              onChange={setCustomerId}
+              placeholder="جميع العملاء"
+              searchPlaceholder="ابحث عن عميل بالاسم أو الهاتف..."
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-700">تصفية حسب المندوب</label>
-            <select
+            <SearchableSelect
+              options={toSearchableOptions(reps)}
               value={repId}
-              onChange={(event) => setRepId(event.target.value)}
-              className="app-select"
-            >
-              <option value="">جميع المناديب</option>
-              {reps.map((rep: any) => (
-                <option key={rep.id} value={rep.id}>
-                  {rep.name}
-                </option>
-              ))}
-            </select>
+              onChange={setRepId}
+              placeholder="جميع المناديب"
+              searchPlaceholder="ابحث عن مندوب..."
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-700">من تاريخ</label>

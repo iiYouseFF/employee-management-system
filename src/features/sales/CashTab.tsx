@@ -1,13 +1,19 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo, useEffect } from 'react'
 import { getTodayISO, formatNumber } from '@/shared/lib/format'
 import Modal from '@/shared/ui/Modal'
-import SearchableCustomer from '@/features/sales/SearchableCustomer'
+import SearchableSelect from '@/shared/ui/SearchableSelect'
+import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import InvoiceLineEditor, { type LineItem } from '@/features/sales/InvoiceLineEditor'
 import { createEmptyInvoiceLine, isMeaningfulInvoiceLine } from '@/features/sales/invoiceLineUtils'
 import BulkProductMatrixModal, { type BulkMatrixLine } from '@/features/sales/BulkProductMatrixModal'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import { useDatePreset } from '@/shared/hooks/useDatePreset'
 import {
   useCashInvoices,
+  useCreditInvoices,
   useCustomers,
 } from '@/features/sales/useInvoices'
 import { useProducts } from '@/features/products/useProducts'
@@ -47,7 +53,15 @@ function CashInvoiceModal({
   )
 
   const save = useSaveCashInvoice()
+  const { data: creditInvoices = [] } = useCreditInvoices()
 
+  // Live outstanding balance per customer (credit invoices only).
+  const balanceById: Record<string, number> = {}
+  for (const inv of creditInvoices as Record<string, unknown>[]) {
+    const id = String(inv.customer_id || '')
+    if (!id || inv.status === 'cancelled') continue
+    balanceById[id] = (balanceById[id] || 0) + Number(inv.remaining || 0)
+  }
   const [form, setForm] = useState({
     date: (invoice.date as string) || getTodayISO(),
     invoice_no: (invoice.invoice_no as string) || `CASH-${Date.now().toString().slice(-6)}`,
@@ -57,6 +71,7 @@ function CashInvoiceModal({
     notes: (invoice.notes as string) || '',
     status: (invoice.status as 'draft' | 'confirmed' | 'cancelled') || 'confirmed',
   })
+  const liveBalance = Number(balanceById[form.customer_id] || 0)
   const [lines, setLines] = useState<LineItem[]>([createEmptyInvoiceLine()])
   const [linesReady, setLinesReady] = useState(!isEdit)
   const [bulkMatrixOpen, setBulkMatrixOpen] = useState(false)
@@ -147,7 +162,16 @@ function CashInvoiceModal({
     }
   }
 
-  const grandTotal = lines.filter(isMeaningfulInvoiceLine).reduce((s, l) => s + (l.line_total || 0), 0)
+  const meaningfulLines = lines.filter(isMeaningfulInvoiceLine)
+  const grandTotal = meaningfulLines.reduce((s, l) => s + (l.line_total || 0), 0)
+  const itemCount = meaningfulLines.length
+  const totalQty = meaningfulLines.reduce((s, l) => s + (Number(l.qty) || 0), 0)
+  const customerOptions = toSearchableOptions(customers).map((option) => ({
+    ...option,
+    meta: balanceById[option.value]
+      ? <span className="font-bold tabular-nums text-primary-700">المتبقي: {formatNumber(balanceById[option.value])} ج.م</span>
+      : undefined,
+  }))
 
   if (isEdit && linesLoading) {
     return (
@@ -165,6 +189,29 @@ function CashInvoiceModal({
       subtitle="نظّم بيانات الفاتورة والأصناف في أقسام واضحة قبل التأكيد أو الحفظ كمسودة."
       size="full"
       onClose={save.isPending ? () => {} : onClose}
+      footer={
+        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-semibold text-slate-600">
+            <span>عدد الأصناف: <span className="num text-slate-900">{itemCount}</span></span>
+            <span>إجمالي الكمية: <span className="num text-slate-900">{formatNumber(totalQty)}</span></span>
+            <span className="flex items-center gap-1.5">الإجمالي الكلي:
+              <span className="num font-extrabold text-[18px] text-primary-700">{formatNumber(grandTotal)} ج.م</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={onClose} disabled={save.isPending} className="app-btn app-btn-ghost px-4 text-xs">إلغاء</button>
+            <button type="button" onClick={(e) => handleSubmit(e, 'draft')} disabled={save.isPending} className="app-btn app-btn-ghost border-amber-300 text-amber-800 hover:bg-amber-50 px-4 text-xs font-bold">حفظ كمسودة</button>
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, 'confirmed')}
+              disabled={save.isPending}
+              className="app-btn app-btn-primary px-5 text-xs font-bold"
+            >
+              {save.isPending ? 'جارٍ الحفظ...' : isEdit ? 'تحديث وتأكيد الصرف' : 'تأكيد وصرف'}
+            </button>
+          </div>
+        </div>
+      }
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <section className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5 space-y-4">
@@ -185,19 +232,23 @@ function CashInvoiceModal({
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">العميل</label>
-            <SearchableCustomer
-              customers={customers as { id: string; name: string }[]}
-              value={form.customer_id || null}
-              onChange={(id) => setField('customer_id', id ?? '')}
+            <SearchableSelect
+              options={customerOptions}
+              value={form.customer_id || ''}
+              onChange={(id) => setField('customer_id', id)}
+              placeholder="ابحث عن عميل بالاسم أو الهاتف..."
+              searchPlaceholder="ابحث عن عميل بالاسم أو الهاتف..."
             />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">المندوب *</label>
-            <select value={form.rep_id} onChange={(e) => setField('rep_id', e.target.value)}
-              className="app-select text-xs" required>
-              <option value="">اختر المندوب</option>
-              {reps.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+            <SearchableSelect
+              options={toSearchableOptions(reps)}
+              value={form.rep_id || ''}
+              onChange={(id) => setField('rep_id', id)}
+              placeholder="اختر المندوب"
+              searchPlaceholder="ابحث عن مندوب..."
+            />
           </div>
           <div className="sm:col-span-2 lg:col-span-4">
             <label className="block text-xs font-bold text-slate-700 mb-1">ملاحظات</label>
@@ -205,6 +256,12 @@ function CashInvoiceModal({
               className="app-input text-xs" placeholder="ملاحظات إضافية..." />
           </div>
           </div>
+          {form.customer_id && (
+            <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs font-bold text-primary-800 flex flex-wrap items-center justify-between gap-2">
+              <span>رصيد العميل الحالي (الآجل غير المسدد)</span>
+              <span className="num font-extrabold text-[13px]">{formatNumber(liveBalance)} ج.م</span>
+            </div>
+          )}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
@@ -244,39 +301,6 @@ function CashInvoiceModal({
           </div>
         )}
 
-        <div className="flex gap-2 pt-1 flex-wrap">
-          <button
-            type="button"
-            onClick={(e) => handleSubmit(e, 'confirmed')}
-            disabled={save.isPending}
-            className="app-btn app-btn-primary flex-1 py-2 text-xs font-bold"
-          >
-            {save.isPending ? (
-              <span className="inline-flex items-center gap-2">
-                <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                جاري الحفظ...
-              </span>
-            ) : isEdit ? 'تحديث وتأكيد الصرف' : 'تأكيد وصرف (Confirmed)'}
-          </button>
-
-          <button
-            type="button"
-            onClick={(e) => handleSubmit(e, 'draft')}
-            disabled={save.isPending}
-            className="app-btn app-btn-ghost border-amber-300 text-amber-800 hover:bg-amber-50 py-2 text-xs font-bold"
-          >
-            حفظ كمسودة (حجز فقط)
-          </button>
-
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={save.isPending}
-            className="app-btn app-btn-ghost px-5 py-2 text-xs"
-          >
-            إلغاء
-          </button>
-        </div>
       </form>
 
       {bulkMatrixOpen && (
@@ -292,13 +316,15 @@ function CashInvoiceModal({
 }
 
 // ─── Main CashTab ─────────────────────────────────────────────────────────────
-export default function CashTab({ repFilter, reps, showToast, isReadOnly = false }: {
+export default function CashTab({ repFilter, reps, showToast, isReadOnly = false, createSignal, onSignalHandled }: {
   repFilter: string
   reps: { id: string; name: string }[]
   showToast: (msg: string) => void
   isReadOnly?: boolean
+  createSignal?: number
+  onSignalHandled?: () => void
 }) {
-  const { data: invoices = [] } = useCashInvoices(repFilter)
+  const { data: invoices = [], isLoading: invoicesLoading, error: invoicesError } = useCashInvoices(repFilter)
   const { data: customers = [] } = useCustomers()
   const { data: products = [] } = useProducts()
   const { data: stockRows = [] } = useProductStock()
@@ -309,6 +335,7 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
   for (const r of stockRows) stockMap[r.product_id] = Number(r.on_hand)
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
+  useEffect(() => { if (createSignal) { openNew(); onSignalHandled?.() } }, [createSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openNew = () => {
     const defaultRep = repFilter !== 'all' ? repFilter : reps[0]?.id || ''
@@ -336,17 +363,19 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
   const repName = (id?: string | null) =>
     reps.find((r) => r.id === id)?.name || '-'
 
-  const total = invoices.reduce((sum: number, inv: Record<string, unknown>) => sum + parseFloat(String(inv.amount || 0)), 0)
-
   const [searchTerm, setSearchTerm] = useState('')
+  const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
 
   const filteredInvoices = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
-    if (!term) return invoices as Record<string, unknown>[]
-    return (invoices as Record<string, unknown>[]).filter((inv) =>
-      String(inv.invoice_no || '').toLowerCase().includes(term)
-    )
-  }, [invoices, searchTerm])
+    return (invoices as Record<string, unknown>[]).filter((inv) => {
+      const date = String(inv.date || '')
+      if (from && date < from) return false
+      if (to && date > to) return false
+      if (!term) return true
+      return String(inv.invoice_no || '').toLowerCase().includes(term)
+    })
+  }, [invoices, searchTerm, from, to])
 
   const filteredTotal = filteredInvoices.reduce(
     (sum: number, inv: Record<string, unknown>) => sum + parseFloat(String(inv.amount || 0)),
@@ -363,65 +392,53 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
     return filteredInvoices.slice(start, start + pageSize)
   }, [filteredInvoices, currentPage, pageSize])
 
+  const hasActiveFilters = !!searchTerm.trim() || !!from || !!to
+  const resetFilters = () => {
+    setSearchTerm('')
+    reset()
+    setCurrentPage(1)
+  }
+
   return (
-    <div>
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-slate-800">سجل فواتير البيع النقدي</h2>
-          <span className="badge badge-primary">{filteredInvoices.length} فاتورة</span>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-emerald-800 shadow-sm">
-            <span>{searchTerm.trim() ? 'إجمالي نتائج البحث:' : 'إجمالي المبيعات النقدية:'}</span>
-            <span className="font-extrabold text-emerald-950 font-mono text-sm sm:text-base tabular-nums">
-              {formatNumber(searchTerm.trim() ? filteredTotal : total)} ج.م
-            </span>
+    <div className="app-page space-y-5">
+      <PageHeader
+        title="سجل فواتير البيع النقدي"
+        subtitle="عرض وإدارة فواتير البيع النقدي وأصنافها ومخزونها."
+        count={`${filteredInvoices.length} فاتورة`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+              <span>إجمالي المبيعات:</span>
+              <span className="num font-extrabold text-sm">{formatNumber(filteredTotal)} ج.م</span>
+            </div>
+            {!isReadOnly && (
+              <button type="button" onClick={openNew} className="app-btn app-btn-primary">+ فاتورة نقدية جديدة</button>
+            )}
           </div>
+        }
+      />
 
-          {!isReadOnly && (
-            <button onClick={openNew} className="app-btn app-btn-primary py-2 text-xs sm:text-sm shadow-sm">
-              <span>+</span>
-              <span>فاتورة نقدية جديدة</span>
-            </button>
-          )}
-        </div>
-      </div>
+      <FilterToolbar
+        search={searchTerm}
+        onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1) }}
+        searchPlaceholder="بحث برقم الفاتورة..."
+        preset={preset}
+        onPresetChange={(p) => { setPreset(p); setCurrentPage(1) }}
+        from={from}
+        to={to}
+        onFromChange={(v) => { setFrom(v); setCurrentPage(1) }}
+        onToChange={(v) => { setTo(v); setCurrentPage(1) }}
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
-      <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
-        <div className="relative w-full sm:max-w-xs">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value)
-              setCurrentPage(1)
-            }}
-            placeholder="بحث برقم الفاتورة..."
-            className="app-input text-sm pe-9 font-mono"
-            dir="ltr"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm('')
-                setCurrentPage(1)
-              }}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              aria-label="مسح البحث"
-            >
-              ×
-            </button>
-          )}
-        </div>
-        {searchTerm.trim() && (
-          <span className="text-xs text-slate-500">
-            عرض {filteredInvoices.length} من {invoices.length}
-          </span>
-        )}
-      </div>
-
+      <ResponsiveDataView
+        loading={invoicesLoading}
+        error={invoicesError ? 'تعذّر تحميل الفواتير النقدية. أعد المحاولة لاحقاً.' : undefined}
+        hasData={filteredInvoices.length > 0}
+        empty="لا توجد فواتير نقدية مطابقة للفلاتر الحالية."
+        table={(
+      <>
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
@@ -504,10 +521,10 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
             <tfoot>
               <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-200">
                 <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={6}>
-                  {searchTerm.trim() ? 'إجمالي نتائج البحث' : 'الإجمالي الكلي للنقدي'}
+                  {hasActiveFilters ? 'إجمالي نتائج البحث' : 'الإجمالي الكلي للنقدي'}
                 </td>
                 <td className="px-3.5 py-3 text-center text-emerald-800 font-mono text-base font-extrabold whitespace-nowrap tabular-nums">
-                  {formatNumber(searchTerm.trim() ? filteredTotal : total)} ج.م
+                  {formatNumber(filteredTotal)} ج.م
                 </td>
                 {!isReadOnly && <td />}
               </tr>
@@ -577,19 +594,9 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
       />
-
-      {filteredInvoices.length === 0 && (
-        <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">
-          <h3 className="text-slate-700 font-bold text-base mb-1">
-            {searchTerm.trim() ? 'لا توجد نتائج مطابقة لرقم الفاتورة' : 'لا توجد فواتير نقدية مسجلة'}
-          </h3>
-          <p className="text-slate-500 text-xs max-w-sm mx-auto">
-            {searchTerm.trim()
-              ? 'تأكد من رقم الفاتورة أو امسح البحث لعرض كل الفواتير.'
-              : 'لم يتم إنشاء أي فواتير نقدية لهذا العرض حتى الآن. يمكنك إضافة فاتورة جديدة بالضغط على الزر أعلاه.'}
-          </p>
-        </div>
-      )}
+      </>
+        )}
+      />
 
       {editing && (
         <CashInvoiceModal
@@ -608,3 +615,6 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
     </div>
   )
 }
+
+
+

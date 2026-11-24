@@ -1,29 +1,29 @@
-import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import SupplierDirectoryTab from '@/features/suppliers/SupplierDirectoryTab'
 import SupplierPurchasesTab from '@/features/suppliers/SupplierPurchasesTab'
 import SupplierPaymentsTab from '@/features/suppliers/SupplierPaymentsTab'
 import SupplierStatementTab from '@/features/suppliers/SupplierStatementTab'
+import PageHeader from '@/shared/ui/PageHeader'
 
 type SuppliersSubTab = 'directory' | 'purchases' | 'payments' | 'statement'
 
 const tabs: { id: SuppliersSubTab; label: string }[] = [
-  { id: 'directory', label: 'الموردين' },
+  { id: 'directory', label: 'دليل الموردين' },
   { id: 'purchases', label: 'مشتريات الموردين' },
   { id: 'payments', label: 'مدفوعات الموردين' },
   { id: 'statement', label: 'كشف حساب مورد' },
 ]
 
-export default function SuppliersTab({ showToast }: { showToast: (msg: string) => void }) {
+export default function SuppliersTab({ showToast, createSignal }: { showToast: (msg: string) => void; createSignal?: number }) {
   const [activeTab, setActiveTab] = useState<SuppliersSubTab>('directory')
+  useEffect(() => { if (createSignal) setActiveTab('purchases') }, [createSignal])
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-slate-800">إدارة الموردين</h2>
-          <p className="text-xs text-slate-500 mt-0.5">إدارة بيانات الموردين والمشتريات والمدفوعات وكشوف الحساب من مكان واحد.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="إدارة الموردين"
+        subtitle="إدارة بيانات الموردين والمشتريات والمدفوعات وكشوف الحساب من مكان واحد."
+      />
 
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
         {tabs.map((tab) => {
@@ -46,7 +46,7 @@ export default function SuppliersTab({ showToast }: { showToast: (msg: string) =
       </div>
 
       {activeTab === 'directory' && <SupplierDirectoryTab showToast={showToast} />}
-      {activeTab === 'purchases' && <SupplierPurchasesTab showToast={showToast} />}
+      {activeTab === 'purchases' && <SupplierPurchasesTab showToast={showToast} createSignal={createSignal} />}
       {activeTab === 'payments' && <SupplierPaymentsTab showToast={showToast} />}
       {activeTab === 'statement' && <SupplierStatementTab />}
     </div>

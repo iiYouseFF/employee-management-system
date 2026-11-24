@@ -1,11 +1,16 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo, useEffect } from 'react'
 import { getTodayISO, formatNumber } from '@/shared/lib/format'
 import Modal from '@/shared/ui/Modal'
-import SearchableCustomer from '@/features/sales/SearchableCustomer'
+import SearchableSelect from '@/shared/ui/SearchableSelect'
+import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import InvoiceLineEditor, { type LineItem } from '@/features/sales/InvoiceLineEditor'
 import { createEmptyInvoiceLine, isMeaningfulInvoiceLine } from '@/features/sales/invoiceLineUtils'
 import BulkProductMatrixModal, { type BulkMatrixLine } from '@/features/sales/BulkProductMatrixModal'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import { useDatePreset } from '@/shared/hooks/useDatePreset'
 import {
   useCreditInvoices,
   useCustomers,
@@ -47,6 +52,15 @@ function CreditInvoiceModal({
   )
 
   const save = useSaveCreditInvoice()
+  const { data: allCreditInvoices = [] } = useCreditInvoices()
+
+  // Live outstanding balance per customer (excluding the invoice being edited).
+  const balanceById: Record<string, number> = {}
+  for (const inv of allCreditInvoices as Record<string, unknown>[]) {
+    const id = String(inv.customer_id || '')
+    if (!id || inv.status === 'cancelled' || inv.id === invoice.id) continue
+    balanceById[id] = (balanceById[id] || 0) + Number(inv.remaining || 0)
+  }
 
   const [form, setForm] = useState({
     date: (invoice.date as string) || getTodayISO(),
@@ -150,7 +164,17 @@ function CreditInvoiceModal({
     }
   }
 
-  const grandTotal = lines.filter(isMeaningfulInvoiceLine).reduce((s, l) => s + (l.line_total || 0), 0)
+  const meaningfulLines = lines.filter(isMeaningfulInvoiceLine)
+  const grandTotal = meaningfulLines.reduce((s, l) => s + (l.line_total || 0), 0)
+  const itemCount = meaningfulLines.length
+  const totalQty = meaningfulLines.reduce((s, l) => s + (Number(l.qty) || 0), 0)
+  const liveBalance = Number(balanceById[form.customer_id] || 0)
+  const customerOptions = toSearchableOptions(customers).map((option) => ({
+    ...option,
+    meta: balanceById[option.value]
+      ? <span className="font-bold tabular-nums text-primary-700">المتبقي: {formatNumber(balanceById[option.value])} ج.م</span>
+      : undefined,
+  }))
 
   if (isEdit && linesLoading) {
     return (
@@ -168,6 +192,30 @@ function CreditInvoiceModal({
       subtitle="نظّم بيانات الفاتورة والذمم والأصناف في أقسام واضحة."
       size="full"
       onClose={save.isPending ? () => {} : onClose}
+      footer={
+        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-semibold text-slate-600">
+            <span>عدد الأصناف: <span className="num text-slate-900">{itemCount}</span></span>
+            <span>إجمالي الكمية: <span className="num text-slate-900">{formatNumber(totalQty)}</span></span>
+            <span>المتبقي بعد الدفعة: <span className="num font-bold text-rose-700">{formatNumber(Math.max(0, grandTotal - Number(form.paid)))}</span></span>
+            <span className="flex items-center gap-1.5">الإجمالي الكلي:
+              <span className="num font-extrabold text-[18px] text-primary-700">{formatNumber(grandTotal)} ج.م</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={onClose} disabled={save.isPending} className="app-btn app-btn-ghost px-4 text-xs">إلغاء</button>
+            <button type="button" onClick={(e) => handleSubmit(e, 'draft')} disabled={save.isPending} className="app-btn app-btn-ghost border-amber-300 text-amber-800 hover:bg-amber-50 px-4 text-xs font-bold">حفظ كمسودة</button>
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, 'confirmed')}
+              disabled={save.isPending}
+              className="app-btn app-btn-primary px-5 text-xs font-bold"
+            >
+              {save.isPending ? 'جارٍ الحفظ...' : isEdit ? 'تحديث وتأكيد الصرف' : 'تأكيد وصرف'}
+            </button>
+          </div>
+        </div>
+      }
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <section className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5 space-y-4">
@@ -188,19 +236,23 @@ function CreditInvoiceModal({
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">العميل</label>
-            <SearchableCustomer
-              customers={customers as { id: string; name: string }[]}
-              value={form.customer_id || null}
-              onChange={(id) => setField('customer_id', id ?? '')}
+            <SearchableSelect
+              options={customerOptions}
+              value={form.customer_id || ''}
+              onChange={(id) => setField('customer_id', id)}
+              placeholder="ابحث عن عميل بالاسم أو الهاتف..."
+              searchPlaceholder="ابحث عن عميل بالاسم أو الهاتف..."
             />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">المندوب *</label>
-            <select value={form.rep_id} onChange={(e) => setField('rep_id', e.target.value)}
-              className="app-select text-xs" required>
-              <option value="">اختر المندوب</option>
-              {reps.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+            <SearchableSelect
+              options={toSearchableOptions(reps)}
+              value={form.rep_id || ''}
+              onChange={(id) => setField('rep_id', id)}
+              placeholder="اختر المندوب"
+              searchPlaceholder="ابحث عن مندوب..."
+            />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ الاستحقاق</label>
@@ -218,6 +270,12 @@ function CreditInvoiceModal({
               className="app-input text-xs" placeholder="بيان الأصناف أو ملاحظات..." />
           </div>
           </div>
+          {form.customer_id && (
+            <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs font-bold text-primary-800 flex flex-wrap items-center justify-between gap-2">
+              <span>رصيد العميل الحالي (الآجل غير المسدد)</span>
+              <span className="num font-extrabold text-[13px]">{formatNumber(liveBalance)} ج.م</span>
+            </div>
+          )}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
@@ -241,63 +299,11 @@ function CreditInvoiceModal({
           )}
         </section>
 
-        {/* Grand total & Remaining summary */}
-        {grandTotal > 0 && (
-          <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-            <div>
-              <span className="text-xs text-slate-500 font-medium">المتبقي الآجل: </span>
-              <span className="font-mono font-bold text-rose-700 text-sm">
-                {formatNumber(Math.max(0, grandTotal - Number(form.paid)))} ج.م
-              </span>
-            </div>
-            <div>
-              <span className="text-xs text-slate-500 font-medium">إجمالي الفاتورة: </span>
-              <span className="font-mono font-extrabold text-slate-900 text-base">
-                {formatNumber(grandTotal)} ج.م
-              </span>
-            </div>
-          </div>
-        )}
-
         {err && (
           <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm text-rose-700 font-medium">
             {err}
           </div>
         )}
-
-        <div className="flex gap-2 pt-1 flex-wrap">
-          <button
-            type="button"
-            onClick={(e) => handleSubmit(e, 'confirmed')}
-            disabled={save.isPending}
-            className="app-btn app-btn-primary flex-1 py-2 text-xs font-bold"
-          >
-            {save.isPending ? (
-              <span className="inline-flex items-center gap-2">
-                <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                جاري الحفظ...
-              </span>
-            ) : isEdit ? 'تحديث وتأكيد الصرف' : 'تأكيد وصرف (Confirmed)'}
-          </button>
-
-          <button
-            type="button"
-            onClick={(e) => handleSubmit(e, 'draft')}
-            disabled={save.isPending}
-            className="app-btn app-btn-ghost border-amber-300 text-amber-800 hover:bg-amber-50 py-2 text-xs font-bold"
-          >
-            حفظ كمسودة (حجز فقط)
-          </button>
-
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={save.isPending}
-            className="app-btn app-btn-ghost px-5 py-2 text-xs"
-          >
-            إلغاء
-          </button>
-        </div>
       </form>
 
       {bulkMatrixOpen && (
@@ -313,13 +319,15 @@ function CreditInvoiceModal({
 }
 
 // ─── Main CreditTab ──────────────────────────────────────────────────────────
-export default function CreditTab({ repFilter, reps, showToast, isReadOnly = false }: {
+export default function CreditTab({ repFilter, reps, showToast, isReadOnly = false, createSignal, onSignalHandled }: {
   repFilter: string
   reps: { id: string; name: string }[]
   showToast: (msg: string) => void
   isReadOnly?: boolean
+  createSignal?: number
+  onSignalHandled?: () => void
 }) {
-  const { data: invoices = [] } = useCreditInvoices(repFilter)
+  const { data: invoices = [], isLoading: invoicesLoading, error: invoicesError } = useCreditInvoices(repFilter)
   const { data: allInvoices = [] } = useCreditInvoices()
   const { data: customers = [] } = useCustomers()
   const { data: products = [] } = useProducts()
@@ -330,6 +338,7 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
   for (const r of stockRows) stockMap[r.product_id] = Number(r.on_hand)
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
+  useEffect(() => { if (createSignal) { openNew(); onSignalHandled?.() } }, [createSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const nextInvoiceNo = () => {
     const used = new Set(allInvoices.map((inv: any) => inv.invoice_no))
@@ -389,25 +398,19 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
     return <span className="badge badge-danger">غير مسدد</span>
   }
 
-  const totals = invoices.reduce(
-    (acc: any, inv: any) => {
-      acc.amount += parseFloat(inv.amount || 0)
-      acc.paid += parseFloat(inv.paid || 0) + parseFloat(inv.linked_payments || 0)
-      acc.remaining += parseFloat(inv.remaining || 0)
-      return acc
-    },
-    { amount: 0, paid: 0, remaining: 0 }
-  )
-
   const [searchTerm, setSearchTerm] = useState('')
+  const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
 
   const filteredInvoices = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
-    if (!term) return invoices as any[]
-    return (invoices as any[]).filter((inv) =>
-      String(inv.invoice_no || '').toLowerCase().includes(term)
-    )
-  }, [invoices, searchTerm])
+    return (invoices as any[]).filter((inv) => {
+      const date = String(inv.date || '')
+      if (from && date < from) return false
+      if (to && date > to) return false
+      if (!term) return true
+      return String(inv.invoice_no || '').toLowerCase().includes(term)
+    })
+  }, [invoices, searchTerm, from, to])
 
   const filteredTotals = filteredInvoices.reduce(
     (acc: any, inv: any) => {
@@ -429,75 +432,57 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
     return filteredInvoices.slice(start, start + pageSize)
   }, [filteredInvoices, currentPage, pageSize])
 
+  const hasActiveFilters = !!searchTerm.trim() || !!from || !!to
+  const resetFilters = () => {
+    setSearchTerm('')
+    reset()
+    setCurrentPage(1)
+  }
+
   return (
-    <div>
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-slate-800">سجل فواتير البيع الآجل (الذمم المدينة)</h2>
-          <span className="badge badge-primary">{filteredInvoices.length} فاتورة</span>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-700 shadow-sm">
-            <span>{searchTerm.trim() ? 'إجمالي نتائج البحث:' : 'إجمالي الآجل:'}</span>
-            <span className="font-extrabold text-slate-900 font-mono text-sm sm:text-base tabular-nums">
-              {formatNumber((searchTerm.trim() ? filteredTotals : totals).amount)} ج.م
-            </span>
+    <div className="app-page space-y-5">
+      <PageHeader
+        title="سجل فواتير البيع الآجل (الذمم المدينة)"
+        subtitle="تابع الفواتير والذمم المدينة والمدفوعات والمتبقي لكل عميل."
+        count={`${filteredInvoices.length} فاتورة`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
+              <span>إجمالي الآجل:</span>
+              <span className="num font-extrabold text-sm">{formatNumber(filteredTotals.amount)} ج.م</span>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
+              <span>المتبقي:</span>
+              <span className="num font-extrabold text-sm">{formatNumber(filteredTotals.remaining)} ج.م</span>
+            </div>
+            {!isReadOnly && (
+              <button type="button" onClick={openNew} className="app-btn app-btn-primary">+ فاتورة آجلة جديدة</button>
+            )}
           </div>
+        }
+      />
 
-          <div className="inline-flex items-center gap-2 bg-rose-50 border border-rose-200/80 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-rose-800 shadow-sm">
-            <span>المتبقي غير المسدد:</span>
-            <span className="font-extrabold text-rose-950 font-mono text-sm sm:text-base tabular-nums">
-              {formatNumber((searchTerm.trim() ? filteredTotals : totals).remaining)} ج.م
-            </span>
-          </div>
+      <FilterToolbar
+        search={searchTerm}
+        onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1) }}
+        searchPlaceholder="بحث برقم الفاتورة..."
+        preset={preset}
+        onPresetChange={(p) => { setPreset(p); setCurrentPage(1) }}
+        from={from}
+        to={to}
+        onFromChange={(v) => { setFrom(v); setCurrentPage(1) }}
+        onToChange={(v) => { setTo(v); setCurrentPage(1) }}
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
-          {!isReadOnly && (
-            <button
-              onClick={openNew}
-              className="app-btn app-btn-primary py-2 text-xs sm:text-sm shadow-sm"
-            >
-              <span>+</span>
-              <span>فاتورة آجلة جديدة</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2">
-        <div className="relative w-full sm:max-w-xs">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value)
-              setCurrentPage(1)
-            }}
-            placeholder="بحث برقم الفاتورة..."
-            className="app-input text-sm pe-9 font-mono"
-            dir="ltr"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm('')
-                setCurrentPage(1)
-              }}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              aria-label="مسح البحث"
-            >
-              ×
-            </button>
-          )}
-        </div>
-        {searchTerm.trim() && (
-          <span className="text-xs text-slate-500">
-            عرض {filteredInvoices.length} من {invoices.length}
-          </span>
-        )}
-      </div>
-
+      <ResponsiveDataView
+        loading={invoicesLoading}
+        error={invoicesError ? 'تعذّر تحميل الفواتير الآجلة. أعد المحاولة لاحقاً.' : undefined}
+        hasData={filteredInvoices.length > 0}
+        empty="لا توجد فواتير آجلة مطابقة للفلاتر الحالية."
+        table={(
+      <>
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
@@ -580,17 +565,17 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
             <tfoot>
               <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-200">
                 <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={6}>
-                  {searchTerm.trim() ? 'إجمالي نتائج البحث' : 'الإجمالي'}
+                  {hasActiveFilters ? 'إجمالي نتائج البحث' : 'الإجمالي'}
                 </td>
                 <td className="px-3.5 py-3 text-center text-slate-900 font-mono text-sm font-extrabold whitespace-nowrap tabular-nums">
-                  {formatNumber((searchTerm.trim() ? filteredTotals : totals).amount)}
+                  {formatNumber(filteredTotals.amount)}
                 </td>
                 <td className="px-3.5 py-3"></td>
                 <td className="px-3.5 py-3 text-center text-emerald-800 font-mono text-sm font-extrabold whitespace-nowrap tabular-nums">
-                  {formatNumber((searchTerm.trim() ? filteredTotals : totals).paid)}
+                  {formatNumber(filteredTotals.paid)}
                 </td>
                 <td className="px-3.5 py-3 text-center text-rose-800 font-mono text-sm font-extrabold whitespace-nowrap tabular-nums">
-                  {formatNumber((searchTerm.trim() ? filteredTotals : totals).remaining)}
+                  {formatNumber(filteredTotals.remaining)}
                 </td>
                 <td colSpan={!isReadOnly ? 2 : 1}></td>
               </tr>
@@ -678,19 +663,9 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
       />
-
-      {filteredInvoices.length === 0 && (
-        <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">
-          <h3 className="text-slate-700 font-bold text-base mb-1">
-            {searchTerm.trim() ? 'لا توجد نتائج مطابقة لرقم الفاتورة' : 'لا توجد فواتير آجلة مسجلة'}
-          </h3>
-          <p className="text-slate-500 text-xs max-w-sm mx-auto">
-            {searchTerm.trim()
-              ? 'تأكد من رقم الفاتورة أو امسح البحث لعرض كل الفواتير.'
-              : 'لم يتم تسجيل أي فواتير بيع آجل حتى الآن. يمكنك إضافة فاتورة جديدة بالضغط على الزر أعلاه.'}
-          </p>
-        </div>
-      )}
+      </>
+        )}
+      />
 
       {editing && (
         <CreditInvoiceModal
@@ -709,3 +684,6 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
     </div>
   )
 }
+
+
+

@@ -8,6 +8,10 @@ import {
 import { formatNumber, getTodayISO } from '@/shared/lib/format'
 import FormModal from '@/shared/ui/FormModal'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import { useDatePreset } from '@/shared/hooks/useDatePreset'
 
 const categories = [
   'إيجار',
@@ -20,22 +24,27 @@ const categories = [
 ]
 
 export default function ExpensesTab({ showToast }: any) {
-  const { data: expenses = [] } = useExpenses()
+  const { data: expenses = [], isLoading, error } = useExpenses()
   const addExpense = useAddExpense()
   const updateExpense = useUpdateExpense()
   const deleteExpense = useDeleteExpense()
   const [searchTerm, setSearchTerm] = useState('')
+  const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
   const [editing, setEditing] = useState<any | null>(null)
 
   const filteredExpenses = useMemo(() => {
-    if (!searchTerm.trim()) return expenses
-    const term = searchTerm.toLowerCase().trim()
-    return expenses.filter(
-      (e: any) =>
+    const term = searchTerm.trim().toLowerCase()
+    return expenses.filter((e: any) => {
+      const date = String(e.date || '')
+      if (from && date < from) return false
+      if (to && date > to) return false
+      if (!term) return true
+      return (
         e.category.toLowerCase().includes(term) ||
         (e.description && e.description.toLowerCase().includes(term))
-    )
-  }, [expenses, searchTerm])
+      )
+    })
+  }, [expenses, searchTerm, from, to])
 
   const total = useMemo(
     () => filteredExpenses.reduce((sum: number, e: any) => sum + Number(e.amount), 0),
@@ -51,6 +60,13 @@ export default function ExpensesTab({ showToast }: any) {
     const start = (currentPage - 1) * pageSize
     return filteredExpenses.slice(start, start + pageSize)
   }, [filteredExpenses, currentPage, pageSize])
+
+  const hasActiveFilters = !!searchTerm.trim() || !!from || !!to
+  const resetFilters = () => {
+    setSearchTerm('')
+    reset()
+    setCurrentPage(1)
+  }
 
   const openNew = () => {
     setEditing({ date: getTodayISO(), category: '', amount: '', description: '' })
@@ -101,45 +117,58 @@ export default function ExpensesTab({ showToast }: any) {
   }
 
   return (
-    <div>
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-slate-800">المصاريف التشغيلية</h2>
-          <span className="badge badge-primary">{filteredExpenses.length} مصروف</span>
-          <span className="badge badge-danger">
-            إجمالي: {formatNumber(total)} ج.م
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative min-w-[240px] sm:w-72">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="بحث بنوع المصروف أو الوصف..."
-              className="app-input py-2 text-xs sm:text-sm"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            )}
+    <div className="space-y-5">
+      <PageHeader
+        title="المصاريف التشغيلية"
+        count={`${filteredExpenses.length} مصروف`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="badge badge-danger">
+              إجمالي: {formatNumber(total)} ج.م
+            </span>
+            <button
+              onClick={openNew}
+              className="app-btn app-btn-primary py-2 text-xs sm:text-sm"
+            >
+              <span>+</span>
+              <span>إضافة مصروف</span>
+            </button>
           </div>
+        }
+      />
 
-          <button
-            onClick={openNew}
-            className="app-btn app-btn-primary py-2 text-xs sm:text-sm"
-          >
-            <span>+</span>
-            <span>إضافة مصروف</span>
-          </button>
-        </div>
-      </div>
+      <FilterToolbar
+        search={searchTerm}
+        onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1) }}
+        searchPlaceholder="بحث بنوع المصروف أو الوصف..."
+        preset={preset}
+        onPresetChange={(p) => { setPreset(p); setCurrentPage(1) }}
+        from={from}
+        to={to}
+        onFromChange={(v) => { setFrom(v); setCurrentPage(1) }}
+        onToChange={(v) => { setTo(v); setCurrentPage(1) }}
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
+      <ResponsiveDataView
+        loading={isLoading}
+        error={error ? 'تعذّر تحميل المصروفات. أعد المحاولة لاحقاً.' : undefined}
+        hasData={filteredExpenses.length > 0}
+        empty={
+          <div className="space-y-1">
+            <p className="font-bold text-slate-700">
+              {hasActiveFilters ? 'لا توجد نتائج مطابقة لبحثك' : 'لا توجد مصروفات مسجلة بعد'}
+            </p>
+            <p className="text-xs text-slate-500">
+              {hasActiveFilters
+                ? 'تأكد من كتابة نوع المصروف أو وصفه بشكل صحيح، أو أعد ضبط شروط البحث.'
+                : 'سجّل المصروفات التشغيلية لتظهر في حساب التدفق النقدي ولوحة المؤشرات.'}
+            </p>
+          </div>
+        }
+        table={(
+          <>
       {/* Desktop Expenses Table */}
       <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
@@ -240,28 +269,22 @@ export default function ExpensesTab({ showToast }: any) {
         ))}
       </div>
 
-      {/* Pagination Component */}
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalItems={filteredExpenses.length}
-        pageSize={pageSize}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
+          </>
+        )}
+        footer={
+          <>
+            {/* Pagination Component */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredExpenses.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
+          </>
+        }
       />
-
-      {filteredExpenses.length === 0 && (
-        <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">
-          <h3 className="text-slate-700 font-bold text-base mb-1">
-            {searchTerm ? 'لا توجد نتائج مطابقة لبحثك' : 'لا توجد مصروفات مسجلة بعد'}
-          </h3>
-          <p className="text-slate-500 text-xs max-w-sm mx-auto">
-            {searchTerm
-              ? 'تأكد من كتابة نوع المصروف أو وصفه بشكل صحيح، أو أعد ضبط شروط البحث.'
-              : 'سجّل المصروفات التشغيلية لتظهر في حساب التدفق النقدي ولوحة المؤشرات.'}
-          </p>
-        </div>
-      )}
 
       {editing && (
         <FormModal

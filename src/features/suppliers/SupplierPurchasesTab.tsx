@@ -1,95 +1,193 @@
-import { useMemo, useState } from 'react'
-import FormModal from '@/shared/ui/FormModal'
+﻿import { useEffect, useMemo, useState } from 'react'
 import Pagination from '@/shared/ui/Pagination'
-import { formatNumber, getTodayISO } from '@/shared/lib/format'
-import { useAddSupplierPurchase, useSupplierPurchases, useSuppliers } from '@/features/suppliers/useSuppliers'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import { useDatePreset } from '@/shared/hooks/useDatePreset'
+import { formatNumber } from '@/shared/lib/format'
+import SupplierPurchaseModal from '@/features/suppliers/SupplierPurchaseModal'
+import { useProducts } from '@/features/products/useProducts'
+import {
+  useDeleteSupplierPurchase,
+  useSupplierPurchaseLines,
+  useSupplierPurchases,
+  useSuppliers,
+} from '@/features/suppliers/useSuppliers'
 
-interface Props { showToast: (msg: string) => void }
+interface Props { showToast: (msg: string) => void; createSignal?: number; onSignalHandled?: () => void }
 
-const emptyPurchase = () => ({
-  supplier_id: '',
-  purchase_date: getTodayISO(),
-  invoice_no: '',
-  payment_type: 'credit',
-  total_amount: '',
-  notes: '',
-})
+const EMPTY_LIST: never[] = []
 
-export default function SupplierPurchasesTab({ showToast }: Props) {
-  const { data: suppliers = [] } = useSuppliers()
-  const { data: purchases = [] } = useSupplierPurchases()
-  const addPurchase = useAddSupplierPurchase()
-  const [purchaseForm, setPurchaseForm] = useState<Record<string, unknown> | null>(null)
+export default function SupplierPurchasesTab({ showToast, createSignal, onSignalHandled }: Props) {
+  const suppliersQuery = useSuppliers()
+  const purchasesQuery = useSupplierPurchases()
+  const productsQuery = useProducts()
+  const deletePurchase = useDeleteSupplierPurchase()
+
+  const suppliers = suppliersQuery.data ?? EMPTY_LIST
+  const purchases = purchasesQuery.data ?? EMPTY_LIST
+  const products = productsQuery.data ?? EMPTY_LIST
+
+  const [isModalOpen, setModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const linesQuery = useSupplierPurchaseLines(editingId)
+  const [searchTerm, setSearchTerm] = useState('')
+  const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(15)
+  useEffect(() => { if (createSignal) { openNew(); onSignalHandled?.() } }, [createSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const supplierOptions = useMemo(() => suppliers.map((s) => ({ value: s.id, label: s.name })), [suppliers])
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name || '-'
+  const editingPurchase = useMemo(
+    () => purchases.find((p) => p.id === editingId) || null,
+    [purchases, editingId],
+  )
 
-  const totalPages = Math.ceil(purchases.length / pageSize) || 1
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return purchases.slice(start, start + pageSize)
-  }, [purchases, currentPage, pageSize])
-
-  const handleSubmitPurchase = async (values: Record<string, unknown>) => {
-    await addPurchase.mutateAsync({
-      supplier_id: String(values.supplier_id),
-      purchase_date: String(values.purchase_date || getTodayISO()),
-      invoice_no: String(values.invoice_no || '').trim() || null,
-      payment_type: String(values.payment_type),
-      total_amount: Number(values.total_amount),
-      notes: String(values.notes || '').trim() || null,
+  const filteredPurchases = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    return purchases.filter((p) => {
+      const date = String(p.purchase_date || '')
+      if (from && date < from) return false
+      if (to && date > to) return false
+      if (!term) return true
+      const supplier = suppliers.find((s) => s.id === p.supplier_id)
+      return [supplier?.name || '-', p.invoice_no, p.payment_type === 'cash' ? 'نقدي' : 'آجل', p.notes]
+        .some((value) => String(value || '').toLowerCase().includes(term))
     })
-    showToast('تم تسجيل فاتورة المشتريات بنجاح')
-    setPurchaseForm(null)
+  }, [purchases, suppliers, searchTerm, from, to])
+
+  const hasActiveFilters = !!searchTerm.trim() || !!from || !!to
+  const resetFilters = () => {
+    setSearchTerm('')
+    reset()
+    setCurrentPage(1)
+  }
+
+  const totalPages = Math.ceil(filteredPurchases.length / pageSize) || 1
+  const safePage = Math.min(currentPage, totalPages)
+  const paginated = useMemo(() => {
+    const start = (safePage - 1) * pageSize
+    return filteredPurchases.slice(start, start + pageSize)
+  }, [filteredPurchases, safePage, pageSize])
+
+  const openNew = () => {
+    setEditingId(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (id: string) => {
+    setEditingId(id)
+    setModalOpen(true)
+  }
+
+  const handleDelete = async (purchase: (typeof purchases)[number]) => {
+    if (!confirm(`هل أنت متأكد من حذف فاتورة المشتريات${purchase.invoice_no ? ` رقم ${purchase.invoice_no}` : ''}؟ سيتم خصم الأصناف من المخزون.`)) return
+    try {
+      await deletePurchase.mutateAsync(purchase.id)
+      showToast('تم حذف فاتورة المشتريات وخصم الأصناف من المخزون بنجاح')
+    } catch (err) {
+      showToast(`تعذر حذف فاتورة المشتريات: ${(err as Error)?.message || 'خطأ غير معروف'}`)
+    }
   }
 
   return (
-    <div>
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h3 className="text-base sm:text-lg font-bold text-slate-800">مشتريات الموردين</h3>
-          <span className="badge badge-primary">{purchases.length} عملية</span>
-        </div>
-        <button onClick={() => setPurchaseForm(emptyPurchase())} className="app-btn app-btn-primary py-2 text-xs sm:text-sm">+ تسجيل فاتورة مشتريات</button>
-      </div>
+    <div className="app-page space-y-5">
+      <PageHeader
+        title="مشتريات الموردين"
+        count={`${filteredPurchases.length} عملية`}
+        actions={<button type="button" onClick={openNew} className="app-btn app-btn-primary py-2 text-xs sm:text-sm">
+          + تسجيل فاتورة مشتريات
+        </button>}
+      />
 
-      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
-        <table className="app-table">
-          <thead>
-            <tr>
-              <th className="w-12 text-center">#</th>
-              <th className="text-center">التاريخ</th>
-              <th>المورد</th>
-              <th className="text-center">رقم الفاتورة</th>
-              <th className="text-center">النوع</th>
-              <th className="text-center">الإجمالي</th>
-              <th>ملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.map((p, idx) => (
-              <tr key={p.id}>
-                <td className="text-center text-xs text-slate-400 font-mono">{purchases.length - ((currentPage - 1) * pageSize + idx)}</td>
-                <td className="text-center text-xs font-mono text-slate-600">{new Date(p.purchase_date).toLocaleDateString('ar-EG')}</td>
-                <td className="font-semibold text-slate-800">{supplierName(p.supplier_id)}</td>
-                <td className="text-center font-mono text-xs" dir="ltr">{p.invoice_no || '-'}</td>
-                <td className="text-center">
-                  <span className={`badge ${p.payment_type === 'cash' ? 'badge-success' : 'badge-warning'}`}>
-                    {p.payment_type === 'cash' ? 'نقدي' : 'آجل'}
-                  </span>
-                </td>
-                <td className="text-center font-mono font-bold tabular-nums">{formatNumber(Number(p.total_amount || 0))} <span className="text-[11px] font-normal text-slate-400">ج.م</span></td>
-                <td className="text-xs text-slate-500">{p.notes || '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <FilterToolbar
+        search={searchTerm}
+        onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1) }}
+        searchPlaceholder="بحث بالمورد أو رقم الفاتورة..."
+        preset={preset}
+        onPresetChange={(p) => { setPreset(p); setCurrentPage(1) }}
+        from={from}
+        to={to}
+        onFromChange={(v) => { setFrom(v); setCurrentPage(1) }}
+        onToChange={(v) => { setTo(v); setCurrentPage(1) }}
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
-      <div className="md:hidden space-y-3">
-        {paginated.map((p) => (
+      <p className="mb-3 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2 text-[11px] text-blue-800">
+        تسجيل الفاتورة هنا يضيف الأصناف إلى المخزون تلقائياً. لا تستخدم «استلام بضاعة» في المخزون إلا للبضاعة غير المرتبطة بفاتورة مورد.
+      </p>
+
+      <ResponsiveDataView
+        loading={purchasesQuery.isPending}
+        error={purchasesQuery.isError ? (
+          <div>
+            <p className="text-sm font-bold text-rose-700">تعذر تحميل مشتريات الموردين</p>
+            <button
+              type="button"
+              onClick={() => purchasesQuery.refetch()}
+              className="app-btn app-btn-sm app-btn-ghost mt-3"
+            >
+              إعادة المحاولة
+            </button>
+          </div>
+        ) : undefined}
+        hasData={filteredPurchases.length > 0}
+        empty={
+          <div>
+            <h3 className="text-slate-700 font-bold text-base mb-1">لا توجد مشتريات مسجلة</h3>
+            <p className="text-slate-500 text-xs max-w-sm mx-auto">سجل فاتورة مشتريات بأصنافها، وسيتم إضافة الكميات إلى المخزون تلقائياً.</p>
+          </div>
+        }
+        table={
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th className="w-12 text-center">#</th>
+                  <th className="text-center">التاريخ</th>
+                  <th>المورد</th>
+                  <th className="text-center">رقم الفاتورة</th>
+                  <th className="text-center">النوع</th>
+                  <th className="text-center">الإجمالي</th>
+                  <th>ملاحظات</th>
+                  <th className="text-center w-36">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map((p, idx) => (
+                  <tr key={p.id}>
+                    <td className="text-center text-xs text-slate-400 font-mono">{filteredPurchases.length - ((safePage - 1) * pageSize + idx)}</td>
+                    <td className="text-center text-xs font-mono text-slate-600">{new Date(p.purchase_date).toLocaleDateString('ar-EG')}</td>
+                    <td className="font-semibold text-slate-800">{supplierName(p.supplier_id)}</td>
+                    <td className="text-center font-mono text-xs" dir="ltr">{p.invoice_no || '-'}</td>
+                    <td className="text-center">
+                      <span className={`badge ${p.payment_type === 'cash' ? 'badge-success' : 'badge-warning'}`}>
+                        {p.payment_type === 'cash' ? 'نقدي' : 'آجل'}
+                      </span>
+                    </td>
+                    <td className="text-center font-mono font-bold tabular-nums">{formatNumber(Number(p.total_amount || 0))} <span className="text-[11px] font-normal text-slate-400">ج.م</span></td>
+                    <td className="text-xs text-slate-500">{p.notes || '-'}</td>
+                    <td>
+                      <div className="flex gap-1.5 justify-center">
+                        <button type="button" onClick={() => openEdit(p.id)} className="app-btn app-btn-sm app-btn-ghost text-xs">تعديل</button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p)}
+                          disabled={deletePurchase.isPending}
+                          className="app-btn app-btn-sm app-btn-danger text-xs"
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
+        cards={paginated.map((p) => (
           <div key={p.id} className="app-card p-3.5 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -102,44 +200,49 @@ export default function SupplierPurchasesTab({ showToast }: Props) {
               </div>
             </div>
             {p.invoice_no && <div className="text-xs text-slate-500">رقم الفاتورة: <span className="font-mono" dir="ltr">{p.invoice_no}</span></div>}
+            {p.notes && <div className="text-xs text-slate-500">{p.notes}</div>}
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+              <button type="button" onClick={() => openEdit(p.id)} className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs">تعديل</button>
+              <button
+                type="button"
+                onClick={() => handleDelete(p)}
+                disabled={deletePurchase.isPending}
+                className="app-btn app-btn-danger app-btn-sm flex-1 py-1.5 text-xs"
+              >
+                حذف
+              </button>
+            </div>
           </div>
         ))}
-      </div>
+        footer={<Pagination currentPage={safePage} totalPages={totalPages} totalItems={filteredPurchases.length} pageSize={pageSize} onPageChange={setCurrentPage} onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1) }} />}
+      />
 
-      <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={purchases.length} pageSize={pageSize} onPageChange={setCurrentPage} onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1) }} />
-
-      {purchases.length === 0 && (
-        <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">
-          <h3 className="text-slate-700 font-bold text-base mb-1">لا توجد مشتريات مسجلة</h3>
-          <p className="text-slate-500 text-xs max-w-sm mx-auto">سجل فواتير مشتريات الموردين النقدية والآجلة من هنا.</p>
+      {isModalOpen && editingId && linesQuery.isPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 text-sm font-bold text-white">
+          جارٍ تحميل أصناف الفاتورة...
         </div>
       )}
 
-      {purchaseForm && (
-        <FormModal
-          title="تسجيل فاتورة مشتريات"
-          initialValues={purchaseForm}
-          onClose={() => setPurchaseForm(null)}
-          onSubmit={handleSubmitPurchase}
-          submitLabel="تسجيل الفاتورة"
-          validate={(values) => {
-            if (!values.supplier_id) return 'اختر المورد'
-            if (!values.total_amount || Number(values.total_amount) <= 0) return 'قيمة الفاتورة يجب أن تكون أكبر من صفر'
-            return null
-          }}
-          fields={[
-            { name: 'supplier_id', label: 'المورد', type: 'select', required: true, placeholder: 'اختر المورد', options: supplierOptions, full: true },
-            { name: 'purchase_date', label: 'تاريخ الفاتورة', type: 'date', required: true },
-            {
-              name: 'payment_type', label: 'نوع الدفع', type: 'select', required: true,
-              options: [{ value: 'credit', label: 'آجل (على الحساب)' }, { value: 'cash', label: 'نقدي (مدفوع فورًا)' }],
-            },
-            { name: 'invoice_no', label: 'رقم الفاتورة', dir: 'ltr' },
-            { name: 'total_amount', label: 'قيمة الفاتورة (ج.م)', type: 'number', required: true, min: 0, step: '0.01' },
-            { name: 'notes', label: 'ملاحظات', type: 'textarea', full: true },
-          ]}
+      {isModalOpen && editingId && linesQuery.isError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="rounded-2xl bg-white p-6 text-center shadow-xl">
+            <p className="text-sm font-bold text-rose-700">تعذر تحميل أصناف الفاتورة</p>
+            <button type="button" onClick={() => setModalOpen(false)} className="app-btn app-btn-ghost app-btn-sm mt-3">إغلاق</button>
+          </div>
+        </div>
+      )}
+
+      {isModalOpen && (!editingId || linesQuery.data) && (
+        <SupplierPurchaseModal
+          purchase={editingPurchase}
+          lines={linesQuery.data || []}
+          suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+          products={products.map((p) => ({ id: p.id, name_ar: p.name_ar, sku: p.sku, unit: p.unit }))}
+          onClose={() => setModalOpen(false)}
+          onSaved={showToast}
         />
       )}
     </div>
   )
 }
+

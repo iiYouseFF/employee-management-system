@@ -13,13 +13,16 @@ import CategorySelect from '@/features/products/CategorySelect'
 import WhatsAppShareButton from '@/shared/ui/WhatsAppShareButton'
 import { printProductCatalog, shareProductCatalogWhatsApp } from '@/features/reporting/pdfGenerators'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 
 interface ProductsTabProps {
   isReadOnly?: boolean
 }
 
 export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
-  const { data: products = [], isLoading } = useProducts()
+  const { data: products = [], isLoading, error } = useProducts()
   const { data: settings } = useSettings()
   const addProduct = useAddProduct()
   const updateProduct = useUpdateProduct()
@@ -79,6 +82,14 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
     const start = (currentPage - 1) * pageSize
     return filteredProducts.slice(start, start + pageSize)
   }, [filteredProducts, currentPage, pageSize])
+
+  const hasActiveFilters = !!searchTerm.trim() || selectedCategory !== 'all'
+
+  const resetFilters = () => {
+    setSearchTerm('')
+    setSelectedCategory('all')
+    setCurrentPage(1)
+  }
 
   const openModal = (product?: Product) => {
     if (product) {
@@ -177,66 +188,70 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
   return (
     <div className="space-y-5" dir="rtl">
       {/* Header & Controls (Hidden when printing) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-slate-800">قائمة الأسعار والكتالوج المعتمد</h2>
-          <span className="badge badge-primary">{filteredProducts.length} صنف</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[200px]">
-            <input
-              type="text"
-              placeholder="بحث باسم الصنف أو SKU..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="app-input py-2 text-xs sm:text-sm"
-            />
-          </div>
-
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="app-select py-2 text-xs sm:text-sm w-auto"
-          >
-            <option value="all">جميع التصنيفات</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={handlePrintCatalog}
-            className="app-btn app-btn-ghost py-2 text-xs sm:text-sm flex items-center gap-1.5"
-            title="طباعة كتالوج ورقي منسق لمندوبي المبيعات"
-          >
-            <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            <span>طباعة القائمة (A4)</span>
-          </button>
-
-          <WhatsAppShareButton
-            onClick={handleShareWhatsApp}
-            loading={sharing}
-            label="مشاركة الكتالوج (PDF)"
-            title="مشاركة كتالوج المنتجات كملف PDF عبر واتساب"
-          />
-
-          {!isReadOnly && (
+      <PageHeader
+        title="قائمة الأسعار والكتالوج المعتمد"
+        count={`${filteredProducts.length} صنف`}
+        actions={
+          <>
             <button
-              onClick={() => openModal()}
-              className="app-btn app-btn-primary py-2 text-xs sm:text-sm shadow-sm"
+              onClick={handlePrintCatalog}
+              className="app-btn app-btn-ghost py-2 text-xs sm:text-sm flex items-center gap-1.5"
+              title="طباعة كتالوج ورقي منسق لمندوبي المبيعات"
             >
-              <span>+</span>
-              <span>إضافة صنف جديد</span>
+              <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+              <span>طباعة القائمة (A4)</span>
             </button>
-          )}
-        </div>
-      </div>
+
+            <WhatsAppShareButton
+              onClick={handleShareWhatsApp}
+              loading={sharing}
+              label="مشاركة الكتالوج (PDF)"
+              title="مشاركة كتالوج المنتجات كملف PDF عبر واتساب"
+            />
+
+            {!isReadOnly && (
+              <button
+                onClick={() => openModal()}
+                className="app-btn app-btn-primary py-2 text-xs sm:text-sm shadow-sm"
+              >
+                <span>+</span>
+                <span>إضافة صنف جديد</span>
+              </button>
+            )}
+          </>
+        }
+      />
+
+      <FilterToolbar
+        search={searchTerm}
+        onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1) }}
+        searchPlaceholder="بحث باسم الصنف أو SKU..."
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      >
+        <select
+          value={selectedCategory}
+          onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1) }}
+          className="app-select py-2 text-xs sm:text-sm w-auto"
+        >
+          <option value="all">جميع التصنيفات</option>
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </FilterToolbar>
 
       {/* Catalog screen header is handled by the unified print/PDF template */}
 
+      <ResponsiveDataView
+        loading={isLoading}
+        error={error ? 'تعذّر تحميل قائمة الأسعار. أعد المحاولة لاحقاً.' : undefined}
+        hasData={filteredProducts.length > 0}
+        empty="لا توجد أصناف مطابقة لشروط البحث أو التصنيف المختار."
+        table={(
+          <>
       {/* Desktop Products Table */}
       <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
         <table className="app-table">
@@ -416,17 +431,22 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
 
       {/* Printing uses the unified report template via printProductCatalog() */}
 
-      {/* Pagination Controls */}
-      <div>
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={filteredProducts.length}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          onPageSizeChange={setPageSize}
-        />
-      </div>
+          </>
+        )}
+        footer={
+          <div>
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredProducts.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
+          </div>
+        }
+      />
 
       {/* Modal for Add / Edit Product */}
       {modalOpen && (

@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import FormModal from '@/shared/ui/FormModal'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import SupplierStatementModal from '@/features/suppliers/SupplierStatementModal'
 import { formatNumber } from '@/shared/lib/format'
 import {
@@ -17,9 +20,9 @@ interface Props {
 }
 
 export default function SupplierDirectoryTab({ showToast }: Props) {
-  const { data: suppliers = [] } = useSuppliers()
-  const { data: purchases = [] } = useSupplierPurchases()
-  const { data: payments = [] } = useSupplierPayments()
+  const { data: suppliers = [], isPending: suppliersPending, isError: suppliersError, refetch: refetchSuppliers } = useSuppliers()
+  const { data: purchases = [], isPending: purchasesPending } = useSupplierPurchases()
+  const { data: payments = [], isPending: paymentsPending } = useSupplierPayments()
   const addSupplier = useAddSupplier()
   const updateSupplier = useUpdateSupplier()
   const deleteSupplier = useDeleteSupplier()
@@ -103,68 +106,78 @@ export default function SupplierDirectoryTab({ showToast }: Props) {
   }
 
   return (
-    <div>
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h3 className="text-base sm:text-lg font-bold text-slate-800">دليل الموردين</h3>
-          <span className="badge badge-primary">{filteredSuppliers.length} مورد</span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative min-w-[240px] sm:w-64">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
-              placeholder="بحث باسم المورد أو رقم الهاتف..."
-              className="app-input py-2 text-xs sm:text-sm"
-            />
+    <div className="app-page space-y-5">
+      <PageHeader
+        title="دليل الموردين"
+        count={`${filteredSuppliers.length} مورد`}
+        actions={<button type="button" onClick={openNew} className="app-btn app-btn-primary py-2 text-xs sm:text-sm">+ إضافة مورد جديد</button>}
+      />
+
+      <FilterToolbar
+        search={searchTerm}
+        onSearchChange={(v) => { setSearchTerm(v); setCurrentPage(1) }}
+        searchPlaceholder="بحث باسم المورد أو رقم الهاتف..."
+        onReset={() => { setSearchTerm(''); setCurrentPage(1) }}
+        hasActiveFilters={!!searchTerm.trim()}
+      />
+
+      <ResponsiveDataView
+        loading={suppliersPending || purchasesPending || paymentsPending}
+        error={suppliersError ? (
+          <div>
+            <p className="text-sm font-bold text-rose-700">تعذر تحميل الموردين</p>
+            <button type="button" onClick={() => refetchSuppliers()} className="app-btn app-btn-sm app-btn-ghost mt-3">إعادة المحاولة</button>
           </div>
-          <button onClick={openNew} className="app-btn app-btn-primary py-2 text-xs sm:text-sm">+ إضافة مورد جديد</button>
-        </div>
-      </div>
-
-      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
-        <table className="app-table">
-          <thead>
-            <tr>
-              <th className="w-12 text-center">#</th>
-              <th>اسم المورد</th>
-              <th className="text-center">رقم الهاتف</th>
-              <th className="text-center">رصيد أول المدة</th>
-              <th className="text-center">المستحق الحالي</th>
-              <th className="text-center">تاريخ الإضافة</th>
-              <th className="text-center w-52">الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedSuppliers.map((supplier, idx) => {
-              const balance = balances.get(supplier.id) ?? 0
-              return (
-                <tr key={supplier.id}>
-                  <td className="text-center text-xs text-slate-400 font-mono">{filteredSuppliers.length - ((currentPage - 1) * pageSize + idx)}</td>
-                  <td className="font-semibold text-slate-900">
-                    <button onClick={() => setStatementSupplier(supplier)} className="text-start font-bold text-primary-700 hover:text-primary-800 hover:underline">{supplier.name}</button>
-                  </td>
-                  <td className="text-center text-slate-600 text-sm font-mono" dir="ltr">{supplier.phone || '-'}</td>
-                  <td className="text-center font-mono text-xs text-slate-500 tabular-nums">{formatNumber(Number(supplier.opening_balance || 0))}</td>
-                  <td className="text-center font-mono font-bold tabular-nums"><span className={balance > 0 ? 'text-rose-700' : 'text-emerald-700'}>{formatNumber(balance)}</span> <span className="text-[11px] font-normal text-slate-400">ج.م</span></td>
-                  <td className="text-center text-xs text-slate-500">{new Date(supplier.created_at).toLocaleDateString('ar-EG')}</td>
-                  <td>
-                    <div className="flex gap-1.5 justify-center">
-                      <button onClick={() => setStatementSupplier(supplier)} className="app-btn app-btn-sm app-btn-success text-xs font-bold">كشف حساب</button>
-                      <button onClick={() => openEdit(supplier as unknown as Record<string, unknown>)} className="app-btn app-btn-sm app-btn-ghost text-xs">تعديل</button>
-                      <button onClick={() => handleDelete(supplier as unknown as Record<string, unknown>)} className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600">حذف</button>
-                    </div>
-                  </td>
+        ) : undefined}
+        hasData={filteredSuppliers.length > 0}
+        empty={
+          <div>
+            <h3 className="text-slate-700 font-bold text-base mb-1">{searchTerm ? 'لا توجد نتائج مطابقة لبحثك' : 'لا يوجد موردين مسجلين بعد'}</h3>
+            <p className="text-slate-500 text-xs max-w-sm mx-auto">أضف الموردين لمتابعة المشتريات والمدفوعات وكشوف الحساب.</p>
+          </div>
+        }
+        table={
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th className="w-12 text-center">#</th>
+                  <th>اسم المورد</th>
+                  <th className="text-center">رقم الهاتف</th>
+                  <th className="text-center">رصيد أول المدة</th>
+                  <th className="text-center">المستحق الحالي</th>
+                  <th className="text-center">تاريخ الإضافة</th>
+                  <th className="text-center w-52">الإجراءات</th>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="md:hidden space-y-3">
-        {paginatedSuppliers.map((supplier) => {
+              </thead>
+              <tbody>
+                {paginatedSuppliers.map((supplier, idx) => {
+                  const balance = balances.get(supplier.id) ?? 0
+                  return (
+                    <tr key={supplier.id}>
+                      <td className="text-center text-xs text-slate-400 font-mono">{filteredSuppliers.length - ((currentPage - 1) * pageSize + idx)}</td>
+                      <td className="font-semibold text-slate-900">
+                        <button onClick={() => setStatementSupplier(supplier)} className="text-start font-bold text-primary-700 hover:text-primary-800 hover:underline">{supplier.name}</button>
+                      </td>
+                      <td className="text-center text-slate-600 text-sm font-mono" dir="ltr">{supplier.phone || '-'}</td>
+                      <td className="text-center font-mono text-xs text-slate-500 tabular-nums">{formatNumber(Number(supplier.opening_balance || 0))}</td>
+                      <td className="text-center font-mono font-bold tabular-nums"><span className={balance > 0 ? 'text-rose-700' : 'text-emerald-700'}>{formatNumber(balance)}</span> <span className="text-[11px] font-normal text-slate-400">ج.م</span></td>
+                      <td className="text-center text-xs text-slate-500">{new Date(supplier.created_at).toLocaleDateString('ar-EG')}</td>
+                      <td>
+                        <div className="flex gap-1.5 justify-center">
+                          <button type="button" onClick={() => setStatementSupplier(supplier)} className="app-btn app-btn-sm app-btn-success text-xs font-bold">كشف حساب</button>
+                          <button type="button" onClick={() => openEdit(supplier as unknown as Record<string, unknown>)} className="app-btn app-btn-sm app-btn-ghost text-xs">تعديل</button>
+                          <button type="button" onClick={() => handleDelete(supplier as unknown as Record<string, unknown>)} className="app-btn app-btn-sm app-btn-danger text-xs">حذف</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        }
+        cards={paginatedSuppliers.map((supplier) => {
           const balance = balances.get(supplier.id) ?? 0
           return (
             <div key={supplier.id} className="app-card p-3.5 shadow-sm space-y-2.5">
@@ -179,30 +192,24 @@ export default function SupplierDirectoryTab({ showToast }: Props) {
                 </div>
               </div>
               <div className="flex gap-2 pt-1 border-t border-slate-100">
-                <button onClick={() => setStatementSupplier(supplier)} className="app-btn app-btn-success app-btn-sm flex-1 py-1.5 text-xs font-bold">كشف حساب</button>
-                <button onClick={() => openEdit(supplier as unknown as Record<string, unknown>)} className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs">تعديل</button>
-                <button onClick={() => handleDelete(supplier as unknown as Record<string, unknown>)} className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600">حذف</button>
+                <button type="button" onClick={() => setStatementSupplier(supplier)} className="app-btn app-btn-success app-btn-sm flex-1 py-1.5 text-xs font-bold">كشف حساب</button>
+                <button type="button" onClick={() => openEdit(supplier as unknown as Record<string, unknown>)} className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs">تعديل</button>
+                <button type="button" onClick={() => handleDelete(supplier as unknown as Record<string, unknown>)} className="app-btn app-btn-danger app-btn-sm px-3 py-1.5 text-xs">حذف</button>
               </div>
             </div>
           )
         })}
-      </div>
-
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalItems={filteredSuppliers.length}
-        pageSize={pageSize}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1) }}
+        footer={
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredSuppliers.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1) }}
+          />
+        }
       />
-
-      {filteredSuppliers.length === 0 && (
-        <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 mt-4">
-          <h3 className="text-slate-700 font-bold text-base mb-1">{searchTerm ? 'لا توجد نتائج مطابقة لبحثك' : 'لا يوجد موردين مسجلين بعد'}</h3>
-          <p className="text-slate-500 text-xs max-w-sm mx-auto">أضف الموردين لمتابعة المشتريات والمدفوعات وكشوف الحساب.</p>
-        </div>
-      )}
 
       {statementSupplier && (
         <SupplierStatementModal supplier={statementSupplier as { id: string; name: string; phone?: string | null; opening_balance?: number | null }} onClose={() => setStatementSupplier(null)} />

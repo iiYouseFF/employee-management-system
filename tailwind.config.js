@@ -23,7 +23,7 @@ export default {
           900: '#1b3650',
           950: '#122336',
         },
-        border: '#dde5ef',
+        border: '#e2e8f0',
         'page-bg': '#f4f7fb',
         'text-primary': '#0e1726',
         surface: '#ffffff',

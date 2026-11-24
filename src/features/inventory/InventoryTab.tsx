@@ -10,8 +10,14 @@ import {
 } from '@/features/inventory/useInventory'
 import { useProducts } from '@/features/products/useProducts'
 import { formatNumber, getTodayISO } from '@/shared/lib/format'
+import { useDatePreset } from '@/shared/hooks/useDatePreset'
 import Modal from '@/shared/ui/Modal'
 import Pagination from '@/shared/ui/Pagination'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
+import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import SearchableSelect from '@/shared/ui/SearchableSelect'
+import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import BulkProductMatrixModal from '@/features/sales/BulkProductMatrixModal'
 
 // ─── Stock-in form modal ──────────────────────────────────────────────────────
@@ -60,22 +66,21 @@ function StockInModal({
   }
 
   return (
-    <Modal title="استلام بضاعة (Stock In)" onClose={onClose}>
+    <Modal
+      title="استلام بضاعة يدوي (بدون فاتورة مورد)"
+      subtitle="للبضاعة غير المرتبطة بفاتورة مورد. المشتريات من مورد تُسجّل من تبويب الموردين ← مشتريات الموردين."
+      onClose={onClose}
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1.5">المنتج *</label>
-          <select
+          <SearchableSelect
+            options={toSearchableOptions(products)}
             value={form.product_id}
-            onChange={(e) => setForm((f) => ({ ...f, product_id: e.target.value }))}
-            className="app-select"
-          >
-            <option value="">— اختر منتجاً —</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name_ar} {p.sku ? `(${p.sku})` : ''}
-              </option>
-            ))}
-          </select>
+            onChange={(id) => setForm((f) => ({ ...f, product_id: id }))}
+            placeholder="— اختر منتجاً —"
+            searchPlaceholder="ابحث باسم المنتج أو SKU..."
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -195,18 +200,13 @@ function AdjustStockModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1.5">المنتج *</label>
-          <select
+          <SearchableSelect
+            options={toSearchableOptions(products)}
             value={form.product_id}
-            onChange={(e) => setForm((f) => ({ ...f, product_id: e.target.value }))}
-            className="app-select"
-          >
-            <option value="">— اختر منتجاً —</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name_ar} {p.sku ? `(${p.sku})` : ''}
-              </option>
-            ))}
-          </select>
+            onChange={(id) => setForm((f) => ({ ...f, product_id: id }))}
+            placeholder="— اختر منتجاً —"
+            searchPlaceholder="ابحث باسم المنتج أو SKU..."
+          />
         </div>
 
         <div>
@@ -258,10 +258,21 @@ function MovementTypeLabel({ type }: { type: string }) {
   return <span className="badge text-[10px] bg-amber-50 text-amber-800 border-amber-200">تسوية</span>
 }
 
+function movementReferenceLabel(type: string) {
+  if (type === 'cash_invoice') return 'فاتورة كاش'
+  if (type === 'credit_invoice') return 'فاتورة آجل'
+  if (type === 'manual') return 'استلام يدوي'
+  if (type === 'adjustment') return 'تسوية'
+  if (type === 'supplier_purchase') return 'فاتورة مشتريات'
+  if (type === 'supplier_purchase_history') return 'فاتورة مشتريات (معدّلة)'
+  if (type === 'reversal') return 'عكس قيد'
+  return type
+}
+
 // ─── Main InventoryTab ────────────────────────────────────────────────────────
 export default function InventoryTab() {
   const { data: products = [], isLoading: loadingProducts } = useProducts()
-  const { data: stock = [], isLoading: loadingStock } = useProductStock()
+  const { data: stock = [], isLoading: loadingStock, error: stockError } = useProductStock()
   const receiveStockMutation = useReceiveStock()
   const [activeSection, setActiveSection] = useState<'onhand' | 'movements' | 'valuation' | 'alerts'>('onhand')
   const [stockInOpen, setStockInOpen] = useState(false)
@@ -274,17 +285,14 @@ export default function InventoryTab() {
   const [alertFilter, setAlertFilter] = useState<'all' | 'out_of_stock' | 'low_stock' | 'expired' | 'expiring_soon'>('all')
 
   // Movement filter
-  const [movFilter, setMovFilter] = useState({
-    productId: '',
-    from: '',
-    to: getTodayISO(),
-  })
-  const { data: movements = [], isLoading: loadingMovements } = useStockMovements({
+  const [movFilter, setMovFilter] = useState({ productId: '' })
+  const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
+  const { data: movements = [], isLoading: loadingMovements, error: movementsError } = useStockMovements({
     productId: movFilter.productId || undefined,
-    from: movFilter.from || undefined,
-    to: movFilter.to || undefined,
+    from: from || undefined,
+    to: to || undefined,
   })
-  const { data: valuation = [], isLoading: loadingValuation } = useStockValuation()
+  const { data: valuation = [], isLoading: loadingValuation, error: valuationError } = useStockValuation()
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -331,7 +339,7 @@ export default function InventoryTab() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeSection, search, filterCategory, alertFilter, movFilter.productId, movFilter.from, movFilter.to])
+  }, [activeSection, search, filterCategory, alertFilter, movFilter.productId, from, to])
 
   const totalStockPages = Math.ceil(filteredStock.length / pageSize) || 1
   const paginatedStock = useMemo(() => {
@@ -376,29 +384,30 @@ export default function InventoryTab() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-slate-800">إدارة المخزون</h2>
-          <p className="text-xs text-slate-500 mt-0.5">تتبع الكميات والتكاليف وتاريخ الحركات</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => setStockInOpen(true)} className="app-btn app-btn-primary text-xs py-2">
-            <span>+</span> استلام فردي
-          </button>
-          <button
-            onClick={() => setBulkReceiveOpen(true)}
-            className="app-btn app-btn-primary bg-indigo-700 hover:bg-indigo-800 text-xs py-2"
-          >
-            <span>+</span> استلام بضاعة متعددة (Matrix)
-          </button>
-          <button
-            onClick={() => { setAdjustDefaultId(undefined); setAdjustOpen(true) }}
-            className="app-btn app-btn-ghost text-xs py-2 border-amber-300 text-amber-800 hover:bg-amber-50"
-          >
-            تسوية مخزون
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="إدارة المخزون"
+        subtitle="تتبع الكميات والتكاليف وتاريخ الحركات — الاستلام هنا للبضاعة بدون فاتورة مورد؛ المشتريات من مورد تُسجّل من تبويب الموردين."
+        count={stock.length}
+        actions={
+          <>
+            <button onClick={() => setStockInOpen(true)} className="app-btn app-btn-primary text-xs py-2">
+              <span>+</span> استلام فردي (بدون فاتورة)
+            </button>
+            <button
+              onClick={() => setBulkReceiveOpen(true)}
+              className="app-btn app-btn-primary bg-indigo-700 hover:bg-indigo-800 text-xs py-2"
+            >
+              <span>+</span> استلام بضاعة متعددة (Matrix)
+            </button>
+            <button
+              onClick={() => { setAdjustDefaultId(undefined); setAdjustOpen(true) }}
+              className="app-btn app-btn-ghost text-xs py-2 border-amber-300 text-amber-800 hover:bg-amber-50"
+            >
+              تسوية مخزون
+            </button>
+          </>
+        }
+      />
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -475,14 +484,13 @@ export default function InventoryTab() {
       {/* ── On-hand ── */}
       {activeSection === 'onhand' && (
         <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="بحث باسم المنتج أو SKU..."
-              className="app-input text-sm flex-1"
-            />
+          <FilterToolbar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="بحث باسم المنتج أو SKU..."
+            onReset={() => { setSearch(''); setFilterCategory('all') }}
+            hasActiveFilters={!!search.trim() || filterCategory !== 'all'}
+          >
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
@@ -493,8 +501,15 @@ export default function InventoryTab() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-          </div>
+          </FilterToolbar>
 
+          <ResponsiveDataView
+            loading={loadingStock}
+            error={stockError ? 'تعذّر تحميل بيانات المخزون.' : undefined}
+            hasData={filteredStock.length > 0}
+            empty="لا توجد منتجات مطابقة للبحث"
+            table={(
+          <>
           {/* Desktop On-Hand Table */}
           <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
             <table className="app-table">
@@ -712,7 +727,9 @@ export default function InventoryTab() {
               })
             )}
           </div>
-
+          </>
+            )}
+            footer={(
           <Pagination
             currentPage={currentPage}
             totalPages={totalStockPages}
@@ -721,12 +738,18 @@ export default function InventoryTab() {
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
           />
+            )}
+          />
         </div>
       )}
 
       {/* ── Alerts & Expiry Section ── */}
       {activeSection === 'alerts' && (
         <div className="space-y-4">
+          <FilterToolbar
+            onReset={() => setAlertFilter('all')}
+            hasActiveFilters={alertFilter !== 'all'}
+          >
           {/* Quick Filter Tabs for Alerts */}
           <div className="flex flex-wrap gap-2 items-center">
             {[
@@ -749,7 +772,15 @@ export default function InventoryTab() {
               </button>
             ))}
           </div>
+          </FilterToolbar>
 
+          <ResponsiveDataView
+            loading={loadingStock}
+            error={stockError ? 'تعذّر تحميل بيانات المخزون.' : undefined}
+            hasData={alertProducts.length > 0}
+            empty="لا توجد أي تنبيهات حالياً في هذا القسم. جميع المنتجات بحالة ممتازة!"
+            table={(
+          <>
           {/* Alert Table Desktop */}
           <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
             <table className="app-table">
@@ -923,7 +954,9 @@ export default function InventoryTab() {
               ))
             )}
           </div>
-
+          </>
+            )}
+            footer={(
           <Pagination
             currentPage={currentPage}
             totalPages={totalAlertPages}
@@ -932,45 +965,44 @@ export default function InventoryTab() {
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
           />
+            )}
+          />
         </div>
       )}
 
       {/* ── Movements ── */}
       {activeSection === 'movements' && (
         <div className="space-y-3">
-          {/* Filter bar */}
-          <div className="flex flex-wrap gap-2 items-end">
+          <FilterToolbar
+            preset={preset}
+            onPresetChange={setPreset}
+            from={from}
+            to={to}
+            onFromChange={setFrom}
+            onToChange={setTo}
+            onReset={() => { reset(); setMovFilter({ productId: '' }) }}
+            hasActiveFilters={preset !== 'all' || !!from || !!to || !!movFilter.productId}
+          >
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">المنتج</label>
-              <select
+              <SearchableSelect
+                options={toSearchableOptions(products)}
                 value={movFilter.productId}
-                onChange={(e) => setMovFilter((f) => ({ ...f, productId: e.target.value }))}
-                className="app-select text-xs"
-              >
-                <option value="">جميع المنتجات</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name_ar}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">من</label>
-              <input
-                type="date" value={movFilter.from}
-                onChange={(e) => setMovFilter((f) => ({ ...f, from: e.target.value }))}
-                className="app-input py-1.5 text-xs font-mono"
+                onChange={(id) => setMovFilter((f) => ({ ...f, productId: id }))}
+                placeholder="جميع المنتجات"
+                searchPlaceholder="ابحث باسم المنتج أو SKU..."
+                className="text-xs"
               />
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">إلى</label>
-              <input
-                type="date" value={movFilter.to}
-                onChange={(e) => setMovFilter((f) => ({ ...f, to: e.target.value }))}
-                className="app-input py-1.5 text-xs font-mono"
-              />
-            </div>
-          </div>
+          </FilterToolbar>
 
+          <ResponsiveDataView
+            loading={loadingMovements}
+            error={movementsError ? 'تعذّر تحميل حركات المخزون.' : undefined}
+            hasData={movements.length > 0}
+            empty="لا توجد حركات مطابقة"
+            table={(
+          <>
           {/* Desktop Movements Table */}
           <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
             <table className="app-table">
@@ -1022,11 +1054,7 @@ export default function InventoryTab() {
                       <td className="text-xs text-slate-500 max-w-xs truncate">
                         {m.reference_type && (
                           <span className="font-semibold text-slate-600 me-1">
-                            {m.reference_type === 'cash_invoice' ? 'نقدي' :
-                             m.reference_type === 'credit_invoice' ? 'آجل' :
-                             m.reference_type === 'manual' ? 'استلام يدوي' :
-                             m.reference_type === 'adjustment' ? 'تسوية' :
-                             m.reference_type}:
+                            {movementReferenceLabel(m.reference_type)}:
                           </span>
                         )}
                         {m.notes || '-'}
@@ -1079,11 +1107,7 @@ export default function InventoryTab() {
                     <div className="text-xs text-slate-600 bg-slate-50 rounded-xl p-2.5 border border-slate-100">
                       {m.reference_type && (
                         <span className="font-bold text-slate-700 me-1">
-                          {m.reference_type === 'cash_invoice' ? 'فاتورة كاش' :
-                           m.reference_type === 'credit_invoice' ? 'فاتورة آجل' :
-                           m.reference_type === 'manual' ? 'استلام يدوي' :
-                           m.reference_type === 'adjustment' ? 'تسوية' :
-                           m.reference_type}:
+                          {movementReferenceLabel(m.reference_type)}:
                         </span>
                       )}
                       <span>{m.notes || '—'}</span>
@@ -1093,7 +1117,9 @@ export default function InventoryTab() {
               ))
             )}
           </div>
-
+          </>
+            )}
+            footer={(
           <Pagination
             currentPage={currentPage}
             totalPages={totalMovementPages}
@@ -1101,6 +1127,8 @@ export default function InventoryTab() {
             pageSize={pageSize}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
+          />
+            )}
           />
         </div>
       )}
@@ -1117,6 +1145,13 @@ export default function InventoryTab() {
             </div>
           </div>
 
+          <ResponsiveDataView
+            loading={loadingValuation}
+            error={valuationError ? 'تعذّر تحميل تقييم المخزون.' : undefined}
+            hasData={valuation.length > 0}
+            empty="لا توجد بيانات تقييم مخزون"
+            table={(
+          <>
           {/* Desktop Valuation Table */}
           <div className="hidden md:block overflow-x-auto rounded-2xl border border-border shadow-sm">
             <table className="app-table">
@@ -1211,7 +1246,9 @@ export default function InventoryTab() {
               ))
             )}
           </div>
-
+          </>
+            )}
+            footer={(
           <Pagination
             currentPage={currentPage}
             totalPages={totalValuationPages}
@@ -1219,6 +1256,8 @@ export default function InventoryTab() {
             pageSize={pageSize}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
+          />
+            )}
           />
         </div>
       )}

@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   useKpiSummary,
   useReceivablesAging,
   useCashflowSeries,
 } from '@/features/dashboard/useKpi'
 import { formatNumber, getTodayISO } from '@/shared/lib/format'
+import PageHeader from '@/shared/ui/PageHeader'
+import FilterToolbar from '@/shared/ui/FilterToolbar'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -22,19 +24,26 @@ import {
 } from 'recharts'
 
 export default function ManagerDashboardTab() {
-  const [fromDate, setFromDate] = useState(() => {
+  const initialRange = useMemo(() => {
     const d = new Date()
     d.setDate(d.getDate() - 30)
-    return d.toISOString().slice(0, 10)
-  })
-  const [toDate, setToDate] = useState(getTodayISO)
+    return { from: d.toISOString().slice(0, 10), to: getTodayISO() }
+  }, [])
+  const [fromDate, setFromDate] = useState(initialRange.from)
+  const [toDate, setToDate] = useState(initialRange.to)
 
-  const { data: kpi, isLoading: loadingKpi } = useKpiSummary(fromDate, toDate)
-  const { data: aging = [], isLoading: loadingAging } = useReceivablesAging(toDate)
-  const { data: cashflow = [], isLoading: loadingCashflow } = useCashflowSeries(
+  const { data: kpi, isLoading: loadingKpi, isError: kpiError, refetch: refetchKpi } = useKpiSummary(fromDate, toDate)
+  const { data: aging = [], isLoading: loadingAging, isError: agingError, refetch: refetchAging } = useReceivablesAging(toDate)
+  const { data: cashflow = [], isLoading: loadingCashflow, isError: cashflowError, refetch: refetchCashflow } = useCashflowSeries(
     fromDate,
     toDate
   )
+  const hasDataError = kpiError || agingError || cashflowError
+  const retryAll = () => {
+    void refetchKpi()
+    void refetchAging()
+    void refetchCashflow()
+  }
 
   const handleSetPreset = (days: number) => {
     const today = new Date()
@@ -43,6 +52,12 @@ export default function ManagerDashboardTab() {
     setFromDate(d.toISOString().slice(0, 10))
     setToDate(today.toISOString().slice(0, 10))
   }
+
+  const resetFilters = () => {
+    setFromDate(initialRange.from)
+    setToDate(initialRange.to)
+  }
+  const hasActiveFilters = fromDate !== initialRange.from || toDate !== initialRange.to
 
   const salesDonutData = [
     { name: 'البيع النقدي', value: kpi?.cash_sales || 0, color: '#10b981' },
@@ -57,61 +72,53 @@ export default function ManagerDashboardTab() {
 
   return (
     <div className="space-y-6" dir="rtl">
+      {/* Header */}
+      <PageHeader
+        title="لوحة مؤشرات الأداء المالي والتحصيل (Financial KPIs)"
+        subtitle="تحليل شامل للسيولة النقدية، سرعة التحصيل، مبيعات الآجل، وأعمار الديون"
+      />
+
       {/* Date Filter & Control Bar */}
-      <div className="app-card p-5 bg-gradient-to-r from-white via-slate-50/60 to-primary-50/20 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <svg className="w-6 h-6 text-primary-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-            <h2 className="text-lg font-extrabold text-slate-800">
-              لوحة مؤشرات الأداء المالي والتحصيل (Financial KPIs)
-            </h2>
-          </div>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            تحليل شامل للسيولة النقدية، سرعة التحصيل، مبيعات الآجل، وأعمار الديون
-          </p>
+      <FilterToolbar
+        from={fromDate}
+        to={toDate}
+        onFromChange={setFromDate}
+        onToChange={setToDate}
+        onReset={resetFilters}
+        hasActiveFilters={hasActiveFilters}
+      >
+        {/* Quick Presets */}
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => handleSetPreset(7)}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+          >
+            آخر 7 أيام
+          </button>
+          <button
+            onClick={() => handleSetPreset(30)}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+          >
+            آخر 30 يوم
+          </button>
+          <button
+            onClick={() => handleSetPreset(90)}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+          >
+            آخر 3 أشهر
+          </button>
         </div>
+      </FilterToolbar>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Quick Presets */}
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => handleSetPreset(7)}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-            >
-              آخر 7 أيام
-            </button>
-            <button
-              onClick={() => handleSetPreset(30)}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-            >
-              آخر 30 يوم
-            </button>
-            <button
-              onClick={() => handleSetPreset(90)}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-            >
-              آخر 3 أشهر
-            </button>
+      {hasDataError && (
+        <div className="app-card border-rose-200 bg-rose-50/70 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-rose-900">تعذّر تحميل بيانات لوحة المؤشرات</p>
+            <p className="text-xs text-rose-700 mt-0.5">قد تظهر بعض الأرقام غير مكتملة. تحقق من الاتصال ثم أعد المحاولة.</p>
           </div>
-
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-bold text-slate-600">من:</span>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="app-input py-1 px-2.5 text-xs w-auto font-mono"
-            />
-            <span className="font-bold text-slate-600">إلى:</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="app-input py-1 px-2.5 text-xs w-auto font-mono"
-            />
-          </div>
+          <button type="button" onClick={retryAll} className="app-btn app-btn-secondary app-btn-sm shrink-0">إعادة المحاولة</button>
         </div>
-      </div>
+      )}
 
       {/* Top 4 Primary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -125,7 +132,7 @@ export default function ManagerDashboardTab() {
             </span>
           </div>
           <p className="mt-3 text-2xl font-black text-emerald-700 font-mono tabular-nums">
-            {loadingKpi ? '...' : `${formatNumber(kpi?.income)} ج.م`}
+            {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.income)} ج.م`}
           </p>
           <p className="text-xs text-slate-400 mt-1 font-medium">مبيعات نقدية + دفعات مسددة</p>
         </div>
@@ -140,7 +147,7 @@ export default function ManagerDashboardTab() {
             </span>
           </div>
           <p className="mt-3 text-2xl font-black text-rose-700 font-mono tabular-nums">
-            {loadingKpi ? '...' : `${formatNumber(kpi?.outcome)} ج.م`}
+            {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.outcome)} ج.م`}
           </p>
           <p className="text-xs text-slate-400 mt-1 font-medium">دفعات موردين ومشتريات ومصاريف</p>
         </div>
@@ -159,7 +166,7 @@ export default function ManagerDashboardTab() {
               (kpi?.net_profit || 0) >= 0 ? 'text-primary-800' : 'text-rose-700'
             }`}
           >
-            {loadingKpi ? '...' : `${formatNumber(kpi?.net_profit)} ج.م`}
+            {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.net_profit)} ج.م`}
           </p>
           <p className="text-xs text-slate-400 mt-1 font-medium">الفارق بين المقبوض والمنصرف</p>
         </div>
@@ -174,7 +181,7 @@ export default function ManagerDashboardTab() {
             </span>
           </div>
           <p className="mt-3 text-2xl font-black text-blue-700 font-mono tabular-nums">
-            {loadingKpi ? '...' : `${kpi?.dso || 0} يوم`}
+            {kpiError ? '—' : loadingKpi ? '...' : `${kpi?.dso || 0} يوم`}
           </p>
           <p className="text-xs text-slate-400 mt-1 font-medium">متوسط المدة اللازمة لتحصيل الفاتورة</p>
         </div>
@@ -186,7 +193,7 @@ export default function ManagerDashboardTab() {
           <div>
             <span className="text-xs font-bold text-indigo-900 block">تكلفة البضاعة المباعة (COGS)</span>
             <p className="text-2xl font-black text-indigo-800 font-mono mt-1">
-              {loadingKpi ? '...' : `${formatNumber(kpi?.cogs ?? 0)} ج.م`}
+              {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.cogs ?? 0)} ج.م`}
             </p>
             <span className="text-[11px] text-slate-400 mt-0.5 block">محسوبة بمتوسط التكلفة المرجح للأصناف المباعة</span>
           </div>
@@ -199,7 +206,7 @@ export default function ManagerDashboardTab() {
           <div>
             <span className="text-xs font-bold text-teal-900 block">مجمل الربح (Gross Margin)</span>
             <p className={`text-2xl font-black font-mono mt-1 ${(kpi?.gross_margin ?? 0) >= 0 ? 'text-teal-800' : 'text-rose-700'}`}>
-              {loadingKpi ? '...' : `${formatNumber(kpi?.gross_margin ?? 0)} ج.م`}
+              {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.gross_margin ?? 0)} ج.م`}
             </p>
             <span className="text-[11px] text-slate-400 mt-0.5 block">إجمالي مبيعات الفواتير − تكلفة البضاعة المباعة</span>
           </div>
@@ -219,7 +226,7 @@ export default function ManagerDashboardTab() {
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
           </div>
           <p className="text-xl font-black text-blue-800 font-mono mt-1.5">
-            {formatNumber(kpi?.receivables)} ج.م
+            {kpiError ? '—' : `${formatNumber(kpi?.receivables)} ج.م`}
           </p>
           <span className="text-xs text-blue-700/80 font-medium mt-1 block">إجمالي الديون المستحقة عند العملاء بالخارج</span>
         </div>
@@ -232,7 +239,7 @@ export default function ManagerDashboardTab() {
             <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
           </div>
           <p className="text-xl font-black text-amber-800 font-mono mt-1.5">
-            {formatNumber(kpi?.payables)} ج.م
+            {kpiError ? '—' : `${formatNumber(kpi?.payables)} ج.م`}
           </p>
           <span className="text-xs text-amber-700/80 font-medium mt-1 block">إجمالي الالتزامات الواجبة السداد للموردين</span>
         </div>
@@ -245,7 +252,7 @@ export default function ManagerDashboardTab() {
             <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
           </div>
           <p className="text-xl font-black text-emerald-800 font-mono mt-1.5">
-            {kpi?.collection_rate_30d || 0}%
+            {kpiError ? '—' : `${kpi?.collection_rate_30d || 0}%`}
           </p>
           <span className="text-xs text-emerald-700/80 font-medium mt-1 block">
             متوسط فترة السداد: {kpi?.avg_collection_days || 0} يوم
@@ -265,6 +272,10 @@ export default function ManagerDashboardTab() {
             {loadingCashflow ? (
               <div className="h-full flex items-center justify-center text-slate-400 text-xs">
                 جاري تحميل الرسم البياني...
+              </div>
+            ) : cashflowError ? (
+              <div className="h-full flex items-center justify-center text-rose-500 text-xs">
+                تعذّر تحميل بيانات التدفق النقدي
               </div>
             ) : cashflow.length === 0 ? (
               <div className="h-full flex items-center justify-center text-slate-400 text-xs">
@@ -328,6 +339,14 @@ export default function ManagerDashboardTab() {
             {loadingAging ? (
               <div className="h-full flex items-center justify-center text-slate-400 text-xs">
                 جاري تحميل أعمار الديون...
+              </div>
+            ) : agingError ? (
+              <div className="h-full flex items-center justify-center text-rose-500 text-xs">
+                تعذّر تحميل أعمار الديون
+              </div>
+            ) : aging.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-slate-400 text-xs">
+                لا توجد أعمار ديون مسجلة في الفترة المحددة
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
