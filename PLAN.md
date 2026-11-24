@@ -29,5 +29,5 @@ Unify the visual system, reorganize app navigation into 3 domain clusters, and e
 - [x] typecheck/lint/build pass (lint warnings only; build chunk warnings only)
 - [x] Reviewer pass on Phase 2 diff (all five major findings fixed)
 - [x] PLAN/LOG updated
-- [ ] Push, Vercel READY
+- [x] Push, Vercel READY (main b850b75 → tawreed production, deployment dpl_6QJcu91UCMvF8tUfo5qbLHYZa4kP)
 - [ ] Authenticated RTL/LTR 375px/1440px visual QA (blocked: no credentials)

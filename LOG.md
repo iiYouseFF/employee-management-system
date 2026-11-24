@@ -18,4 +18,5 @@
 - Verification Gate: npm run typecheck PASS; npm run lint PASS (warnings only, no new blockers); npm run build PASS (chunk-size/ineffective-dynamic-import warnings only).
 - Reviewer subagent returned PASS WITH NOTES. Fixed all five major findings: quick-action signals now survive tab switches and are consumed by the target tab; Customers pagination moved to ResponsiveDataView footer; supplier statement debit/credit signs follow the accounting model; role-gated stored tabs are validated before render; KPI dashboard shows error banner, em-dash placeholders and chart empty/error states.
 - Root app direction now follows the ?dir override instead of being hard-coded RTL.
-- Committed in two steps: supplier-purchase feature dependencies first, then the Phase 2 UI/UX migration. docs/* and tmp_* left uncommitted per scope.
+- Committed in two steps: supplier-purchase feature dependencies first (1171bf2), then the Phase 2 UI/UX migration (b850b75). docs/* and tmp_* left uncommitted per scope.
+- Pushed main to origin. Vercel production deployment dpl_6QJcu91UCMvF8tUfo5qbLHYZa4kP (commit b850b75) reached READY at https://tawreed-zeta.vercel.app.
