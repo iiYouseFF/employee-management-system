@@ -3,18 +3,25 @@
 > Produced during the architecture review / cleanup. These are **findings and recommendations**,
 > not changes applied to already-run migrations or live data. Items are ordered by priority.
 
-## 1. Database defects (fix in a NEW additive migration — `0032_…` or later, never edit applied files)
+## 1. Database defects (fix in a NEW additive migration — `0034_…` or later, never edit applied files)
 
-**Status (2026-11-26):** migrations through `0032_unpaid_credit_invoices_fix` are applied on
-the remote project. `0031` added the 15-day credit due-date trigger and the
-`unpaid_credit_invoices_list()` RPC; `0032` corrected the report's rep attribution (invoice
-rep, matching RLS and other sales tabs) and made the trigger move `due_date` when the invoice
-date changes without an explicit due-date override. The next free number is `0033`.
+**Status (2026-11-26):** migrations through `0033_rep_invoice_lines_assigned_customers` are
+applied on the remote project. `0031` added the 15-day credit due-date trigger and the
+`unpaid_credit_invoices_list()` RPC; `0032` corrected the report's rep attribution and due-date
+trigger behavior; `0033` fixed sales-rep visibility of invoice lines for assigned customers.
+The next free number is `0034`.
 
 **Migration filename note:** both applied migrations use the `0031_` prefix locally
 (`0031_unpaid_overdue_invoices.sql` and `0031_product_customer_breakdown_fix.sql`); the remote
 tracks them under distinct timestamp versions. They are applied files and must not be renamed;
-use `0033_` or later for the next migration.
+use `0034_` or later for the next migration.
+
+**Resolved (2026-11-26): sales reps could not read invoice lines for assigned customers.**
+`0018_inventory.sql:41-53` only checked the invoice header `rep_id`, while the header policies
+in `0014_rbac_hardening_v2.sql:287-315` also allow invoices whose customer is assigned to the
+rep. Applied migration `0033_rep_invoice_lines_assigned_customers.sql` recreates
+`rep_read_invoice_lines` with the same assigned-customer branch for both cash and credit lines,
+keeping the manager exclusion and tenant boundary. Verified via `pg_policies`.
 
 | # | Issue | Evidence | Recommended fix |
 |---|---|---|---|

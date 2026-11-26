@@ -3,7 +3,7 @@
 const modalStack: string[] = []
 
 interface ModalProps {
-  title: string
+  title: ReactNode
   subtitle?: string
   children: ReactNode
   footer?: ReactNode
@@ -12,6 +12,8 @@ interface ModalProps {
   wide?: boolean
   size?: 'default' | 'full'
   overlayClassName?: string
+  /** Override the panel sizing/animation classes (header/footer behavior is unchanged). */
+  panelClassName?: string
 }
 
 export default function Modal({
@@ -23,6 +25,7 @@ export default function Modal({
   wide = false,
   size = 'default',
   overlayClassName,
+  panelClassName,
 }: ModalProps) {
   const isFull = wide || size === 'full'
   const id = useId()
@@ -57,7 +60,7 @@ export default function Modal({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className={panelClass} role="dialog" aria-modal="true" dir={typeof document !== "undefined" ? document.documentElement.dir || "rtl" : "rtl"}>
+      <div className={panelClassName || panelClass} role="dialog" aria-modal="true" dir={typeof document !== "undefined" ? document.documentElement.dir || "rtl" : "rtl"}>
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/95 px-4 sm:px-6 py-4 backdrop-blur-sm sticky top-0 z-10">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-slate-800 leading-6">{title}</h2>

@@ -632,3 +632,227 @@ export async function shareGeneralReportWhatsApp(input: GeneralReportPdfInput) {
 export async function printGeneralReport(input: GeneralReportPdfInput) {
   return printHtml(buildGeneralReportHtml(input), input.report.title || 'تقرير')
 }
+
+export interface InvoicePdfLine {
+  qty: number
+  unit_price: number
+  line_total: number
+  product: {
+    name_ar: string | null
+    name_en: string | null
+    sku: string | null
+    unit: string | null
+  } | null
+}
+
+export interface InvoicePdfPayment {
+  date: string
+  amount: number
+  method: string
+  reference: string
+}
+
+export interface InvoicePdfInput {
+  invoiceType: 'cash' | 'credit'
+  invoice_no: string
+  date: string
+  due_date?: string | null
+  customer_name: string
+  customer_phone?: string | null
+  rep_name?: string | null
+  amount: number
+  down_payment?: number
+  recorded_payments?: number
+  pooled_payments?: number
+  total_paid?: number
+  remaining?: number
+  notes?: string | null
+  item?: string | null
+  lines: InvoicePdfLine[]
+  payments?: InvoicePdfPayment[]
+  companyName?: string
+  dir?: 'rtl' | 'ltr'
+}
+
+/** Standalone invoice document built on the same unified template as reports/statements. */
+export function buildInvoicePdfHtml({
+  invoiceType,
+  invoice_no,
+  date,
+  due_date,
+  customer_name,
+  customer_phone,
+  rep_name,
+  amount,
+  down_payment = 0,
+  recorded_payments = 0,
+  pooled_payments = 0,
+  total_paid = 0,
+  remaining = 0,
+  notes,
+  item,
+  lines,
+  payments = [],
+  companyName = 'شركة توريد',
+  dir = 'rtl',
+}: InvoicePdfInput): string {
+  const isCredit = invoiceType === 'credit'
+  const productName = (line: InvoicePdfLine) =>
+    line.product?.name_ar || line.product?.name_en || line.product?.sku || item || '-'
+
+  const rowsHtml = lines.length
+    ? lines
+        .map(
+          (line, index) => `
+            <tr>
+              <td class="num">${esc(index + 1)}</td>
+              <td>${esc(productName(line))}</td>
+              <td>${esc(line.product?.unit || '-')}</td>
+              <td class="num">${esc(formatNumber(line.qty))}</td>
+              <td class="num">${esc(formatNumber(line.unit_price))}</td>
+              <td class="num">${esc(fmtMoney(line.line_total))}</td>
+            </tr>`
+        )
+        .join('')
+    : `<tr>
+          <td class="num">1</td>
+          <td>${esc(item || 'بيان الفاتورة')}</td>
+          <td>-</td>
+          <td class="num">1</td>
+          <td class="num">${esc(formatNumber(amount))}</td>
+          <td class="num">${esc(fmtMoney(amount))}</td>
+        </tr>`
+
+  const paymentRowsHtml = isCredit
+    ? [
+        ...(down_payment > 0
+          ? [
+              `<tr>
+                <td class="num">0</td>
+                <td>${esc(fmtDate(date))}</td>
+                <td>مدفوع مقدمًا</td>
+                <td>${esc(invoice_no)}</td>
+                <td class="num">${esc(fmtMoney(down_payment))}</td>
+              </tr>`,
+            ]
+          : []),
+        ...payments.map(
+          (payment, index) => `
+            <tr>
+              <td class="num">${esc(index + 1)}</td>
+              <td>${esc(fmtDate(payment.date))}</td>
+              <td>${esc(payment.method || '-')}</td>
+              <td>${esc(payment.reference || '-')}</td>
+              <td class="num">${esc(fmtMoney(payment.amount))}</td>
+            </tr>`
+        ),
+        ...(pooled_payments > 0
+          ? [
+              `<tr>
+                <td class="num">•</td>
+                <td>-</td>
+                <td>تخصيص مدفوعات غير مرتبطة</td>
+                <td>-</td>
+                <td class="num">${esc(fmtMoney(pooled_payments))}</td>
+              </tr>`,
+            ]
+          : []),
+      ].join('') || '<tr><td colspan="5">لا توجد مدفوعات مسجلة</td></tr>'
+    : ''
+
+  const paymentSectionHtml = isCredit
+    ? `
+      <section class="pdf-section">
+        <h3 class="pdf-section-title">سجل المدفوعات</h3>
+        <div class="pdf-table-wrap">
+          <table class="pdf-table">
+            <thead>
+              <tr>
+                <th class="num" style="width:52px;">#</th>
+                <th style="width:130px;">التاريخ</th>
+                <th>البيان</th>
+                <th>المرجع</th>
+                <th class="num" style="width:140px;">المبلغ</th>
+              </tr>
+            </thead>
+            <tbody>${paymentRowsHtml}</tbody>
+            <tfoot>
+              <tr class="row-total">
+                <td colspan="4">إجمالي المدفوعات المرتبطة</td>
+                <td class="num">${esc(fmtMoney(recorded_payments))}</td>
+              </tr>
+              <tr class="row-total">
+                <td colspan="4">إجمالي المسدد</td>
+                <td class="num">${esc(fmtMoney(total_paid))}</td>
+              </tr>
+              <tr class="row-total">
+                <td colspan="4">الرصيد المتبقي</td>
+                <td class="num">${esc(fmtMoney(remaining))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>`
+    : ''
+
+  const bodyHtml = `
+    <section class="pdf-section">
+      <h3 class="pdf-section-title">بنود الفاتورة</h3>
+      <div class="pdf-table-wrap">
+        <table class="pdf-table">
+          <thead>
+            <tr>
+              <th class="num" style="width:52px;">#</th>
+              <th>المنتج</th>
+              <th style="width:90px;">الوحدة</th>
+              <th class="num" style="width:100px;">الكمية</th>
+              <th class="num" style="width:120px;">سعر الوحدة</th>
+              <th class="num" style="width:140px;">إجمالي السطر</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+          <tfoot>
+            <tr class="row-total">
+              <td colspan="5">الإجمالي الكلي</td>
+              <td class="num">${esc(fmtMoney(amount))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+    ${paymentSectionHtml}`
+
+  return buildUnifiedReportTemplate({
+    companyName,
+    docBadge: isCredit ? 'فاتورة بيع آجل' : 'فاتورة بيع نقدي',
+    meta: [
+      { label: 'رقم الفاتورة', value: invoice_no },
+      { label: 'تاريخ الإصدار', value: fmtDate(date) },
+      ...(isCredit ? [{ label: 'تاريخ الاستحقاق', value: fmtDate(due_date) }] : []),
+    ],
+    entityTitle: `العميل: ${customer_name} — هاتف: ${customer_phone || 'غير مسجل'}`,
+    entitySubtitle: `المندوب: ${rep_name || '-'}`,
+    bodyHtml,
+    notes: notes || (!lines.length ? item : null) || undefined,
+    footerStamp: isCredit ? 'فاتورة آجل صادرة من النظام' : 'فاتورة نقدية صادرة من النظام',
+    dir,
+  })
+}
+
+export async function shareInvoiceWhatsApp(input: InvoicePdfInput) {
+  const html = buildInvoicePdfHtml(input)
+  const blob = await generatePdfFromHtml(html)
+  const safeInvoiceNo = input.invoice_no.replace(/[^\w\u0600-\u06FF-]+/g, '_') || 'invoice'
+  const filename = `فاتورة_${safeInvoiceNo}_${new Date().toISOString().slice(0, 10)}.pdf`
+  const message = `فاتورة رقم #${input.invoice_no} بقيمة ${formatNumber(input.amount)} ج.م`
+  return sharePdfBlobViaWhatsApp({
+    blob,
+    filename,
+    recipientPhone: input.customer_phone,
+    message,
+  })
+}
+
+export async function printInvoice(input: InvoicePdfInput) {
+  return printHtml(buildInvoicePdfHtml(input), `فاتورة ${input.invoice_no}`)
+}

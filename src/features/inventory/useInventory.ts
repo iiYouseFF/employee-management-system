@@ -211,6 +211,7 @@ export function useSaveCashInvoice() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cash_invoices'] })
+      qc.invalidateQueries({ queryKey: ['invoice-details'] })
       qc.invalidateQueries({ queryKey: ['product_stock'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
       qc.invalidateQueries({ queryKey: ['kpi_summary'] })
@@ -239,6 +240,7 @@ export function useSaveCreditInvoice() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['credit_invoices'] })
       qc.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
+      qc.invalidateQueries({ queryKey: ['invoice-details'] })
       qc.invalidateQueries({ queryKey: ['product_stock'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
       qc.invalidateQueries({ queryKey: ['kpi_summary'] })
@@ -256,6 +258,7 @@ export function useDeleteCashInvoiceWithStock() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cash_invoices'] })
+      qc.invalidateQueries({ queryKey: ['invoice-details'] })
       qc.invalidateQueries({ queryKey: ['product_stock'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
     },
@@ -273,6 +276,7 @@ export function useDeleteCreditInvoiceWithStock() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['credit_invoices'] })
       qc.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
+      qc.invalidateQueries({ queryKey: ['invoice-details'] })
       qc.invalidateQueries({ queryKey: ['product_stock'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
     },

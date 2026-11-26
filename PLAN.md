@@ -101,3 +101,36 @@ payment term, clickable invoice details, and CSV / WhatsApp PDF export.
 - [x] Reviewer follow-ups: filtered KPI/PDF totals, rep-mutation invalidation, bilingual actions, nullable type, zero-day label
 - [ ] PLAN/LOG committed, pushed, Vercel READY
 - [ ] Authenticated RTL/LTR 375px/1440px visual QA (credentials still needed)
+
+# Phase 4 — Invoice details: click-to-open, print, WhatsApp and CSV
+
+## Goal
+Let managers and sales reps open a complete invoice from cash/credit lists — including legacy header-only invoices — and print/share/export the same data.
+
+## Scope
+- Additive migration `0033_rep_invoice_lines_assigned_customers.sql`: rep SELECT policy on `invoice_lines` now covers invoices assigned to the rep by customer as well as by `rep_id`.
+- `src/features/sales/useInvoices.ts`: typed `useInvoiceDetails(invoiceId, invoiceType)` with header, customer/rep, itemized lines, direct payment history, and canonical credit totals from `v_credit_invoices`.
+- `src/hooks/useInvoices.ts`: barrel re-export for the requested import path.
+- `src/features/sales/InvoiceDetailsModal.tsx`: responsive RTL/LTR modal (`w-screen h-dvh md:w-[95vw] md:max-w-[1100px] md:h-[90vh]`), A4 print, WhatsApp PDF, UTF-8 CSV, payment history and status.
+- `src/features/statements/InvoiceDetailsModal.tsx`: compatibility re-export so statement/overdue drill-downs share the new modal.
+- `src/shared/ui/Modal.tsx`: optional `panelClassName` and `ReactNode` title (existing modals unchanged).
+- `src/features/reporting/pdfGenerators.ts`: `buildInvoicePdfHtml`, `printInvoice`, `shareInvoiceWhatsApp` built on `buildUnifiedReportTemplate`.
+- `CashTab.tsx` / `CreditTab.tsx`: clickable rows/cards, linked invoice number and "عرض / طباعة" action for both roles; inline edit/delete stop propagation.
+- Relevant customer/payment/invoice mutations invalidate `['invoice-details']`.
+
+## Decisions
+- Migration number `0033` confirmed against remote `schema_migrations` (through `0032`) and applied via Supabase MCP after explicit user approval.
+- Hook lives in the sales feature and is re-exported from `src/hooks/` (user-selected barrel approach).
+- No schema/type regeneration needed for 0033 (policy-only change).
+- Commit scope: only this feature's files and its PLAN/LOG/known-issues updates; all other pre-existing uncommitted work untouched.
+
+## Acceptance criteria
+- [x] Migration 0033 applied; `pg_policies` confirms rep line visibility for assigned customers
+- [x] Managers and sales reps can open invoice details from desktop rows and mobile cards
+- [x] Edit/delete clicks never open the details modal
+- [x] Modal shows header, lines, direct payments, FIFO-pooled allocation and exact remaining balance
+- [x] WhatsApp PDF, A4 print and CSV export reuse the unified template / UTF-8 exporter
+- [x] Verification Gate: typecheck PASS, lint PASS (pre-existing warnings only), build PASS (pre-existing chunk warnings)
+- [x] Reviewer subagent: initial PASS WITH NOTES; canonical credit totals, cache invalidation, PDF payment history and accessibility follow-ups fixed and re-reviewed
+- [ ] PLAN/LOG committed, pushed, Vercel READY
+- [ ] Authenticated RTL/LTR 375px/1440px visual QA (skipped by user: no credentials supplied)

@@ -82,3 +82,45 @@
 - Verification Gate re-run on the isolated commit (HEAD + task files only): typecheck PASS;
   lint PASS (pre-existing warnings only); build PASS (pre-existing chunk-size warnings).
   The shared working tree has unrelated concurrent edits; those were not touched.
+
+## 2026-11-26 - Invoice details: click-to-open, print, WhatsApp and CSV
+- Track: migration (✋ approved) → feature (✋ approved). User chose additive migration
+  `0033_rep_invoice_lines_assigned_customers.sql`, the `src/hooks/useInvoices.ts` barrel
+  re-export, and a feature-files-only commit.
+- Remote `schema_migrations` confirmed applied versions through `0032`; `docs/KNOWN_ISSUES.md`
+  was stale and is now updated to next free `0034`.
+- Created and applied `supabase/migrations/0033_rep_invoice_lines_assigned_customers.sql`
+  via Supabase MCP to `pswyzpadnicjwdqgwwtd`. It recreates `rep_read_invoice_lines` with the
+  assigned-customer branch for cash and credit, keeps manager exclusion and tenant filters,
+  and includes exact rollback notes. `pg_policies` verification confirmed the new expression.
+- Reviewer SQL pass: no blockers; only a non-blocking note that the inherited gate is
+  `NOT is_manager()` rather than `is_sales_rep()`, to be handled in a future migration if a
+  third role is ever introduced.
+- Added `useInvoiceDetails(invoiceId, invoiceType)` in `src/features/sales/useInvoices.ts`
+  and re-exported it from `src/hooks/useInvoices.ts`. Credit totals now come from
+  `v_credit_invoices` (`paid`, `linked_payments`, `remaining`) so FIFO-allocated unlinked
+  payments match CreditTab instead of being silently omitted.
+- Added `src/features/sales/InvoiceDetailsModal.tsx`: responsive near-fullscreen modal with
+  header info, line items, direct payments plus pooled allocation, status, A4 print,
+  WhatsApp PDF and UTF-8 CSV. `src/features/statements/InvoiceDetailsModal.tsx` is now a
+  compatibility re-export, so statement and overdue drill-downs share the new implementation.
+- `Modal.tsx` gained optional `panelClassName` and a `ReactNode` title without changing
+  existing modal sizing. `CashTab.tsx` / `CreditTab.tsx` now expose clickable rows/cards,
+  linked invoice numbers and "عرض / طباعة" for managers and reps; edit/delete are still
+  restricted and stop propagation.
+- `pdfGenerators.ts` gained `buildInvoicePdfHtml`, `printInvoice` and
+  `shareInvoiceWhatsApp`, all built on `buildUnifiedReportTemplate` with normalized
+  Egyptian phone numbers handled by `sharePdfBlobViaWhatsApp`.
+- Relevant customer/payment/invoice save/delete mutations invalidate `['invoice-details']`
+  to avoid stale reopened modals.
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only, none in changed
+  files); build PASS (pre-existing chunk-size / ineffective-dynamic-import warnings only).
+- Reviewer pass on the implementation returned PASS WITH NOTES with two majors and three
+  minors; all were fixed in scope (canonical credit totals, cache invalidation, PDF payment
+  history, keyboard/nested-interactive cleanup, phrasing-level modal title). The follow-up
+  re-review returned PASS WITH NOTES; its two cosmetic notes (duplicate PDF totals and
+  row-order mismatch) were also fixed.
+- Authenticated RTL/LTR 375px/1440px visual QA was offered but skipped by user (no login
+  credentials supplied); recorded as a limitation in PLAN.md.
+- Commit scope: only this feature's files plus its PLAN/LOG/known-issues updates. Other
+  pre-existing uncommitted work (Phase 2/3 files, `Personal/`, `tmp_*`) was left untouched.

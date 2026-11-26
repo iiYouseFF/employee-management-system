@@ -6,6 +6,7 @@ import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import InvoiceLineEditor, { type LineItem } from '@/features/sales/InvoiceLineEditor'
 import { createEmptyInvoiceLine, isMeaningfulInvoiceLine } from '@/features/sales/invoiceLineUtils'
 import BulkProductMatrixModal, { type BulkMatrixLine } from '@/features/sales/BulkProductMatrixModal'
+import InvoiceDetailsModal from '@/features/sales/InvoiceDetailsModal'
 import Pagination from '@/shared/ui/Pagination'
 import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
@@ -335,6 +336,7 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
   for (const r of stockRows) stockMap[r.product_id] = Number(r.on_hand)
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
+  const [viewingId, setViewingId] = useState<string | null>(null)
   useEffect(() => { if (createSignal) { openNew(); onSignalHandled?.() } }, [createSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openNew = () => {
@@ -356,6 +358,8 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
       onError: (e) => showToast((e as Error).message),
     })
   }
+
+  const openDetails = (invoice: Record<string, unknown>) => setViewingId(String(invoice.id))
 
   const customerName = (id?: string | null) =>
     (customers as { id: string; name: string }[]).find((c) => c.id === id)?.name || '-'
@@ -452,22 +456,30 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
               <th className="text-center">المندوب</th>
               <th>بيان / ملاحظات</th>
               <th className="text-center w-32 font-bold">الإجمالي (ج.م)</th>
-              {!isReadOnly && <th className="text-center w-28">الإجراءات</th>}
+              <th className="text-center w-36">الإجراءات</th>
             </tr>
           </thead>
           <tbody>
             {(paginatedInvoices as Record<string, unknown>[]).map((invoice, idx) => (
-              <tr key={invoice.id as string}>
+              <tr
+                key={invoice.id as string}
+                className="cursor-pointer hover:bg-slate-50/80"
+                onClick={() => openDetails(invoice)}
+              >
                 <td className="text-center text-xs text-slate-400 font-mono">
                   {invoices.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
                 <td className="text-center text-xs text-slate-600 font-medium whitespace-nowrap">
                   {formatDate(invoice.date as string)}
                 </td>
-                <td className="text-center text-xs font-mono font-semibold text-slate-700" dir="ltr">
-                  <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
+                <td className="text-center text-xs" dir="ltr">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); openDetails(invoice) }}
+                    className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono font-bold text-[var(--primary)] underline-offset-4 hover:underline cursor-pointer"
+                  >
                     {invoice.invoice_no as string}
-                  </span>
+                  </button>
                 </td>
                 <td className="text-center text-xs whitespace-nowrap">
                   {invoice.status === 'draft' ? (
@@ -496,24 +508,37 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
                 <td className="text-center font-bold text-slate-900 font-mono text-sm whitespace-nowrap">
                   {formatNumber(invoice.amount as number || 0)}
                 </td>
-                {!isReadOnly && (
-                  <td>
-                    <div className="flex gap-1 justify-center">
-                      <button
-                        onClick={() => setEditing({ ...invoice })}
-                        className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
-                      >
-                        تعديل
-                      </button>
-                      <button
-                        onClick={() => handleDelete(invoice)}
-                        className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
-                      >
-                        حذف
-                      </button>
-                    </div>
-                  </td>
-                )}
+                <td>
+                  <div className="flex flex-nowrap justify-center gap-1">
+                    <button
+                      type="button"
+                      title="عرض / طباعة"
+                      aria-label={`عرض / طباعة الفاتورة ${invoice.invoice_no as string}`}
+                      onClick={(e) => { e.stopPropagation(); openDetails(invoice) }}
+                      className="app-btn app-btn-sm app-btn-ghost px-2 text-xs text-[var(--primary)] hover:border-blue-400"
+                    >
+                      عرض / طباعة
+                    </button>
+                    {!isReadOnly && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setEditing({ ...invoice }) }}
+                          className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
+                        >
+                          تعديل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleDelete(invoice) }}
+                          className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+                        >
+                          حذف
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -526,7 +551,7 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
                 <td className="px-3.5 py-3 text-center text-emerald-800 font-mono text-base font-extrabold whitespace-nowrap tabular-nums">
                   {formatNumber(filteredTotal)} ج.م
                 </td>
-                {!isReadOnly && <td />}
+                <td />
               </tr>
             </tfoot>
           )}
@@ -536,15 +561,31 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
       {/* Mobile Card View (Optimized for field reps on phones) */}
       <div className="md:hidden space-y-3">
         {(paginatedInvoices as Record<string, unknown>[]).map((invoice) => (
-          <div key={invoice.id as string} className="app-card p-3.5 shadow-sm space-y-2.5">
+          <div
+            key={invoice.id as string}
+            className="app-card cursor-pointer p-3.5 shadow-sm space-y-2.5 hover:border-[var(--primary)]/40"
+            role="group"
+            aria-label={`فاتورة ${invoice.invoice_no as string}`}
+            onClick={() => openDetails(invoice)}
+          >
             <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
               <div>
                 <span className="font-extrabold text-slate-800 text-sm block">
                   {customerName(invoice.customer_id as string)}
                 </span>
-                <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
-                  {invoice.invoice_no as string} • {formatDate(invoice.date as string)}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); openDetails(invoice) }}
+                    className="font-mono text-[11px] font-bold text-[var(--primary)] underline-offset-4 hover:underline cursor-pointer"
+                    dir="ltr"
+                  >
+                    {invoice.invoice_no as string}
+                  </button>
+                  <span className="text-[11px] text-slate-400 font-mono" dir="ltr">
+                    • {formatDate(invoice.date as string)}
+                  </span>
+                </div>
               </div>
               <div className="text-end">
                 <span className="font-mono font-black text-emerald-700 text-base block">
@@ -565,22 +606,33 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
               )}
             </div>
 
-            {!isReadOnly && (
-              <div className="flex gap-2 pt-1 border-t border-slate-100">
-                <button
-                  onClick={() => setEditing({ ...invoice })}
-                  className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
-                >
-                  تعديل الفاتورة
-                </button>
-                <button
-                  onClick={() => handleDelete(invoice)}
-                  className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
-                >
-                  حذف
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2 border-t border-slate-100 pt-1">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); openDetails(invoice) }}
+                className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-bold text-[var(--primary)] border-blue-200 hover:bg-blue-50"
+              >
+                عرض / طباعة
+              </button>
+              {!isReadOnly && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setEditing({ ...invoice }) }}
+                    className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
+                  >
+                    تعديل الفاتورة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(invoice) }}
+                    className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+                  >
+                    حذف
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -597,6 +649,14 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
       </>
         )}
       />
+
+      {viewingId && (
+        <InvoiceDetailsModal
+          invoiceId={viewingId}
+          invoiceType="cash"
+          onClose={() => setViewingId(null)}
+        />
+      )}
 
       {editing && (
         <CashInvoiceModal
