@@ -132,5 +132,5 @@ Let managers and sales reps open a complete invoice from cash/credit lists — i
 - [x] WhatsApp PDF, A4 print and CSV export reuse the unified template / UTF-8 exporter
 - [x] Verification Gate: typecheck PASS, lint PASS (pre-existing warnings only), build PASS (pre-existing chunk warnings)
 - [x] Reviewer subagent: initial PASS WITH NOTES; canonical credit totals, cache invalidation, PDF payment history and accessibility follow-ups fixed and re-reviewed
-- [ ] PLAN/LOG committed, pushed, Vercel READY
+- [x] PLAN/LOG committed, pushed, Vercel READY (main b04c6ee → tawreed production, deployment dpl_DEGVpv5HpoYNGGhhHDNzGeXep1fv)
 - [ ] Authenticated RTL/LTR 375px/1440px visual QA (skipped by user: no credentials supplied)

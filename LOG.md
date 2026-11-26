@@ -124,3 +124,6 @@
   credentials supplied); recorded as a limitation in PLAN.md.
 - Commit scope: only this feature's files plus its PLAN/LOG/known-issues updates. Other
   pre-existing uncommitted work (Phase 2/3 files, `Personal/`, `tmp_*`) was left untouched.
+- Feature commit `b04c6ee` was pushed to `main`; Vercel production deployment
+  `dpl_DEGVpv5HpoYNGGhhHDNzGeXep1fv` reported READY for that SHA. A docs-only follow-up
+  records the deployment status; no application code changed after verification.
