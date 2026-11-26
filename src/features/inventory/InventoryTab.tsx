@@ -19,6 +19,7 @@ import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import BulkProductMatrixModal from '@/features/sales/BulkProductMatrixModal'
+import ProductConsumptionModal from '@/features/products/ProductConsumptionModal'
 
 // ─── Stock-in form modal ──────────────────────────────────────────────────────
 function StockInModal({
@@ -279,6 +280,7 @@ export default function InventoryTab() {
   const [bulkReceiveOpen, setBulkReceiveOpen] = useState(false)
   const [adjustOpen, setAdjustOpen] = useState(false)
   const [adjustDefaultId, setAdjustDefaultId] = useState<string | undefined>()
+  const [analyticsRow, setAnalyticsRow] = useState<ProductStockRow | null>(null)
   const [toast, setToast] = useState('')
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
@@ -525,7 +527,7 @@ export default function InventoryTab() {
                   <th className="text-center">متوسط التكلفة</th>
                   <th className="text-center">قيمة المخزون</th>
                   <th className="text-center">سعر البيع</th>
-                  <th className="text-center w-24">إجراءات</th>
+                  <th className="text-center w-40">إجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -537,7 +539,14 @@ export default function InventoryTab() {
                   return (
                     <tr key={row.product_id} className={isLow ? 'bg-amber-50/60' : ''}>
                       <td>
-                        <div className="font-semibold text-slate-800 text-sm">{row.name_ar}</div>
+                        <button
+                          type="button"
+                          onClick={() => setAnalyticsRow(row)}
+                          className="font-semibold text-slate-800 text-sm text-start hover:text-primary-700"
+                          title="فتح تحليل مبيعات الصنف"
+                        >
+                          {row.name_ar}
+                        </button>
                         {row.name_en && <div className="text-xs text-slate-400">{row.name_en}</div>}
                         {row.sku && (
                           <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
@@ -601,7 +610,14 @@ export default function InventoryTab() {
                         {formatNumber(row.price)}
                       </td>
                       <td>
-                        <div className="flex gap-1 justify-center">
+                        <div className="flex gap-1 justify-center flex-wrap">
+                          <button
+                            onClick={() => setAnalyticsRow(row)}
+                            className="app-btn app-btn-sm app-btn-ghost text-[10px] text-primary-700 hover:border-primary-400"
+                            title="تحليل مبيعات الصنف"
+                          >
+                            تحليل المبيعات
+                          </button>
                           <button
                             onClick={() => { setStockInOpen(true) }}
                             className="app-btn app-btn-sm app-btn-ghost text-[10px] text-emerald-700 hover:border-emerald-400"
@@ -652,7 +668,13 @@ export default function InventoryTab() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-bold text-slate-900 text-sm">{row.name_ar}</h3>
+                        <button
+                          type="button"
+                          onClick={() => setAnalyticsRow(row)}
+                          className="font-bold text-slate-900 text-sm text-start hover:text-primary-700"
+                        >
+                          {row.name_ar}
+                        </button>
                         {row.name_en && <p className="text-xs text-slate-400 font-sans" dir="ltr">{row.name_en}</p>}
                       </div>
                       <div className="text-end">
@@ -705,7 +727,13 @@ export default function InventoryTab() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50 flex-wrap">
+                      <button
+                        onClick={() => setAnalyticsRow(row)}
+                        className="app-btn app-btn-sm app-btn-ghost text-xs text-primary-700 hover:border-primary-400"
+                      >
+                        تحليل المبيعات
+                      </button>
                       <button
                         onClick={() => setStockInOpen(true)}
                         className="app-btn app-btn-sm app-btn-ghost text-xs text-emerald-700 hover:border-emerald-400"
@@ -1310,6 +1338,20 @@ export default function InventoryTab() {
             setAdjustDefaultId(undefined)
             showToast('تمت التسوية بنجاح')
           }}
+        />
+      )}
+      {analyticsRow && (
+        <ProductConsumptionModal
+          product={{
+            id: analyticsRow.product_id,
+            name_ar: analyticsRow.name_ar,
+            name_en: analyticsRow.name_en,
+            sku: analyticsRow.sku,
+            unit: analyticsRow.unit,
+            price: analyticsRow.price ?? 0,
+          }}
+          stockQty={analyticsRow.on_hand}
+          onClose={() => setAnalyticsRow(null)}
         />
       )}
     </div>

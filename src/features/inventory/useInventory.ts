@@ -57,7 +57,7 @@ export interface InvoiceLine {
 // ─── Hooks ───────────────────────────────────────────────────────────────────
 
 /** On-hand quantity, average cost, ATP, reserved stock, expiry, alerts, and stock value per product. Manager only. */
-export function useProductStock() {
+export function useProductStock(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['product_stock'],
     queryFn: async () => {
@@ -65,6 +65,7 @@ export function useProductStock() {
       if (error) throw error
       return (data || []) as ProductStockRow[]
     },
+    enabled: options?.enabled ?? true,
   })
 }
 
@@ -237,6 +238,7 @@ export function useSaveCreditInvoice() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['credit_invoices'] })
+      qc.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
       qc.invalidateQueries({ queryKey: ['product_stock'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
       qc.invalidateQueries({ queryKey: ['kpi_summary'] })
@@ -270,6 +272,7 @@ export function useDeleteCreditInvoiceWithStock() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['credit_invoices'] })
+      qc.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
       qc.invalidateQueries({ queryKey: ['product_stock'] })
       qc.invalidateQueries({ queryKey: ['stock_movements'] })
     },

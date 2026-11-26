@@ -1000,6 +1000,26 @@ export type Database = {
           reference_type: string | null
         }[]
       }
+      unpaid_credit_invoices_list: {
+        Args: Record<string, never>
+        Returns: {
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          days_diff: number
+          due_date: string
+          invoice_date: string
+          invoice_id: string
+          invoice_no: string
+          is_overdue: boolean
+          paid_amount: number
+          remaining_amount: number
+          rep_id: string | null
+          rep_name: string | null
+          status: string
+          total_amount: number
+        }[]
+      }
       product_stock_summary: {
         Args: Record<string, never>
         Returns: {
@@ -1106,6 +1126,45 @@ export type Database = {
           p_lines: Json
         }
         Returns: string
+      }
+      product_consumption_summary: {
+        Args: { p_from: string; p_product_id: string; p_to: string }
+        Returns: {
+          avg_unit_price: number
+          invoice_count: number
+          total_qty: number
+          total_revenue: number
+          unique_customers: number
+        }[]
+      }
+      product_customer_breakdown: {
+        Args: { p_from: string; p_product_id: string; p_to: string }
+        Returns: {
+          customer_id: string | null
+          customer_name: string
+          customer_phone: string | null
+          last_purchase_date: string
+          order_count: number
+          rep_name: string
+          share_pct: number
+          total_qty: number
+          total_revenue: number
+        }[]
+      }
+      product_sales_history: {
+        Args: { p_from: string; p_product_id: string; p_to: string }
+        Returns: {
+          customer_id: string | null
+          customer_name: string
+          invoice_id: string
+          invoice_no: string
+          invoice_type: string
+          line_total: number
+          qty: number
+          rep_name: string
+          tx_date: string
+          unit_price: number
+        }[]
       }
       product_stock_summary_v3: {
         Args: Record<string, never>

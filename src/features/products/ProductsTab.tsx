@@ -16,6 +16,8 @@ import Pagination from '@/shared/ui/Pagination'
 import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import { useProductStock, type ProductStockRow } from '@/features/inventory/useInventory'
+import ProductConsumptionModal from '@/features/products/ProductConsumptionModal'
 
 interface ProductsTabProps {
   isReadOnly?: boolean
@@ -23,6 +25,8 @@ interface ProductsTabProps {
 
 export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
   const { data: products = [], isLoading, error } = useProducts()
+  // Rep-facing tab: never fetch manager-only cost/valuation data.
+  const { data: stockRows = [] } = useProductStock({ enabled: !isReadOnly })
   const { data: settings } = useSettings()
   const addProduct = useAddProduct()
   const updateProduct = useUpdateProduct()
@@ -32,6 +36,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [analyticsProduct, setAnalyticsProduct] = useState<Product | null>(null)
   const [sharing, setSharing] = useState(false)
 
   const [form, setForm] = useState({
@@ -82,6 +87,9 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
     const start = (currentPage - 1) * pageSize
     return filteredProducts.slice(start, start + pageSize)
   }, [filteredProducts, currentPage, pageSize])
+
+  const stockFor = (productId: string) =>
+    (stockRows as ProductStockRow[]).find((row) => row.product_id === productId)?.on_hand ?? null
 
   const hasActiveFilters = !!searchTerm.trim() || selectedCategory !== 'all'
 
@@ -264,15 +272,13 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
               <th className="text-center">التصنيف</th>
               <th className="text-center w-20">الوحدة</th>
               <th className="text-center font-bold w-36 text-primary-800">سعر البيع المعتمد</th>
-              {!isReadOnly && (
-                <th className="text-center w-28">إجراءات</th>
-              )}
+              <th className="text-center w-40">إجراءات</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={isReadOnly ? 7 : 8} className="py-12 text-center text-slate-400">
+                <td colSpan={8} className="py-12 text-center text-slate-400">
                   <div className="inline-flex items-center gap-2">
                     <span className="h-4 w-4 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
                     <span>جاري تحميل قائمة الأسعار...</span>
@@ -281,7 +287,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
               </tr>
             ) : filteredProducts.length === 0 ? (
               <tr>
-                <td colSpan={isReadOnly ? 7 : 8} className="py-12 text-center text-slate-400">
+                <td colSpan={8} className="py-12 text-center text-slate-400">
                   لا توجد أصناف مطابقة لشروط البحث أو التصنيف المختار.
                 </td>
               </tr>
@@ -291,7 +297,16 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
                   <td className="text-center font-mono text-xs text-slate-400">
                     {(currentPage - 1) * pageSize + index + 1}
                   </td>
-                  <td className="font-bold text-slate-900">{p.name_ar}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => setAnalyticsProduct(p)}
+                      className="font-bold text-slate-900 hover:text-primary-700 text-start"
+                      title="فتح تحليل مبيعات الصنف"
+                    >
+                      {p.name_ar}
+                    </button>
+                  </td>
                   <td className="text-slate-500 text-xs font-sans" dir="ltr">{p.name_en || '-'}</td>
                   <td className="text-center font-mono text-xs text-slate-700" dir="ltr">
                     {p.sku ? (
@@ -315,30 +330,39 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
                   <td className="text-center font-mono font-extrabold text-base text-primary-800 whitespace-nowrap">
                     {formatNumber(p.price)} <span className="text-xs font-normal text-slate-500">ج.م</span>
                   </td>
-                  {!isReadOnly && (
-                    <td className="text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => openModal(p)}
-                          className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
-                          title="تعديل بيانات الصنف أو سعره"
-                        >
-                          تعديل
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (confirm(`هل أنت متأكد من حذف الصنف ${p.name_ar}؟`)) {
-                              await deleteProduct.mutateAsync(p.id)
-                            }
-                          }}
-                          className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
-                          title="حذف الصنف من القائمة"
-                        >
-                          حذف
-                        </button>
-                      </div>
-                    </td>
-                  )}
+                  <td className="text-center">
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <button
+                        onClick={() => setAnalyticsProduct(p)}
+                        className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-primary-400 hover:text-primary-700"
+                        title="تحليل مبيعات الصنف"
+                      >
+                        تحليل المبيعات
+                      </button>
+                      {!isReadOnly && (
+                        <>
+                          <button
+                            onClick={() => openModal(p)}
+                            className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
+                            title="تعديل بيانات الصنف أو سعره"
+                          >
+                            تعديل
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (confirm(`هل أنت متأكد من حذف الصنف ${p.name_ar}؟`)) {
+                                await deleteProduct.mutateAsync(p.id)
+                              }
+                            }}
+                            className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+                            title="حذف الصنف من القائمة"
+                          >
+                            حذف
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -372,7 +396,13 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
                     <span className="text-xs font-mono font-bold text-slate-400">
                       #{(currentPage - 1) * pageSize + index + 1}
                     </span>
-                    <h3 className="font-bold text-slate-900 text-sm">{p.name_ar}</h3>
+                    <button
+                      type="button"
+                      onClick={() => setAnalyticsProduct(p)}
+                      className="font-bold text-slate-900 text-sm text-start hover:text-primary-700"
+                    >
+                      {p.name_ar}
+                    </button>
                   </div>
                   {p.name_en && (
                     <p className="text-xs text-slate-500 font-sans" dir="ltr">{p.name_en}</p>
@@ -404,26 +434,34 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
               </div>
 
               {/* Actions */}
-              {!isReadOnly && (
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
-                  <button
-                    onClick={() => openModal(p)}
-                    className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
-                  >
-                    تعديل
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (confirm(`هل أنت متأكد من حذف الصنف ${p.name_ar}؟`)) {
-                        await deleteProduct.mutateAsync(p.id)
-                      }
-                    }}
-                    className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
-                  >
-                    حذف
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50 flex-wrap">
+                <button
+                  onClick={() => setAnalyticsProduct(p)}
+                  className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-primary-400 hover:text-primary-700"
+                >
+                  تحليل المبيعات
+                </button>
+                {!isReadOnly && (
+                  <>
+                    <button
+                      onClick={() => openModal(p)}
+                      className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
+                    >
+                      تعديل
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm(`هل أنت متأكد من حذف الصنف ${p.name_ar}؟`)) {
+                          await deleteProduct.mutateAsync(p.id)
+                        }
+                      }}
+                      className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+                    >
+                      حذف
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           ))
         )}
@@ -589,6 +627,14 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
             </div>
           </form>
         </Modal>
+      )}
+
+      {analyticsProduct && (
+        <ProductConsumptionModal
+          product={analyticsProduct}
+          stockQty={stockFor(analyticsProduct.id)}
+          onClose={() => setAnalyticsProduct(null)}
+        />
       )}
     </div>
   )
