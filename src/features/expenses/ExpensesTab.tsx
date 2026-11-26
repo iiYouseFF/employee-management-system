@@ -5,7 +5,7 @@ import {
   useUpdateExpense,
   useDeleteExpense,
 } from '@/features/expenses/useExpenses'
-import { formatNumber, getTodayISO } from '@/shared/lib/format'
+import { formatMoney, getTodayISO } from '@/shared/lib/format'
 import FormModal from '@/shared/ui/FormModal'
 import Pagination from '@/shared/ui/Pagination'
 import PageHeader from '@/shared/ui/PageHeader'
@@ -124,7 +124,7 @@ export default function ExpensesTab({ showToast }: any) {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className="badge badge-danger">
-              إجمالي: {formatNumber(total)} ج.م
+              إجمالي: <span className="font-num font-extrabold" dir="ltr">{formatMoney(total)}</span>
             </span>
             <button
               onClick={openNew}
@@ -188,16 +188,16 @@ export default function ExpensesTab({ showToast }: any) {
                 <td className="text-center text-xs text-slate-400 font-mono">
                   {filteredExpenses.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
-                <td className="text-center text-xs text-slate-500 font-mono">
+                <td className="text-center text-xs text-slate-600 font-num font-semibold" dir="ltr">
                   {expense.date}
                 </td>
                 <td>
-                  <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+                  <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
                     {expense.category}
                   </span>
                 </td>
-                <td className="text-center font-mono text-sm font-bold text-rose-600 tabular-nums">
-                  {formatNumber(Number(expense.amount))}
+                <td className="text-center font-num text-sm font-extrabold text-rose-600 tabular-nums" dir="ltr">
+                  {formatMoney(Number(expense.amount), { withCurrency: false })}
                 </td>
                 <td className="text-slate-600 text-sm">
                   {expense.description || '-'}
@@ -233,15 +233,14 @@ export default function ExpensesTab({ showToast }: any) {
                 <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
                   {expense.category}
                 </span>
-                <span className="text-[11px] text-slate-400 block mt-1 font-mono">
+                <span className="text-[11px] text-slate-500 block mt-1 font-num font-semibold" dir="ltr">
                   {expense.date}
                 </span>
               </div>
               <div className="text-end">
-                <span className="font-mono font-black text-rose-600 text-base block">
-                  {formatNumber(Number(expense.amount))}
+                <span className="font-num font-extrabold text-rose-600 text-base block" dir="ltr">
+                  {formatMoney(Number(expense.amount))}
                 </span>
-                <span className="text-[10px] text-slate-400">ج.م</span>
               </div>
             </div>
 

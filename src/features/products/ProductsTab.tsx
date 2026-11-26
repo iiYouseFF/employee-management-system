@@ -18,6 +18,7 @@ import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import { useProductStock, type ProductStockRow } from '@/features/inventory/useInventory'
 import ProductConsumptionModal from '@/features/products/ProductConsumptionModal'
+import { useAuth } from '@/features/auth/useAuth'
 
 interface ProductsTabProps {
   isReadOnly?: boolean
@@ -31,6 +32,8 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
   const addProduct = useAddProduct()
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
+  const { can } = useAuth()
+  const canExportPrint = can('export_print')
 
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -201,21 +204,25 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         count={`${filteredProducts.length} صنف`}
         actions={
           <>
-            <button
-              onClick={handlePrintCatalog}
-              className="app-btn app-btn-ghost py-2 text-xs sm:text-sm flex items-center gap-1.5"
-              title="طباعة كتالوج ورقي منسق لمندوبي المبيعات"
-            >
-              <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-              <span>طباعة القائمة (A4)</span>
-            </button>
+            {canExportPrint && (
+              <>
+                <button
+                  onClick={handlePrintCatalog}
+                  className="app-btn app-btn-ghost py-2 text-xs sm:text-sm flex items-center gap-1.5"
+                  title="طباعة كتالوج ورقي منسق لمندوبي المبيعات"
+                >
+                  <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                  <span>طباعة القائمة (A4)</span>
+                </button>
 
-            <WhatsAppShareButton
-              onClick={handleShareWhatsApp}
-              loading={sharing}
-              label="مشاركة الكتالوج (PDF)"
-              title="مشاركة كتالوج المنتجات كملف PDF عبر واتساب"
-            />
+                <WhatsAppShareButton
+                  onClick={handleShareWhatsApp}
+                  loading={sharing}
+                  label="مشاركة الكتالوج (PDF)"
+                  title="مشاركة كتالوج المنتجات كملف PDF عبر واتساب"
+                />
+              </>
+            )}
 
             {!isReadOnly && (
               <button

@@ -119,11 +119,11 @@ graph TD
 ### 4.1 Multi-Tenant Role-Based Access Control (RBAC)
 - **Roles:**
   - `manager`: Full administrative privileges, access to all tabs (Dashboard, Reps, Inventory, Suppliers, Financial statements, Audit logs).
-  - `sales_rep`: Constrained scope. Can view only their assigned customers, invoices, and credit transactions in read-only mode; can view the product catalog.
+  - `sales_rep`: Constrained scope to their assigned customers and own records. Default access is read-only on the 8 core views plus print/export; managers can grant per-rep view/create/record actions via `reps.permissions` (see `repPermissions.ts` and migration 0034). Inventory and monthly reports are opt-in.
 - **Tenant Isolation:**
   - Multi-manager tenancy prevents cross-organization data leakage. Managers can only query, modify, or create records within their tenant boundary.
 - **Enforcement:**
-  - Evaluated via `public.is_manager()` and `public.get_current_rep_id()` in Postgres functions defined with `SECURITY DEFINER` and a fixed `search_path`.
+  - Evaluated via `public.is_manager()` and `public.get_current_rep_id()` in Postgres functions defined with `SECURITY DEFINER` and a fixed `search_path`. Per-rep feature flags are read by `public.rep_has_permission(key)` inside RLS policies and guarded RPCs; managers always pass.
 
 ### 4.2 Cumulative Accounting & Financial Ledger
 - **Customer Statement (`customer_statement` RPC):**

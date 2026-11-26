@@ -34,14 +34,16 @@ export default {
         danger: '#dc2646',
       },
       fontFamily: {
-        sans: ['Tajawal', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        sans: ['Cairo', 'Tajawal', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        num: ['"Plus Jakarta Sans"', 'Cairo', 'system-ui', 'sans-serif'],
       },
       fontWeight: {
-        normal: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-        extrabold: '800',
+        normal: '500',
+        medium: '600',
+        semibold: '700',
+        bold: '800',
+        extrabold: '900',
+        black: '900',
       },
       borderRadius: {
         'xl': '0.875rem',

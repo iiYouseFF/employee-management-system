@@ -20,6 +20,7 @@ import {
 import { exportCSV } from '@/features/reporting/csv'
 import { buildUnifiedReportTemplate } from '@/features/reporting/pdfGenerators'
 import { generatePdfFromHtml, sharePdfBlobViaWhatsApp } from '@/shared/lib/pdfShare'
+import { useAuth } from '@/features/auth/useAuth'
 
 type StatusFilter = 'all' | 'overdue' | 'within'
 
@@ -121,6 +122,8 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
   const [sharing, setSharing] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(15)
+  const { can } = useAuth()
+  const canExportPrint = can('export_print')
 
   const scopedRows = useMemo(
     () => (repFilter !== 'all' ? rows.filter((r) => r.rep_id === repFilter) : rows),
@@ -231,12 +234,14 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
         subtitle={t(lang, 'متابعة الذمم المدينة حسب أجل سداد 15 يوماً من تاريخ الفاتورة.', 'Track receivables with a 15-day payment term from the invoice date.')}
         count={`${filteredRows.length} ${t(lang, 'فاتورة', 'invoices')}`}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={handleExportCsv} className="app-btn app-btn-ghost text-xs">{t(lang, 'تصدير CSV', 'Export CSV')}</button>
-            <button type="button" onClick={() => { void handleSharePdf() }} disabled={sharing} className="app-btn app-btn-primary text-xs">
-              {sharing ? t(lang, 'جارٍ الإعداد...', 'Preparing...') : t(lang, 'مشاركة PDF واتساب', 'Share PDF on WhatsApp')}
-            </button>
-          </div>
+          canExportPrint ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={handleExportCsv} className="app-btn app-btn-ghost text-xs">{t(lang, 'تصدير CSV', 'Export CSV')}</button>
+              <button type="button" onClick={() => { void handleSharePdf() }} disabled={sharing} className="app-btn app-btn-primary text-xs">
+                {sharing ? t(lang, 'جارٍ الإعداد...', 'Preparing...') : t(lang, 'مشاركة PDF واتساب', 'Share PDF on WhatsApp')}
+              </button>
+            </div>
+          ) : null
         }
       />
 

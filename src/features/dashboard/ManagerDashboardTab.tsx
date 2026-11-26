@@ -4,7 +4,8 @@ import {
   useReceivablesAging,
   useCashflowSeries,
 } from '@/features/dashboard/useKpi'
-import { formatNumber, getTodayISO } from '@/shared/lib/format'
+import { formatMoney, formatNumber, getTodayISO } from '@/shared/lib/format'
+import { CashFlowText, MoneyText } from '@/shared/ui/MoneyText'
 import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import {
@@ -131,10 +132,10 @@ export default function ManagerDashboardTab() {
               محصل فعلياً
             </span>
           </div>
-          <p className="mt-3 text-2xl font-black text-emerald-700 font-mono tabular-nums">
-            {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.income)} ج.م`}
+          <p className="mt-3 text-2xl font-extrabold text-emerald-700 font-num tabular-nums">
+            {kpiError ? '—' : loadingKpi ? '...' : <CashFlowText amount={kpi?.income} direction="inflow" colored={false} />}
           </p>
-          <p className="text-xs text-slate-400 mt-1 font-medium">مبيعات نقدية + دفعات مسددة</p>
+          <p className="text-xs text-slate-500 mt-1 font-semibold">مبيعات نقدية + دفعات مسددة</p>
         </div>
 
         {/* Outcome Card */}
@@ -146,10 +147,10 @@ export default function ManagerDashboardTab() {
               مدفوعات
             </span>
           </div>
-          <p className="mt-3 text-2xl font-black text-rose-700 font-mono tabular-nums">
-            {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.outcome)} ج.م`}
+          <p className="mt-3 text-2xl font-extrabold text-rose-700 font-num tabular-nums">
+            {kpiError ? '—' : loadingKpi ? '...' : <CashFlowText amount={kpi?.outcome} direction="outflow" colored={false} />}
           </p>
-          <p className="text-xs text-slate-400 mt-1 font-medium">دفعات موردين ومشتريات ومصاريف</p>
+          <p className="text-xs text-slate-500 mt-1 font-semibold">دفعات موردين ومشتريات ومصاريف</p>
         </div>
 
         {/* Net Cash Flow Card */}
@@ -162,13 +163,13 @@ export default function ManagerDashboardTab() {
             </span>
           </div>
           <p
-            className={`mt-3 text-2xl font-black font-mono tabular-nums ${
+            className={`mt-3 text-2xl font-extrabold font-num tabular-nums ${
               (kpi?.net_profit || 0) >= 0 ? 'text-primary-800' : 'text-rose-700'
             }`}
           >
-            {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.net_profit)} ج.م`}
+            {kpiError ? '—' : loadingKpi ? '...' : <CashFlowText amount={kpi?.net_profit} colored={false} />}
           </p>
-          <p className="text-xs text-slate-400 mt-1 font-medium">الفارق بين المقبوض والمنصرف</p>
+          <p className="text-xs text-slate-500 mt-1 font-semibold">الفارق بين المقبوض والمنصرف</p>
         </div>
 
         {/* DSO Velocity Card */}
@@ -180,10 +181,10 @@ export default function ManagerDashboardTab() {
               سرعة التحصيل
             </span>
           </div>
-          <p className="mt-3 text-2xl font-black text-blue-700 font-mono tabular-nums">
-            {kpiError ? '—' : loadingKpi ? '...' : `${kpi?.dso || 0} يوم`}
+          <p className="mt-3 text-2xl font-extrabold text-blue-700 font-num tabular-nums">
+            {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.dso || 0)} يوم`}
           </p>
-          <p className="text-xs text-slate-400 mt-1 font-medium">متوسط المدة اللازمة لتحصيل الفاتورة</p>
+          <p className="text-xs text-slate-500 mt-1 font-semibold">متوسط المدة اللازمة لتحصيل الفاتورة</p>
         </div>
       </div>
 
@@ -192,10 +193,10 @@ export default function ManagerDashboardTab() {
         <div className="app-card p-4.5 bg-gradient-to-br from-indigo-50/70 to-white border-indigo-100 flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-indigo-900 block">تكلفة البضاعة المباعة (COGS)</span>
-            <p className="text-2xl font-black text-indigo-800 font-mono mt-1">
-              {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.cogs ?? 0)} ج.م`}
+            <p className="text-2xl font-extrabold text-indigo-800 font-num mt-1">
+              {kpiError ? '—' : loadingKpi ? '...' : <MoneyText amount={kpi?.cogs ?? 0} />}
             </p>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">محسوبة بمتوسط التكلفة المرجح للأصناف المباعة</span>
+            <span className="text-[11px] text-slate-500 font-semibold mt-0.5 block">محسوبة بمتوسط التكلفة المرجح للأصناف المباعة</span>
           </div>
           <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
             تكلفة
@@ -205,10 +206,10 @@ export default function ManagerDashboardTab() {
         <div className="app-card p-4.5 bg-gradient-to-br from-teal-50/70 to-white border-teal-100 flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-teal-900 block">مجمل الربح (Gross Margin)</span>
-            <p className={`text-2xl font-black font-mono mt-1 ${(kpi?.gross_margin ?? 0) >= 0 ? 'text-teal-800' : 'text-rose-700'}`}>
-              {kpiError ? '—' : loadingKpi ? '...' : `${formatNumber(kpi?.gross_margin ?? 0)} ج.م`}
+            <p className={`text-2xl font-extrabold font-num mt-1 ${(kpi?.gross_margin ?? 0) >= 0 ? 'text-teal-800' : 'text-rose-700'}`}>
+              {kpiError ? '—' : loadingKpi ? '...' : <CashFlowText amount={kpi?.gross_margin ?? 0} colored={false} />}
             </p>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">إجمالي مبيعات الفواتير − تكلفة البضاعة المباعة</span>
+            <span className="text-[11px] text-slate-500 font-semibold mt-0.5 block">إجمالي مبيعات الفواتير − تكلفة البضاعة المباعة</span>
           </div>
           <div className="h-10 w-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
             ربح
@@ -225,10 +226,10 @@ export default function ManagerDashboardTab() {
             </span>
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
           </div>
-          <p className="text-xl font-black text-blue-800 font-mono mt-1.5">
-            {kpiError ? '—' : `${formatNumber(kpi?.receivables)} ج.م`}
+          <p className="text-xl font-extrabold text-blue-800 font-num mt-1.5">
+            {kpiError ? '—' : <MoneyText amount={kpi?.receivables} />}
           </p>
-          <span className="text-xs text-blue-700/80 font-medium mt-1 block">إجمالي الديون المستحقة عند العملاء بالخارج</span>
+          <span className="text-xs text-blue-800/80 font-semibold mt-1 block">إجمالي الديون المستحقة عند العملاء بالخارج</span>
         </div>
 
         <div className="bg-gradient-to-br from-amber-50/80 to-amber-100/40 p-4.5 rounded-2xl border border-amber-200/80 shadow-sm">
@@ -238,10 +239,10 @@ export default function ManagerDashboardTab() {
             </span>
             <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
           </div>
-          <p className="text-xl font-black text-amber-800 font-mono mt-1.5">
-            {kpiError ? '—' : `${formatNumber(kpi?.payables)} ج.م`}
+          <p className="text-xl font-extrabold text-amber-800 font-num mt-1.5">
+            {kpiError ? '—' : <MoneyText amount={kpi?.payables} />}
           </p>
-          <span className="text-xs text-amber-700/80 font-medium mt-1 block">إجمالي الالتزامات الواجبة السداد للموردين</span>
+          <span className="text-xs text-amber-800/80 font-semibold mt-1 block">إجمالي الالتزامات الواجبة السداد للموردين</span>
         </div>
 
         <div className="bg-gradient-to-br from-emerald-50/80 to-emerald-100/40 p-4.5 rounded-2xl border border-emerald-200/80 shadow-sm">
@@ -251,11 +252,11 @@ export default function ManagerDashboardTab() {
             </span>
             <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
           </div>
-          <p className="text-xl font-black text-emerald-800 font-mono mt-1.5">
-            {kpiError ? '—' : `${kpi?.collection_rate_30d || 0}%`}
+          <p className="text-xl font-extrabold text-emerald-800 font-num mt-1.5">
+            {kpiError ? '—' : `${formatNumber(kpi?.collection_rate_30d || 0)}%`}
           </p>
-          <span className="text-xs text-emerald-700/80 font-medium mt-1 block">
-            متوسط فترة السداد: {kpi?.avg_collection_days || 0} يوم
+          <span className="text-xs text-emerald-800/80 font-semibold mt-1 block">
+            متوسط فترة السداد: {formatNumber(kpi?.avg_collection_days || 0)} يوم
           </span>
         </div>
       </div>
@@ -295,15 +296,18 @@ export default function ManagerDashboardTab() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="tx_date" tick={{ fontSize: 10, fill: '#64748b' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
+                  <XAxis dataKey="tx_date" tick={{ fontSize: 11, fill: '#475569', fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif', fontWeight: 600 }} />
+                  <YAxis tick={{ fontSize: 11, fill: '#475569', fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif', fontWeight: 600 }} tickFormatter={(v) => formatMoney(v, { withCurrency: false, decimals: 0 })} />
                   <Tooltip
+                    formatter={(value) => formatMoney(Number(value ?? 0))}
                     contentStyle={{
                       backgroundColor: '#0f172a',
                       color: '#fff',
                       borderRadius: '0.75rem',
                       border: 'none',
                       fontSize: '12px',
+                      fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif',
+                      fontWeight: 600,
                     }}
                   />
                   <Area
@@ -352,15 +356,18 @@ export default function ManagerDashboardTab() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={aging}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="bucket" tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
+                  <XAxis dataKey="bucket" tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} />
+                  <YAxis tick={{ fontSize: 11, fill: '#475569', fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif', fontWeight: 600 }} tickFormatter={(v) => formatMoney(v, { withCurrency: false, decimals: 0 })} />
                   <Tooltip
+                    formatter={(value) => formatMoney(Number(value ?? 0))}
                     contentStyle={{
                       backgroundColor: '#0f172a',
                       color: '#fff',
                       borderRadius: '0.75rem',
                       border: 'none',
                       fontSize: '12px',
+                      fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif',
+                      fontWeight: 600,
                     }}
                   />
                   <Bar
@@ -401,12 +408,15 @@ export default function ManagerDashboardTab() {
                   ))}
                 </Pie>
                 <Tooltip
+                  formatter={(value) => formatMoney(Number(value ?? 0))}
                   contentStyle={{
                     backgroundColor: '#0f172a',
                     color: '#fff',
                     borderRadius: '0.75rem',
                     border: 'none',
                     fontSize: '12px',
+                    fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif',
+                    fontWeight: 600,
                   }}
                 />
                 <Legend />
@@ -438,12 +448,15 @@ export default function ManagerDashboardTab() {
                   ))}
                 </Pie>
                 <Tooltip
+                  formatter={(value) => formatMoney(Number(value ?? 0))}
                   contentStyle={{
                     backgroundColor: '#0f172a',
                     color: '#fff',
                     borderRadius: '0.75rem',
                     border: 'none',
                     fontSize: '12px',
+                    fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif',
+                    fontWeight: 600,
                   }}
                 />
                 <Legend />

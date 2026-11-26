@@ -32,34 +32,6 @@ Unify the visual system, reorganize app navigation into 3 domain clusters, and e
 - [x] Push, Vercel READY (main b850b75 → tawreed production, deployment dpl_6QJcu91UCMvF8tUfo5qbLHYZa4kP)
 - [ ] Authenticated RTL/LTR 375px/1440px visual QA (blocked: no credentials)
 
-# Phase 3 — Single-product consumption & customer sales analytics
-
-## Goal
-Let managers and reps open a near-fullscreen analytics modal from Products or Inventory for one product, filter by date preset, inspect KPIs / top buying customers / trend / detailed invoice lines, export CSV, share a unified PDF to WhatsApp, and drill into a customer statement.
-
-## Scope
-- Additive migration `supabase/migrations/0030_product_consumption_analytics.sql`: three `SECURITY INVOKER` RPCs over `invoice_lines` joined to `cash_invoices` / `credit_invoices`; RPC signatures merged into `src/shared/types/supabase.ts`.
-- `src/shared/hooks/useProductAnalytics.ts` (shared by Products + Inventory) using React Query, `enabled: Boolean(productId)`, `friendlyError`.
-- `src/shared/lib/bilingual.ts`: lightweight `t(ar,en)` + `ar-EG`/`en-US` formatting keyed off `document.documentElement.dir` (no full i18n layer).
-- `src/features/reporting/productAnalyticsReport.ts`: `buildUnifiedReportTemplate` PDF + WhatsApp sharing helper.
-- `src/features/products/ProductConsumptionModal.tsx`: identity header, 4 presets, CSV/PDF actions, 4 KPIs, customer table + mobile cards with share bars, Recharts day/week/month trend, collapsible line log.
-- Entry points in `src/features/products/ProductsTab.tsx` and `src/features/inventory/InventoryTab.tsx` (clickable name + explicit "تحليل المبيعات" action for both roles).
-
-## Decisions
-- Migration numbered `0030` (requested `0021` was already taken by `0021_reservations_and_returns.sql`; local migrations run through `0029`). Confirmed by user ("option a" + all recommendations).
-- Hook placed in `src/shared/hooks/` (no `src/hooks/` directory exists), bilingual labels resolved locally from `?dir` override, commit scope limited to feature files + PLAN.md + LOG.md (leave other uncommitted `docs/*` and `tmp_*` work untouched).
-- RLS/tenant isolation inherited from existing table policies; no new tables, no service-role usage.
-- 0030 applied to Supabase project `pswyzpadnicjwdqgwwtd` via MCP; `REVOKE ... FROM anon/PUBLIC`, `GRANT ... TO authenticated`.
-
-## Checklist
-- [x] Migration created, applied and RPC signatures synced to local types
-- [x] Hook + bilingual helpers + PDF/CSV report helper implemented
-- [x] Modal + entry points wired in Products and Inventory
-- [x] Verification Gate: typecheck PASS, lint PASS (warnings only), build PASS (chunk warnings only)
-- [x] Reviewer subagent pass on diff + SQL
-- [x] PLAN/LOG updated
-- [ ] Push, Vercel READY
-- [ ] Authenticated 375px/1440px RTL/LTR visual QA (blocked: no credentials)
 ---
 
 # Unpaid & Overdue Credit Invoices (15-day payment term)
@@ -86,8 +58,8 @@ payment term, clickable invoice details, and CSV / WhatsApp PDF export.
   `src/pages` / `src/components/tabs` paths predate the restructure).
 - `WORKFLOW.md` does not exist in the repo; `docs/workflows/TRACKS.md` was used
   as the governing workflow (user-confirmed at the plan checkpoint).
-- Commit scope: only task files; `src/shared/lib/bilingual.ts` was already added by the
-  Phase 3 analytics commit and is reused here. No `tmp_*` / `Personal/` files.
+- Commit scope: only task files plus the pre-existing untracked `bilingual.ts`
+  required by the production build; no `tmp_*` / `Personal/` files.
 
 ## Acceptance criteria
 - [x] Migration applied; RPC returns the 14 required fields ordered most-overdue first
@@ -101,6 +73,37 @@ payment term, clickable invoice details, and CSV / WhatsApp PDF export.
 - [x] Reviewer follow-ups: filtered KPI/PDF totals, rep-mutation invalidation, bilingual actions, nullable type, zero-day label
 - [ ] PLAN/LOG committed, pushed, Vercel READY
 - [ ] Authenticated RTL/LTR 375px/1440px visual QA (credentials still needed)
+
+# Phase 3 — Single-product consumption & customer sales analytics
+
+## Goal
+Let managers and reps open a near-fullscreen analytics modal from Products or Inventory for one product, filter by date preset, inspect KPIs / top buying customers / trend / detailed invoice lines, export CSV, share a unified PDF to WhatsApp, and drill into a customer statement.
+
+## Scope
+- Additive migrations `0030_product_consumption_analytics.sql` (three `SECURITY INVOKER` RPCs) and `0031_product_customer_breakdown_fix.sql` (stable per-customer grouping, deterministic rep from latest line); RPC signatures merged into `src/shared/types/supabase.ts`.
+- `src/shared/hooks/useProductAnalytics.ts` (shared by Products + Inventory) using React Query, `enabled: Boolean(productId)`, `friendlyError`.
+- `src/shared/lib/bilingual.ts`: lightweight `t(ar,en)` + `ar-EG`/`en-US` formatting keyed off `document.documentElement.dir` (no full i18n layer).
+- `src/features/reporting/productAnalyticsReport.ts`: `buildUnifiedReportTemplate` PDF + WhatsApp sharing helper.
+- `src/features/products/ProductConsumptionModal.tsx`: identity header, 4 presets, CSV/PDF actions, 4 KPIs, customer table + mobile cards with share bars, Recharts day/week/month trend, collapsible line log.
+- Entry points in `src/features/products/ProductsTab.tsx` and `src/features/inventory/InventoryTab.tsx` (clickable name + explicit "تحليل المبيعات" action for both roles).
+
+## Decisions
+- Migration numbered `0030` (requested `0021` was already taken by `0021_reservations_and_returns.sql`; local migrations run through `0029`). Confirmed by user ("option a" + all recommendations).
+- Hook placed in `src/shared/hooks/` (no `src/hooks/` directory exists), bilingual labels resolved locally from `?dir` override, commit scope limited to feature files + PLAN.md + LOG.md (leave other uncommitted `docs/*` and `tmp_*` work untouched).
+- RLS/tenant isolation inherited from existing table policies; no new tables, no service-role usage.
+- 0030/0031 applied to Supabase project `pswyzpadnicjwdqgwwtd` via MCP; `REVOKE ... FROM anon/PUBLIC`, `GRANT ... TO authenticated`.
+- Reviewer follow-ups fixed in scope: rep-facing Products tab no longer fetches manager-only stock RPC (`useProductStock({ enabled: !isReadOnly })`), nullable customer ids skip statement drill-down, aggregated query errors suppress the skeleton, CSV invoice types localized, Saturday-based week buckets, money formatting keeps two decimals.
+- Deferred to a future `migration` track (not fixed here): `customer_statement()` / `v_customer_transactions` is not `security_invoker`. The rep `invoice_lines` gap noted here was subsequently fixed by migration `0033_rep_invoice_lines_assigned_customers.sql` in the invoice-details phase below.
+
+## Checklist
+- [x] Migrations 0030 + 0031 created, applied and RPC signatures synced to local types
+- [x] Hook + bilingual helpers + PDF/CSV report helper implemented
+- [x] Modal + entry points wired in Products and Inventory
+- [x] Verification Gate: typecheck PASS, lint PASS (warnings only), build PASS (chunk warnings only)
+- [x] Reviewer subagent pass on diff + SQL
+- [x] PLAN/LOG updated
+- [ ] Push, Vercel READY
+- [ ] Authenticated 375px/1440px RTL/LTR visual QA (skipped by user: no credentials supplied)
 
 # Phase 4 — Invoice details: click-to-open, print, WhatsApp and CSV
 

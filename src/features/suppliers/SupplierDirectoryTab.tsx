@@ -5,7 +5,7 @@ import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import SupplierStatementModal from '@/features/suppliers/SupplierStatementModal'
-import { formatNumber } from '@/shared/lib/format'
+import { formatMoney } from '@/shared/lib/format'
 import {
   useAddSupplier,
   useDeleteSupplier,
@@ -160,8 +160,8 @@ export default function SupplierDirectoryTab({ showToast }: Props) {
                         <button onClick={() => setStatementSupplier(supplier)} className="text-start font-bold text-primary-700 hover:text-primary-800 hover:underline">{supplier.name}</button>
                       </td>
                       <td className="text-center text-slate-600 text-sm font-mono" dir="ltr">{supplier.phone || '-'}</td>
-                      <td className="text-center font-mono text-xs text-slate-500 tabular-nums">{formatNumber(Number(supplier.opening_balance || 0))}</td>
-                      <td className="text-center font-mono font-bold tabular-nums"><span className={balance > 0 ? 'text-rose-700' : 'text-emerald-700'}>{formatNumber(balance)}</span> <span className="text-[11px] font-normal text-slate-400">ج.م</span></td>
+                      <td className="text-center font-num text-xs font-semibold text-slate-600 tabular-nums" dir="ltr">{formatMoney(Number(supplier.opening_balance || 0), { withCurrency: false })}</td>
+                      <td className="text-center font-num font-extrabold tabular-nums" dir="ltr"><span className={balance > 0 ? 'text-rose-700' : 'text-emerald-700'}>{formatMoney(balance)}</span></td>
                       <td className="text-center text-xs text-slate-500">{new Date(supplier.created_at).toLocaleDateString('ar-EG')}</td>
                       <td>
                         <div className="flex gap-1.5 justify-center">
@@ -187,8 +187,8 @@ export default function SupplierDirectoryTab({ showToast }: Props) {
                   <div className="font-mono text-xs text-slate-600 mt-1" dir="ltr">{supplier.phone || 'لا يوجد رقم هاتف'}</div>
                 </div>
                 <div className="text-end">
-                  <span className={`font-mono font-black text-base block ${balance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{formatNumber(balance)}</span>
-                  <span className="text-[10px] text-slate-400">المستحق الحالي (ج.م)</span>
+                  <span className={`font-num font-extrabold text-base block ${balance > 0 ? 'text-rose-700' : 'text-emerald-700'}`} dir="ltr">{formatMoney(balance)}</span>
+                  <span className="text-[10px] font-semibold text-slate-500">المستحق الحالي</span>
                 </div>
               </div>
               <div className="flex gap-2 pt-1 border-t border-slate-100">

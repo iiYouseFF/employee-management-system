@@ -4,7 +4,7 @@ import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import { useDatePreset } from '@/shared/hooks/useDatePreset'
-import { formatNumber } from '@/shared/lib/format'
+import { formatMoney } from '@/shared/lib/format'
 import SupplierPurchaseModal from '@/features/suppliers/SupplierPurchaseModal'
 import { useProducts } from '@/features/products/useProducts'
 import {
@@ -166,7 +166,7 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
                         {p.payment_type === 'cash' ? 'نقدي' : 'آجل'}
                       </span>
                     </td>
-                    <td className="text-center font-mono font-bold tabular-nums">{formatNumber(Number(p.total_amount || 0))} <span className="text-[11px] font-normal text-slate-400">ج.م</span></td>
+                    <td className="text-center font-num font-extrabold tabular-nums" dir="ltr">{formatMoney(Number(p.total_amount || 0))}</td>
                     <td className="text-xs text-slate-500">{p.notes || '-'}</td>
                     <td>
                       <div className="flex gap-1.5 justify-center">
@@ -195,7 +195,7 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
                 <div className="text-[11px] text-slate-400 font-mono">{new Date(p.purchase_date).toLocaleDateString('ar-EG')}</div>
               </div>
               <div className="text-end">
-                <div className="font-mono font-extrabold text-slate-900 tabular-nums">{formatNumber(Number(p.total_amount || 0))} ج.م</div>
+                <div className="font-num font-extrabold text-slate-950 tabular-nums" dir="ltr">{formatMoney(Number(p.total_amount || 0))}</div>
                 <span className={`badge mt-1 ${p.payment_type === 'cash' ? 'badge-success' : 'badge-warning'}`}>{p.payment_type === 'cash' ? 'نقدي' : 'آجل'}</span>
               </div>
             </div>

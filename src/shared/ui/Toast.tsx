@@ -7,8 +7,8 @@ export default function Toast({ message }: { message: string | null }) {
       role="status"
       aria-live="polite"
     >
-      <div className="bg-slate-900/95 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-float border border-white/10 animate-fade-in-up max-w-md text-center text-sm font-semibold flex items-center gap-2.5">
-        <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+      <div className="bg-slate-950/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-float border border-white/15 animate-fade-in-up max-w-md text-center text-sm font-bold flex items-center gap-2.5">
+        <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 shrink-0" />
         <span>{message}</span>
       </div>
     </div>

@@ -8,7 +8,7 @@ import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import { MobileCard, MobileCardRow } from '@/shared/ui/MobileCards'
 import CumulativeCustomerStatementModal from '@/features/statements/CumulativeCustomerStatementModal'
-import { formatNumber } from '@/shared/lib/format'
+import { formatMoney } from '@/shared/lib/format'
 
 export default function CustomersTab({ showToast, repFilter, isReadOnly = false }: any) {
   const { data: customers = [], isLoading, error } = useCustomers(repFilter)
@@ -95,11 +95,11 @@ export default function CustomersTab({ showToast, repFilter, isReadOnly = false 
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-bold text-slate-900 truncate">{c.name}</div>
-                <div className="text-xs text-slate-500 font-mono mt-0.5" dir="ltr">{c.phone || '-'}</div>
+                <div className="text-xs text-slate-600 font-num font-semibold mt-0.5" dir="ltr">{c.phone || '-'}</div>
               </div>
               <span className="app-pill app-pill-neutral shrink-0">{repName(c)}</span>
             </div>
-            <MobileCardRow label="الرصيد الافتتاحي" value={<span className="num font-bold">{formatNumber(c.opening_balance || 0)} ج.م</span>} />
+            <MobileCardRow label="الرصيد الافتتاحي" value={<span className="num font-bold">{formatMoney(c.opening_balance || 0)}</span>} />
             <div className="flex flex-wrap gap-2 pt-1">
               <button type="button" onClick={() => setStatementCustomer(c)} className="app-btn app-btn-secondary app-btn-sm flex-1">كشف الحساب</button>
               {!isReadOnly && <button type="button" onClick={() => openEdit(c)} className="app-btn app-btn-ghost app-btn-sm flex-1">تعديل</button>}
@@ -124,9 +124,9 @@ export default function CustomersTab({ showToast, repFilter, isReadOnly = false 
                   {paginatedCustomers.map((c: any) => (
                     <tr key={c.id}>
                       <td className="font-bold text-slate-900">{c.name}</td>
-                      <td className="font-mono text-slate-600" dir="ltr">{c.phone || '-'}</td>
+                      <td className="font-num font-semibold text-slate-700" dir="ltr">{c.phone || '-'}</td>
                       <td><span className="app-pill app-pill-neutral">{repName(c)}</span></td>
-                      <td className="num font-bold text-slate-900">{formatNumber(c.opening_balance || 0)} ج.م</td>
+                      <td className="num font-bold text-slate-900">{formatMoney(c.opening_balance || 0)}</td>
                       <td>
                         <div className="flex items-center justify-center gap-1.5">
                           <button type="button" onClick={() => setStatementCustomer(c)} className="app-btn app-btn-secondary app-btn-sm">كشف حساب</button>

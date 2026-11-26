@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { supabase } from '@/shared/lib/supabase'
 import { clearTenantCache } from '@/shared/lib/tenant'
+import { normalizeRepPermissions, type RepPermissionKey } from '@/features/reps/repPermissions'
 import type { User } from '@supabase/supabase-js'
 
 export type AppRole = 'manager' | 'sales_rep'
@@ -11,6 +12,7 @@ export interface RepProfile {
   email?: string | null
   phone?: string | null
   owner_id: string
+  permissions: ReturnType<typeof normalizeRepPermissions>
 }
 
 interface AuthState {
@@ -84,11 +86,16 @@ async function resolveProfile(currentUser: User | null, showLoading = true) {
     if (nextRole === 'sales_rep') {
       const { data: rep, error: repError } = await supabase
         .from('reps')
-        .select('id, name, email, phone, owner_id')
+        .select('id, name, email, phone, owner_id, permissions')
         .eq('user_id', currentUser.id)
         .maybeSingle()
 
-      if (!repError && rep) nextRepProfile = rep as RepProfile
+      if (!repError && rep) {
+        nextRepProfile = {
+          ...(rep as Omit<RepProfile, 'permissions'>),
+          permissions: normalizeRepPermissions(rep.permissions),
+        }
+      }
     }
   } catch {
     nextRole = null
@@ -123,6 +130,13 @@ function ensureStarted() {
       void resolveProfile(session?.user ?? null)
     }
   })
+
+  // Manager-set rep permissions take effect on the next visit to the tab.
+  const refreshWhenVisible = () => {
+    if (document.visibilityState === 'visible') void refreshProfile()
+  }
+  window.addEventListener('focus', refreshWhenVisible)
+  document.addEventListener('visibilitychange', refreshWhenVisible)
 }
 
 async function refreshProfile() {
@@ -141,12 +155,15 @@ export function useAuth() {
   const isManager = snapshot.role === 'manager'
   const isReadOnly = isRep
   const hasRole = (required: AppRole) => snapshot.role === required
+  const can = (key: RepPermissionKey): boolean =>
+    isManager || (isRep && snapshot.repProfile?.permissions[key] === true)
 
   return {
     user: snapshot.user,
     role: snapshot.role,
     repProfile: snapshot.repProfile,
     hasRole,
+    can,
     isRep,
     isReadOnly,
     isManager,

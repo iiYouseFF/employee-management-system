@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect } from 'react'
-import { useRepDirectory } from '@/features/reps/useReps'
+import { useRepDirectory, useReps } from '@/features/reps/useReps'
 import { cn, formatNumber } from '@/shared/lib/format'
 import type { RepDirectoryRow, RepFormValues } from '@/features/reps/reps.types'
 import Pagination from '@/shared/ui/Pagination'
 import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
+import RepPermissionsModal from '@/features/reps/RepPermissionsModal'
 
 interface RepsTabProps {
   onAdd: () => void
@@ -31,6 +32,8 @@ const initials = (name: string): string =>
 
 export default function RepsTab({ onAdd, onEdit, onDelete, showToast }: RepsTabProps) {
   const { data: reps = [], isLoading, isError, error, refetch } = useRepDirectory()
+  const { data: repRows = [], isLoading: repsLoading, isError: repsError } = useReps()
+  const [permissionsRep, setPermissionsRep] = useState<{ id: string; name: string; permissions: unknown } | null>(null)
   const [search, setSearch] = useState('')
   const [linkFilter, setLinkFilter] = useState<LinkFilter>('all')
   const [showInactive, setShowInactive] = useState(true)
@@ -367,6 +370,21 @@ export default function RepsTab({ onAdd, onEdit, onDelete, showToast }: RepsTabP
                       </button>
                       <button
                         type="button"
+                        onClick={() =>
+                          setPermissionsRep({
+                            id: rep.rep_id,
+                            name: rep.name,
+                            permissions: repRows.find((row) => row.id === rep.rep_id)?.permissions,
+                          })
+                        }
+                        disabled={repsLoading || repsError || !repRows.some((row) => row.id === rep.rep_id)}
+                        title={repsLoading ? 'جاري تحميل الصلاحيات...' : repsError ? 'تعذر تحميل الصلاحيات' : 'تعديل صلاحيات المندوب'}
+                        className="app-btn app-btn-info app-btn-sm disabled:opacity-50"
+                      >
+                        الصلاحيات
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleCopyInvite(rep)}
                         disabled={rep.is_linked}
                         className="app-btn app-btn-info app-btn-sm disabled:opacity-50"
@@ -397,6 +415,14 @@ export default function RepsTab({ onAdd, onEdit, onDelete, showToast }: RepsTabP
           </>
         )}
       />
+      {permissionsRep && (
+        <RepPermissionsModal
+          repId={permissionsRep.id}
+          repName={permissionsRep.name}
+          permissions={permissionsRep.permissions}
+          onClose={() => setPermissionsRep(null)}
+        />
+      )}
     </div>
   )
 }

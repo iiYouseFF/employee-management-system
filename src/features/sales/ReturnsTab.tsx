@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { getTodayISO, formatNumber } from '@/shared/lib/format'
+import { getTodayISO, formatMoney } from '@/shared/lib/format'
 import Modal from '@/shared/ui/Modal'
 import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
@@ -229,8 +229,8 @@ export default function ReturnsTab({
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="inline-flex items-center gap-2 bg-rose-50 border border-rose-200/80 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-rose-800 shadow-sm">
               <span>إجمالي المرتجعات:</span>
-              <span className="font-extrabold text-rose-950 font-mono text-sm sm:text-base">
-                {formatNumber(totalReturnAmount)} ج.م
+              <span className="font-extrabold text-rose-950 font-num text-sm sm:text-base" dir="ltr">
+                {formatMoney(totalReturnAmount)}
               </span>
             </div>
 
@@ -325,8 +325,8 @@ export default function ReturnsTab({
                     )}
                   </td>
                   <td className="text-xs text-slate-500">{ret.notes || '-'}</td>
-                  <td className="text-center font-bold text-rose-700 font-mono text-sm whitespace-nowrap">
-                    {formatNumber(ret.total_amount)}
+                  <td className="text-center font-extrabold text-rose-700 font-num text-sm whitespace-nowrap" dir="ltr">
+                    {formatMoney(ret.total_amount, { withCurrency: false })}
                   </td>
                   {!isReadOnly && (
                     <td>
@@ -368,10 +368,9 @@ export default function ReturnsTab({
                 </span>
               </div>
               <div className="text-end">
-                <span className="font-mono font-black text-rose-700 text-base block">
-                  {formatNumber(ret.total_amount)}
+                <span className="font-num font-extrabold text-rose-700 text-base block" dir="ltr">
+                  {formatMoney(ret.total_amount)}
                 </span>
-                <span className="text-[10px] text-slate-400">ج.م</span>
               </div>
             </div>
 
@@ -558,8 +557,8 @@ export default function ReturnsTab({
                 {selectedLines.map((l) => (
                   <div key={l.product_id} className="flex justify-between items-center text-xs">
                     <span className="text-slate-700 font-medium">{l.product_name}</span>
-                    <span className="text-slate-500 font-mono">
-                      {l.qty} {l.unit} × {formatNumber(l.unit_price)} = {formatNumber(l.line_total)} ج.م (
+                    <span className="text-slate-600 font-num font-semibold">
+                      {l.qty} {l.unit} × {formatMoney(l.unit_price, { withCurrency: false })} = {formatMoney(l.line_total)} (
                       <span className={l.condition === 'salable' ? 'text-emerald-700' : 'text-rose-700 font-bold'}>
                         {l.condition === 'salable' ? 'سليم للمخزن' : 'تالف / هالك'}
                       </span>
@@ -570,7 +569,7 @@ export default function ReturnsTab({
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-slate-200 font-bold text-sm">
                 <span>إجمالي قيمة المرتجع:</span>
-                <span className="font-mono text-rose-700 text-base">{formatNumber(linesTotal)} ج.م</span>
+                <span className="font-num font-extrabold text-rose-700 text-base" dir="ltr">{formatMoney(linesTotal)}</span>
               </div>
             </div>
 

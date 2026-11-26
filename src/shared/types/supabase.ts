@@ -451,6 +451,7 @@ export type Database = {
           name: string
           notes: string | null
           owner_id: string
+          permissions: Json
           phone: string | null
           user_id: string | null
         }
@@ -463,6 +464,7 @@ export type Database = {
           name: string
           notes?: string | null
           owner_id?: string
+          permissions?: Json
           phone?: string | null
           user_id?: string | null
         }
@@ -475,6 +477,7 @@ export type Database = {
           name?: string
           notes?: string | null
           owner_id?: string
+          permissions?: Json
           phone?: string | null
           user_id?: string | null
         }
@@ -952,6 +955,8 @@ export type Database = {
       get_manager_id: { Args: never; Returns: string }
       is_manager: { Args: never; Returns: boolean }
       is_rep_user: { Args: never; Returns: boolean }
+      rep_can_write_for: { Args: { p_customer_id: string; p_rep_id: string }; Returns: boolean }
+      rep_has_permission: { Args: { p_key: string }; Returns: boolean }
       kpi_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       receivables_aging: {
         Args: { p_as_of?: string }

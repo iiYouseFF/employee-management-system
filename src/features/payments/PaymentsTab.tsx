@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { getTodayISO, formatNumber } from '@/shared/lib/format'
+import { getTodayISO, formatMoney } from '@/shared/lib/format'
 import { CUSTOMER_PAYMENT_METHODS, paymentMethodBadgeClass, paymentMethodLabel } from '@/shared/lib/paymentMethods'
 import FormModal from '@/shared/ui/FormModal'
 import Pagination from '@/shared/ui/Pagination'
@@ -166,7 +166,7 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
               <span>إجمالي التحصيلات:</span>
-              <span className="num font-extrabold text-sm">{formatNumber(filteredTotal)} ج.م</span>
+              <span className="num font-extrabold text-sm">{formatMoney(filteredTotal)}</span>
             </div>
             {!isReadOnly && (
               <button type="button" onClick={openNew} className="app-btn app-btn-primary">+ تسجيل دفعة جديدة</button>
@@ -237,8 +237,8 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
                     <span className="text-slate-400 text-xs">-</span>
                   )}
                 </td>
-                <td className="text-center font-bold text-emerald-700 font-mono text-sm whitespace-nowrap">
-                  {formatNumber(payment.amount || 0)}
+                <td className="text-center font-extrabold text-emerald-700 font-num text-sm whitespace-nowrap" dir="ltr">
+                  {formatMoney(payment.amount || 0, { withCurrency: false })}
                 </td>
                 <td className="text-center whitespace-nowrap">{getMethodBadge(payment.method)}</td>
                 {!isReadOnly && (
@@ -270,8 +270,8 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
                 <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={5}>
                   إجمالي المبالغ المحصلة
                 </td>
-                <td className="px-3.5 py-3 text-center text-emerald-800 font-mono text-base font-extrabold whitespace-nowrap">
-                  {formatNumber(filteredTotal)} ج.م
+                <td className="px-3.5 py-3 text-center text-emerald-800 font-num text-base font-extrabold whitespace-nowrap" dir="ltr">
+                  {formatMoney(filteredTotal)}
                 </td>
                 <td colSpan={!isReadOnly ? 2 : 1}></td>
               </tr>
@@ -294,10 +294,10 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
                 </span>
               </div>
               <div className="text-end">
-                <span className="font-mono font-black text-emerald-700 text-base block">
-                  {formatNumber(payment.amount || 0)}
+                <span className="font-num font-extrabold text-emerald-700 text-base block" dir="ltr">
+                  {formatMoney(payment.amount || 0)}
                 </span>
-                <span className="text-[10px] text-slate-400">ج.م محصل</span>
+                <span className="text-[10px] font-bold text-slate-500">محصل</span>
               </div>
             </div>
 
@@ -378,7 +378,7 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
               <div className="rounded-xl border border-primary-100 bg-primary-50/70 p-3 text-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-bold text-primary-900">رصيد العميل الحالي (الآجل غير المسدد)</span>
-                  <span className="num font-extrabold text-[13px] text-primary-900">{formatNumber(balance)} ج.م</span>
+                  <span className="num font-extrabold text-[13px] text-primary-900">{formatMoney(balance)}</span>
                 </div>
                 {values.customer_id && balance > 0 && (
                   <button
@@ -420,7 +420,7 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
                     value: inv.id,
                     label:
                       parseFloat(inv.remaining || 0) > 0
-                        ? `${inv.invoice_no} (متبقي ${formatNumber(inv.remaining)} ج.م)`
+                        ? `${inv.invoice_no} (متبقي ${formatMoney(inv.remaining)})`
                         : `${inv.invoice_no} (مسدد بالكامل)`,
                   })),
             },

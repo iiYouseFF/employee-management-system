@@ -3,18 +3,30 @@
 > Produced during the architecture review / cleanup. These are **findings and recommendations**,
 > not changes applied to already-run migrations or live data. Items are ordered by priority.
 
-## 1. Database defects (fix in a NEW additive migration — `0034_…` or later, never edit applied files)
+## 1. Database defects (fix in a NEW additive migration — `0036_…` or later, never edit applied files)
 
-**Status (2026-11-26):** migrations through `0033_rep_invoice_lines_assigned_customers` are
-applied on the remote project. `0031` added the 15-day credit due-date trigger and the
+**Status (2026-11-27):** migrations through `0035_permissions_hardening` are applied on the
+remote project. `0031` added the 15-day credit due-date trigger and the
 `unpaid_credit_invoices_list()` RPC; `0032` corrected the report's rep attribution and due-date
-trigger behavior; `0033` fixed sales-rep visibility of invoice lines for assigned customers.
-The next free number is `0034`.
+trigger behavior; `0033` fixed sales-rep visibility of invoice lines for assigned customers;
+`0034` added the granular per-rep permission flags, RLS guards and helper RPCs; `0035` hardened
+that implementation (statement isolation, ACLs, reference validation and `search_path`).
+The next free number is `0036`.
 
 **Migration filename note:** both applied migrations use the `0031_` prefix locally
 (`0031_unpaid_overdue_invoices.sql` and `0031_product_customer_breakdown_fix.sql`); the remote
 tracks them under distinct timestamp versions. They are applied files and must not be renamed;
-use `0034_` or later for the next migration.
+use `0036_` or later for the next migration.
+
+| # | Issue | Evidence | Recommended fix |
+|---|---|---|---|
+| 1 | `kpi_summary()` references `expenses.expense_date`, but the column is `date` | `0021_reservations_and_returns.sql:877`; schema in `0010_all_features_management.sql:194` | Use `expenses.date` (or add a generated `expense_date` column) and regenerate types |
+| 2 | Audit trigger reads `NEW.title` / `OLD.title` on `expenses`, but the column is `description` | `0019_audit_logs.sql:162,212,243` | Use `NEW.description` / `OLD.description` |
+| 3 | ~~App calls `product_stock_summary_v3()` but no migration defines it~~ **Resolved by `0035`** — the function is now created explicitly with authenticated-only EXECUTE. |
+| 4 | `DROP FUNCTION product_stock_summary()` may be blocked by `stock_valuation()` dependency | `0020_expiry_and_stock_alerts.sql:76`; `0018_inventory.sql:588-605` | Drop/recreate both functions together in a new migration |
+| 5 | SECURITY DEFINER functions recreated with `search_path = public` (loses `pg_temp` hardening from `0014`) — **partially resolved by `0035`** for the statement, invoice/return write, stock and permission functions; supplier-purchase functions from `0026`–`0029` remain open | `0018`, `0020`, `0021`, `0026`–`0029` | Re-apply `SET search_path = public, pg_temp` to the remaining functions |
+| 6 | `get_email_by_phone()` granted to `anon` allows phone→email enumeration | `0016_phone_login_lookup.sql:10-23` | Restrict to authenticated callers or move server-side |
+| 7 | ~~`v_customer_transactions` lost `security_invoker = true`~~ **Resolved by `0035`**; `customer_statement()` additionally filters `owner_id` and assigned-customer scope, with anon/PUBLIC EXECUTE revoked. | `0011_rbac_hardening.sql:481` vs `0022_customer_phone_payment_methods_and_statement_invoice_link.sql:90`, `0024_statement_reference_links.sql:19` | No further action; verify rep isolation if the view is recreated again |
 
 **Resolved (2026-11-26): sales reps could not read invoice lines for assigned customers.**
 `0018_inventory.sql:41-53` only checked the invoice header `rep_id`, while the header policies
@@ -23,15 +35,64 @@ rep. Applied migration `0033_rep_invoice_lines_assigned_customers.sql` recreates
 `rep_read_invoice_lines` with the same assigned-customer branch for both cash and credit lines,
 keeping the manager exclusion and tenant boundary. Verified via `pg_policies`.
 
-| # | Issue | Evidence | Recommended fix |
-|---|---|---|---|
-| 1 | `kpi_summary()` references `expenses.expense_date`, but the column is `date` | `0021_reservations_and_returns.sql:877`; schema in `0010_all_features_management.sql:194` | Use `expenses.date` (or add a generated `expense_date` column) and regenerate types |
-| 2 | Audit trigger reads `NEW.title` / `OLD.title` on `expenses`, but the column is `description` | `0019_audit_logs.sql:162,212,243` | Use `NEW.description` / `OLD.description` |
-| 3 | App calls `product_stock_summary_v3()` but no migration defines it (only `_v2` exists) | `src/features/inventory/useInventory.ts`; `0021_reservations_and_returns.sql:50` | Create `product_stock_summary_v3()` matching `src/shared/types/supabase.ts`, or switch the app to `_v2` |
-| 4 | `DROP FUNCTION product_stock_summary()` may be blocked by `stock_valuation()` dependency | `0020_expiry_and_stock_alerts.sql:76`; `0018_inventory.sql:588-605` | Drop/recreate both functions together in a new migration |
-| 5 | SECURITY DEFINER functions recreated with `search_path = public` (loses `pg_temp` hardening from `0014`) | `0018`, `0020`, `0021` | Re-apply `SET search_path = public, pg_temp` |
-| 6 | `get_email_by_phone()` granted to `anon` allows phone→email enumeration | `0016_phone_login_lookup.sql:10-23` | Restrict to authenticated callers or move server-side |
-| 7 | `v_customer_transactions` lost `security_invoker = true` when recreated in 0022/0024; a rep may be able to read another tenant's transactions through the view (0025's own lookup is `SECURITY INVOKER` and RLS-bounded) | `0011_rbac_hardening.sql:481` vs `0022_customer_phone_payment_methods_and_statement_invoice_link.sql:90`, `0024_statement_reference_links.sql:19` | Recreate the view with `WITH (security_invoker = true)` in a new migration and verify rep isolation |
+### Granular permission hardening (0034/0035 review, 2026-11-27)
+
+Applied migrations `0034_rep_granular_permissions.sql` and `0035_permissions_hardening.sql`
+close the reviewer findings for the per-rep permission feature:
+
+- `v_customer_transactions` has `security_invoker = true`; `customer_statement()` and
+  `unpaid_credit_invoices_list()` are `SECURITY DEFINER` but explicitly filter by
+  `owner_id` and the caller's assigned-customer/rep scope.
+- `customer_statement()`, the stock/statement RPCs, all write RPCs and every permission
+  helper now revoke anon/PUBLIC EXECUTE and grant `authenticated` (plus `service_role`).
+- Payment/invoice-line visibility no longer depends on `view_customers`/`view_credit`:
+  `rep_can_reference_customer`, `rep_can_reference_credit_invoice` and `rep_can_read_invoice`
+  are `SECURITY DEFINER` helpers that carry tenant scope only; the `view_*`/`record_*`
+  flag is checked separately in each policy.
+- `save_cash_invoice`, `save_credit_invoice`, `process_sales_return` and `save_sales_return`
+  validate that all referenced products belong to the manager's tenant and that a rep may
+  reference the referenced invoice; `rep_can_write_for()` no longer returns true for a
+  non-rep caller with arbitrary IDs.
+- `export_print` is enforced in the UI only (no server-side print endpoint exists).
+
+**Deferred (not fixed in 0035):** product/invoice reference checks rely on validated
+`rep_id`/`customer_id` payloads; a rep with a write grant can still submit an invoice
+whose lines reference products outside their assigned customer's own history. Tighten
+this in a later migration if reps receive broad write grants. Supplier-purchase
+`search_path` hardening and the other supplier follow-ups below remain unchanged.
+
+### Supplier purchase follow-ups (from the 0026–0029 review)
+
+**Status (2026-11-24):** migrations `0026`–`0029` are applied on the remote project
+(`pswyzpadnicjwdqgwwtd`). Verified: `supplier_purchase_lines` exists with RLS enabled and one
+policy; both `save_supplier_purchase(jsonb,jsonb)` and `delete_supplier_purchase(uuid)` exist;
+`anon` has no EXECUTE and `authenticated` does; both RPC bodies contain the
+`supplier_purchase_history` archive step. Types regenerated via Supabase MCP and compared —
+all four objects are present in `src/shared/types/supabase.ts` (the stricter hand-tuned local
+typings were retained). No new migration is needed for these items.
+
+- **Edit guard uses gross reversal qty, not net effect.** `save_supplier_purchase()` requires
+  `on_hand >= original_movement_qty` before reversing, so an edit that would still leave positive stock
+  (e.g. bought 10, sold 5, edit to 6) is rejected. Rework to validate the net result after applying new
+  lines if this becomes a real workflow; the current behavior is conservative and never corrupts stock.
+- **Reversal rows use the original `unit_cost` as `avg_cost_snapshot`.** As with the existing invoice
+  reversal pattern, `product_avg_cost()` ignores negative-qty rows, so deleting an older cheaper purchase
+  can leave the remaining valuation on a stale average. Low practical impact.
+- **Deleting a purchase does not handle linked payments.** `supplier_payments.purchase_id` is
+  `ON DELETE SET NULL`, so a linked payment would survive as an unlinked debit. No current UI sets this
+  column; block or reassign it in a future migration if supplier-purchase-linked payments are added.
+- **Edit/delete concurrency race.** The edit RPC locks the purchase header early, but the delete RPC does
+  not take a row lock before archiving/reversing movements. A concurrent edit and delete could both
+  reverse the same `in` rows. Rare in this manager-only workflow; add `FOR UPDATE` on the header in the
+  delete RPC if concurrent edits become realistic.
+- **Follow-up migration: `search_path` hardening (minor).** `save_supplier_purchase()` and
+  `delete_supplier_purchase()` are recreated in 0026/0027/0029 with `SET search_path = public` rather than
+  the project pattern `public, pg_temp`. All references are schema-qualified, so no escalation was found;
+  recreate the three function definitions in a new additive migration to restore the temp-schema hardening.
+- **Follow-up migration: redundant tenant escape (nit).** The supplier/product existence checks accept
+  `(owner_id = v_owner_id OR owner_id = auth.uid())` while all writes use `get_manager_id()`. Harmless while
+  `user_roles.user_id` is a primary key, but drop the `OR auth.uid()` branch in the same follow-up migration
+  to keep the tenant boundary strict.
 
 **Migration numbering:** versions `0004`–`0006` were skipped historically (present since the first
 commit). The accidental duplicate `006_reservations_and_returns.sql` was removed; `0021_…` is canonical.

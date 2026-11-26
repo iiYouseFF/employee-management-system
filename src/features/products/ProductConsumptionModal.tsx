@@ -26,6 +26,7 @@ import {
   useProductAnalytics,
   type ProductCustomerBreakdownRow,
 } from '@/shared/hooks/useProductAnalytics'
+import { useAuth } from '@/features/auth/useAuth'
 
 export interface AnalyticsProduct {
   id: string
@@ -130,6 +131,8 @@ export default function ProductConsumptionModal({
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<ProductCustomerBreakdownRow | null>(null)
+  const { can } = useAuth()
+  const canExportPrint = can('export_print')
 
   const { summary, breakdown, history, isLoading, isError, error, refetch } =
     useProductAnalytics(product.id, from, to)
@@ -300,6 +303,7 @@ export default function ProductConsumptionModal({
                 className="app-input text-xs py-2"
               />
             </div>
+            {canExportPrint && (
             <div className="flex flex-wrap gap-2 ms-auto">
               <button
                 type="button"
@@ -318,6 +322,7 @@ export default function ProductConsumptionModal({
                 {sharing ? t(lang, 'جاري الإعداد...', 'Preparing...') : t(lang, 'مشاركة PDF واتساب', 'Share PDF on WhatsApp')}
               </button>
             </div>
+            )}
           </div>
           {shareError && (
             <p className="text-xs font-semibold text-rose-700 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2">{shareError}</p>

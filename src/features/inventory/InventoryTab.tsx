@@ -271,7 +271,7 @@ function movementReferenceLabel(type: string) {
 }
 
 // ─── Main InventoryTab ────────────────────────────────────────────────────────
-export default function InventoryTab() {
+export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: boolean }) {
   const { data: products = [], isLoading: loadingProducts } = useProducts()
   const { data: stock = [], isLoading: loadingStock, error: stockError } = useProductStock()
   const receiveStockMutation = useReceiveStock()
@@ -392,17 +392,19 @@ export default function InventoryTab() {
         count={stock.length}
         actions={
           <>
-            <button onClick={() => setStockInOpen(true)} className="app-btn app-btn-primary text-xs py-2">
+            <button onClick={() => setStockInOpen(true)} disabled={isReadOnly} className="app-btn app-btn-primary text-xs py-2">
               <span>+</span> استلام فردي (بدون فاتورة)
             </button>
             <button
               onClick={() => setBulkReceiveOpen(true)}
+              disabled={isReadOnly}
               className="app-btn app-btn-primary bg-indigo-700 hover:bg-indigo-800 text-xs py-2"
             >
               <span>+</span> استلام بضاعة متعددة (Matrix)
             </button>
             <button
               onClick={() => { setAdjustDefaultId(undefined); setAdjustOpen(true) }}
+              disabled={isReadOnly}
               className="app-btn app-btn-ghost text-xs py-2 border-amber-300 text-amber-800 hover:bg-amber-50"
             >
               تسوية مخزون
@@ -620,6 +622,7 @@ export default function InventoryTab() {
                           </button>
                           <button
                             onClick={() => { setStockInOpen(true) }}
+                            disabled={isReadOnly}
                             className="app-btn app-btn-sm app-btn-ghost text-[10px] text-emerald-700 hover:border-emerald-400"
                             title="استلام بضاعة"
                           >
@@ -630,6 +633,7 @@ export default function InventoryTab() {
                               setAdjustDefaultId(row.product_id)
                               setAdjustOpen(true)
                             }}
+                            disabled={isReadOnly}
                             className="app-btn app-btn-sm app-btn-ghost text-[10px] text-amber-700 hover:border-amber-400"
                             title="تسوية"
                           >
@@ -736,6 +740,7 @@ export default function InventoryTab() {
                       </button>
                       <button
                         onClick={() => setStockInOpen(true)}
+                        disabled={isReadOnly}
                         className="app-btn app-btn-sm app-btn-ghost text-xs text-emerald-700 hover:border-emerald-400"
                       >
                         + وارد
@@ -745,6 +750,7 @@ export default function InventoryTab() {
                           setAdjustDefaultId(row.product_id)
                           setAdjustOpen(true)
                         }}
+                        disabled={isReadOnly}
                         className="app-btn app-btn-sm app-btn-ghost text-xs text-amber-700 hover:border-amber-400"
                       >
                         تسوية
@@ -893,6 +899,7 @@ export default function InventoryTab() {
                           <button
                             onClick={() => setStockInOpen(true)}
                             className="app-btn app-btn-sm app-btn-ghost text-[10px] text-emerald-700 hover:border-emerald-400"
+                            disabled={isReadOnly}
                           >
                             + توريد
                           </button>
@@ -902,6 +909,7 @@ export default function InventoryTab() {
                               setAdjustOpen(true)
                             }}
                             className="app-btn app-btn-sm app-btn-ghost text-[10px] text-amber-700 hover:border-amber-400"
+                            disabled={isReadOnly}
                           >
                             تسوية
                           </button>
@@ -964,6 +972,7 @@ export default function InventoryTab() {
                   <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
                     <button
                       onClick={() => setStockInOpen(true)}
+                      disabled={isReadOnly}
                       className="app-btn app-btn-sm app-btn-ghost text-xs text-emerald-700"
                     >
                       + توريد
@@ -973,6 +982,7 @@ export default function InventoryTab() {
                         setAdjustDefaultId(row.product_id)
                         setAdjustOpen(true)
                       }}
+                      disabled={isReadOnly}
                       className="app-btn app-btn-sm app-btn-ghost text-xs text-amber-700"
                     >
                       تسوية

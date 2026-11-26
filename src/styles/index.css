@@ -10,17 +10,21 @@
     --surface: #ffffff;
     --border: #e2e8f0;
     --page-bg: #f4f7fb;
-    --text-primary: #0e1726;
+    --text-primary: #0b1320;
+    --font-sans: 'Cairo', 'Tajawal', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-num: 'Plus Jakarta Sans', 'Cairo', system-ui, sans-serif;
   }
 
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    font-size: 16px;
   }
 
   body {
-    font-family: 'Tajawal', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: var(--font-sans);
+    font-weight: 500;
     background-color: var(--page-bg);
     color: var(--text-primary);
     overflow-x: hidden;
@@ -78,9 +82,13 @@
 }
 
 .excel-input.amount-input {
+  font-family: var(--font-num);
   font-weight: 700;
   background: #f0f7ff;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: end;
 }
 
 .excel-input.amount-input:focus {
@@ -98,16 +106,34 @@
   }
 
   /* Typography */
-  .app-page-title { @apply text-[20px] font-extrabold leading-tight text-slate-900 tracking-tight; }
-  .app-page-subtitle { @apply text-sm font-medium text-slate-500 leading-6; }
-  .app-card-title { @apply text-[16px] font-bold text-slate-800; }
-  .app-section-label { @apply text-[13.5px] font-bold text-slate-700; }
-  .app-body { @apply text-sm font-medium text-slate-700; }
-  .num { font-variant-numeric: tabular-nums; text-align: end; }
+  .app-page-title { @apply text-[21px] font-extrabold leading-tight text-slate-950 tracking-tight; }
+  .app-page-subtitle { @apply text-sm font-semibold text-slate-600 leading-6; }
+  .app-card-title { @apply text-[16.5px] font-extrabold text-slate-900; }
+  .app-section-label { @apply text-[14px] font-extrabold text-slate-800; }
+  .app-body { @apply text-sm font-semibold text-slate-800; }
+  .font-num {
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: -0.01em;
+  }
+  .num {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-weight: 700;
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: end;
+  }
+  .money-value {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums lining-nums;
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
+  }
 
   /* Buttons */
   .app-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 min-h-[44px] md:min-h-0;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 min-h-[44px] md:min-h-0;
   }
 
   .app-header {
@@ -148,15 +174,15 @@
 
   /* Form Inputs */
   .app-input {
-    @apply w-full rounded-xl border border-border px-3.5 py-2.5 text-sm bg-white placeholder:text-slate-400 transition-all duration-150 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-60;
+    @apply w-full rounded-xl border border-border px-3.5 py-2.5 text-sm font-semibold text-slate-900 bg-white placeholder:font-medium placeholder:text-slate-400 transition-all duration-150 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-60;
   }
 
   .app-select {
-    @apply w-full rounded-xl border border-border px-3.5 py-2.5 text-sm bg-white transition-all duration-150 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-60;
+    @apply w-full rounded-xl border border-border px-3.5 py-2.5 text-sm font-semibold text-slate-900 bg-white transition-all duration-150 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-60;
   }
 
   .app-textarea {
-    @apply w-full rounded-xl border border-border px-3.5 py-2.5 text-sm bg-white text-slate-900 placeholder:text-slate-400 transition-all duration-150 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-60;
+    @apply w-full rounded-xl border border-border px-3.5 py-2.5 text-sm font-semibold bg-white text-slate-900 placeholder:font-medium placeholder:text-slate-400 transition-all duration-150 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:opacity-60;
   }
 
   /* Modern Tables */
@@ -167,7 +193,7 @@
   }
 
   .app-table thead th {
-    @apply font-bold text-slate-700 border-b border-border px-3.5 py-3 whitespace-nowrap text-start bg-slate-50/95;
+    @apply font-extrabold text-slate-800 border-b border-border px-3.5 py-3 whitespace-nowrap text-start bg-slate-50/95;
     font-size: 13.5px;
   }
 
@@ -178,7 +204,7 @@
   .app-table tbody tr:nth-child(even) { @apply bg-slate-50/40; }
 
   .app-table tbody td {
-    @apply px-3.5 py-3 text-slate-900 align-middle text-start text-sm font-medium;
+    @apply px-3.5 py-3 text-slate-950 align-middle text-start text-sm font-semibold;
   }
 
   .app-table tfoot tr {
@@ -187,13 +213,14 @@
   }
 
   .app-table tfoot td, .app-table tfoot th {
-    @apply px-3.5 py-3 text-slate-900 font-bold;
-    font-variant-numeric: tabular-nums;
+    @apply px-3.5 py-3 text-slate-950 font-extrabold;
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums lining-nums;
   }
 
   /* Badges / Pills */
   .badge, .app-pill {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border;
   }
 
   .badge-primary, .app-pill-primary { @apply bg-blue-50 text-blue-900 border-blue-200/60; }

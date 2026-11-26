@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect } from 'react'
-import { getTodayISO, formatNumber } from '@/shared/lib/format'
+import { formatMoney, formatNumber, getTodayISO } from '@/shared/lib/format'
 import Modal from '@/shared/ui/Modal'
 import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
@@ -25,6 +25,7 @@ import {
   useInvoiceLines,
   type InvoiceLine,
 } from '@/features/inventory/useInventory'
+import { useAuth } from '@/features/auth/useAuth'
 
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString('ar-EG') : '-'
@@ -170,7 +171,7 @@ function CashInvoiceModal({
   const customerOptions = toSearchableOptions(customers).map((option) => ({
     ...option,
     meta: balanceById[option.value]
-      ? <span className="font-bold tabular-nums text-primary-700">المتبقي: {formatNumber(balanceById[option.value])} ج.م</span>
+      ? <span className="font-bold font-num tabular-nums text-primary-700">المتبقي: <span dir="ltr">{formatMoney(balanceById[option.value])}</span></span>
       : undefined,
   }))
 
@@ -196,7 +197,7 @@ function CashInvoiceModal({
             <span>عدد الأصناف: <span className="num text-slate-900">{itemCount}</span></span>
             <span>إجمالي الكمية: <span className="num text-slate-900">{formatNumber(totalQty)}</span></span>
             <span className="flex items-center gap-1.5">الإجمالي الكلي:
-              <span className="num font-extrabold text-[18px] text-primary-700">{formatNumber(grandTotal)} ج.م</span>
+              <span className="num font-extrabold text-[18px] text-primary-700">{formatMoney(grandTotal)}</span>
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -260,7 +261,7 @@ function CashInvoiceModal({
           {form.customer_id && (
             <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs font-bold text-primary-800 flex flex-wrap items-center justify-between gap-2">
               <span>رصيد العميل الحالي (الآجل غير المسدد)</span>
-              <span className="num font-extrabold text-[13px]">{formatNumber(liveBalance)} ج.م</span>
+              <span className="num font-extrabold text-[13px]">{formatMoney(liveBalance)}</span>
             </div>
           )}
         </section>
@@ -290,8 +291,8 @@ function CashInvoiceModal({
         {grandTotal > 0 && (
           <div className="text-end">
             <span className="text-xs text-slate-500 font-medium">إجمالي الفاتورة: </span>
-            <span className="font-mono font-extrabold text-emerald-800 text-base">
-              {formatNumber(grandTotal)} ج.م
+            <span className="font-num font-extrabold text-emerald-800 text-base" dir="ltr">
+              {formatMoney(grandTotal)}
             </span>
           </div>
         )}
@@ -330,6 +331,8 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
   const { data: products = [] } = useProducts()
   const { data: stockRows = [] } = useProductStock()
   const deleteInvoice = useDeleteCashInvoiceWithStock()
+  const { can } = useAuth()
+  const canExportPrint = can('export_print')
 
   // Build stockMap: product_id → on_hand
   const stockMap: Record<string, number> = {}
@@ -413,7 +416,7 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
               <span>إجمالي المبيعات:</span>
-              <span className="num font-extrabold text-sm">{formatNumber(filteredTotal)} ج.م</span>
+              <span className="num font-extrabold text-sm">{formatMoney(filteredTotal)}</span>
             </div>
             {!isReadOnly && (
               <button type="button" onClick={openNew} className="app-btn app-btn-primary">+ فاتورة نقدية جديدة</button>
@@ -505,19 +508,19 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
                 <td className="text-xs text-slate-500">
                   {(invoice.item as string) || (invoice.notes as string) || '-'}
                 </td>
-                <td className="text-center font-bold text-slate-900 font-mono text-sm whitespace-nowrap">
-                  {formatNumber(invoice.amount as number || 0)}
+                <td className="text-center font-extrabold text-slate-950 font-num text-sm whitespace-nowrap" dir="ltr">
+                  {formatMoney(invoice.amount as number || 0, { withCurrency: false })}
                 </td>
                 <td>
                   <div className="flex flex-nowrap justify-center gap-1">
                     <button
                       type="button"
-                      title="عرض / طباعة"
-                      aria-label={`عرض / طباعة الفاتورة ${invoice.invoice_no as string}`}
+                      title={canExportPrint ? 'عرض / طباعة' : 'عرض'}
+                      aria-label={`${canExportPrint ? 'عرض / طباعة' : 'عرض'} الفاتورة ${invoice.invoice_no as string}`}
                       onClick={(e) => { e.stopPropagation(); openDetails(invoice) }}
                       className="app-btn app-btn-sm app-btn-ghost px-2 text-xs text-[var(--primary)] hover:border-blue-400"
                     >
-                      عرض / طباعة
+                      {canExportPrint ? 'عرض / طباعة' : 'عرض'}
                     </button>
                     {!isReadOnly && (
                       <>
@@ -548,8 +551,8 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
                 <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={6}>
                   {hasActiveFilters ? 'إجمالي نتائج البحث' : 'الإجمالي الكلي للنقدي'}
                 </td>
-                <td className="px-3.5 py-3 text-center text-emerald-800 font-mono text-base font-extrabold whitespace-nowrap tabular-nums">
-                  {formatNumber(filteredTotal)} ج.م
+                <td className="px-3.5 py-3 text-center text-emerald-800 font-num text-base font-extrabold whitespace-nowrap tabular-nums" dir="ltr">
+                  {formatMoney(filteredTotal)}
                 </td>
                 <td />
               </tr>
@@ -588,10 +591,10 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
                 </div>
               </div>
               <div className="text-end">
-                <span className="font-mono font-black text-emerald-700 text-base block">
-                  {formatNumber(invoice.amount as number || 0)}
+                <span className="font-num font-extrabold text-emerald-700 text-base block" dir="ltr">
+                  {formatMoney(invoice.amount as number || 0)}
                 </span>
-                <span className="text-[10px] text-slate-400">ج.م نقدي</span>
+                <span className="text-[10px] font-bold text-slate-500">نقدي</span>
               </div>
             </div>
 

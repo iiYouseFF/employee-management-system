@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useCashInvoices, useCreditInvoices, usePayments } from '@/features/sales/useInvoices'
-import { formatNumber, monthNames } from '@/shared/lib/format'
+import { formatMoney, formatNumber, monthNames } from '@/shared/lib/format'
 import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
@@ -183,34 +183,34 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
                         </span>
                       )}
                     </td>
-                    <td className="text-center font-mono text-xs text-slate-700 whitespace-nowrap">
-                      {formatNumber(month.cashM)}
+                    <td className="text-center font-num text-xs font-bold text-slate-800 whitespace-nowrap" dir="ltr">
+                      {formatMoney(month.cashM, { withCurrency: false })}
                     </td>
-                    <td className="text-center font-mono text-xs text-slate-700 whitespace-nowrap">
-                      {formatNumber(month.creditM)}
+                    <td className="text-center font-num text-xs font-bold text-slate-800 whitespace-nowrap" dir="ltr">
+                      {formatMoney(month.creditM, { withCurrency: false })}
                     </td>
-                    <td className="text-center font-mono text-xs text-emerald-700 font-semibold whitespace-nowrap">
-                      {formatNumber(month.collections)}
+                    <td className="text-center font-num text-xs text-emerald-700 font-bold whitespace-nowrap" dir="ltr">
+                      {formatMoney(month.collections, { withCurrency: false })}
                     </td>
-                    <td className="text-center font-mono text-sm font-bold text-slate-900 whitespace-nowrap">
-                      {formatNumber(month.totalSales)}
+                    <td className="text-center font-num text-sm font-extrabold text-slate-950 whitespace-nowrap" dir="ltr">
+                      {formatMoney(month.totalSales, { withCurrency: false })}
                     </td>
-                    <td className="text-center font-mono text-xs whitespace-nowrap">
-                      <span className={month.remainM > 0 ? 'text-rose-600 font-bold' : 'text-emerald-600'}>
-                        {formatNumber(month.remainM)}
+                    <td className="text-center font-num text-xs font-bold whitespace-nowrap" dir="ltr">
+                      <span className={month.remainM > 0 ? 'text-rose-600 font-extrabold' : 'text-emerald-600 font-bold'}>
+                        {formatMoney(month.remainM, { withCurrency: false })}
                       </span>
                     </td>
-                    <td className="text-center font-mono text-sm whitespace-nowrap">
+                    <td className="text-center font-num text-sm whitespace-nowrap" dir="ltr">
                       <span
                         className={
                           month.carried > 0 ? 'text-rose-700 font-extrabold' : 'text-emerald-700 font-bold'
                         }
                       >
-                        {formatNumber(month.carried)} ج.م
+                        {formatMoney(month.carried)}
                       </span>
                     </td>
-                    <td className="text-center font-mono text-xs text-slate-500">
-                      {month.invoiceCount}
+                    <td className="text-center font-num text-xs font-bold text-slate-600" dir="ltr">
+                      {formatNumber(month.invoiceCount)}
                     </td>
                   </tr>
                 )
@@ -218,27 +218,27 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
             </tbody>
             <tfoot>
               <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-200">
-                <td className="px-3.5 py-3 text-slate-900 font-extrabold">الإجمالي السنوي</td>
-                <td className="px-3.5 py-3 text-center text-slate-900 font-mono text-xs font-bold whitespace-nowrap">
-                  {formatNumber(yearlyTotals.cashM)}
+                <td className="px-3.5 py-3 text-slate-950 font-extrabold">الإجمالي السنوي</td>
+                <td className="px-3.5 py-3 text-center text-slate-950 font-num text-xs font-extrabold whitespace-nowrap" dir="ltr">
+                  {formatMoney(yearlyTotals.cashM, { withCurrency: false })}
                 </td>
-                <td className="px-3.5 py-3 text-center text-slate-900 font-mono text-xs font-bold whitespace-nowrap">
-                  {formatNumber(yearlyTotals.creditM)}
+                <td className="px-3.5 py-3 text-center text-slate-950 font-num text-xs font-extrabold whitespace-nowrap" dir="ltr">
+                  {formatMoney(yearlyTotals.creditM, { withCurrency: false })}
                 </td>
-                <td className="px-3.5 py-3 text-center text-emerald-800 font-mono text-xs font-bold whitespace-nowrap">
-                  {formatNumber(yearlyTotals.collections)}
+                <td className="px-3.5 py-3 text-center text-emerald-800 font-num text-xs font-extrabold whitespace-nowrap" dir="ltr">
+                  {formatMoney(yearlyTotals.collections, { withCurrency: false })}
                 </td>
-                <td className="px-3.5 py-3 text-center text-slate-900 font-mono text-sm font-extrabold whitespace-nowrap">
-                  {formatNumber(yearlyTotals.totalSales)}
+                <td className="px-3.5 py-3 text-center text-slate-950 font-num text-sm font-extrabold whitespace-nowrap" dir="ltr">
+                  {formatMoney(yearlyTotals.totalSales, { withCurrency: false })}
                 </td>
-                <td className="px-3.5 py-3 text-center text-rose-800 font-mono text-sm font-extrabold whitespace-nowrap">
-                  {formatNumber(yearlyTotals.remainM)}
+                <td className="px-3.5 py-3 text-center text-rose-800 font-num text-sm font-extrabold whitespace-nowrap" dir="ltr">
+                  {formatMoney(yearlyTotals.remainM, { withCurrency: false })}
                 </td>
-                <td className="px-3.5 py-3 text-center text-slate-700 font-mono text-sm font-extrabold whitespace-nowrap">
-                  {formatNumber(yearlyTotals.remainM)} ج.م
+                <td className="px-3.5 py-3 text-center text-slate-800 font-num text-sm font-extrabold whitespace-nowrap" dir="ltr">
+                  {formatMoney(yearlyTotals.remainM)}
                 </td>
-                <td className="px-3.5 py-3 text-center font-mono text-xs text-slate-700">
-                  {yearlyTotals.invoiceCount}
+                <td className="px-3.5 py-3 text-center font-num text-xs font-bold text-slate-800" dir="ltr">
+                  {formatNumber(yearlyTotals.invoiceCount)}
                 </td>
               </tr>
             </tfoot>
@@ -280,12 +280,12 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
                     {rep.name}
                   </td>
                   {months.map((m: any) => (
-                    <td key={m.monthIdx} className="text-center font-mono whitespace-nowrap px-2">
-                      {m.totalSales ? formatNumber(m.totalSales) : '-'}
+                    <td key={m.monthIdx} className="text-center font-num font-bold whitespace-nowrap px-2" dir="ltr">
+                      {m.totalSales ? formatMoney(m.totalSales, { withCurrency: false }) : '-'}
                     </td>
                   ))}
-                  <td className="text-center font-mono font-bold text-slate-900 bg-slate-50 whitespace-nowrap">
-                    {formatNumber(totals.totalSales)} ج.م
+                  <td className="text-center font-num font-extrabold text-slate-950 bg-slate-50 whitespace-nowrap" dir="ltr">
+                    {formatMoney(totals.totalSales)}
                   </td>
                 </tr>
               ))}
@@ -294,12 +294,12 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
               <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-200">
                 <td className="sticky start-0 bg-slate-100 z-10 font-extrabold">الإجمالي الشهري</td>
                 {monthNames.map((_, idx) => (
-                  <td key={idx} className="text-center font-mono font-bold text-slate-900 whitespace-nowrap px-2">
-                    {formatNumber(detailedData[idx].totalSales)}
+                  <td key={idx} className="text-center font-num font-extrabold text-slate-950 whitespace-nowrap px-2" dir="ltr">
+                    {formatMoney(detailedData[idx].totalSales, { withCurrency: false })}
                   </td>
                 ))}
-                <td className="text-center font-mono text-sm font-extrabold text-primary-900 bg-slate-200/80 whitespace-nowrap">
-                  {formatNumber(yearlyTotals.totalSales)} ج.م
+                <td className="text-center font-num text-sm font-extrabold text-primary-900 bg-slate-200/80 whitespace-nowrap" dir="ltr">
+                  {formatMoney(yearlyTotals.totalSales)}
                 </td>
               </tr>
             </tfoot>
@@ -330,15 +330,15 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
                   <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   <h3 className="font-bold text-slate-800 text-base">{rep.name}</h3>
                 </div>
-                <div className="flex items-center gap-3 text-xs flex-wrap font-medium">
+                <div className="flex items-center gap-3 text-xs flex-wrap font-semibold">
                   <span className="bg-white border border-slate-200 rounded-lg px-2.5 py-1">
-                    المبيعات: <b className="font-mono text-slate-900">{formatNumber(totals.totalSales)} ج.م</b>
+                    المبيعات: <b className="font-num font-extrabold text-slate-950" dir="ltr">{formatMoney(totals.totalSales)}</b>
                   </span>
                   <span className="bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 text-emerald-800">
-                    التحصيلات: <b className="font-mono">{formatNumber(totals.collections)} ج.م</b>
+                    التحصيلات: <b className="font-num font-extrabold" dir="ltr">{formatMoney(totals.collections)}</b>
                   </span>
                   <span className="bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1 text-rose-800">
-                    المتبقي: <b className="font-mono">{formatNumber(totals.remainM)} ج.م</b>
+                    المتبقي: <b className="font-num font-extrabold" dir="ltr">{formatMoney(totals.remainM)}</b>
                   </span>
                 </div>
               </div>
@@ -362,21 +362,21 @@ export default function MonthlyTab({ repFilter, reps = [] }: any) {
                         key={m.monthIdx}
                         className={m.monthIdx === currentMonth ? 'bg-amber-50/40' : ''}
                       >
-                        <td className="font-semibold text-slate-800">{m.monthName}</td>
-                        <td className="text-center font-mono">{formatNumber(m.cashM)}</td>
-                        <td className="text-center font-mono">{formatNumber(m.creditM)}</td>
-                        <td className="text-center font-mono text-emerald-700 font-semibold">
-                          {formatNumber(m.collections)}
+                        <td className="font-bold text-slate-900">{m.monthName}</td>
+                        <td className="text-center font-num font-bold" dir="ltr">{formatMoney(m.cashM, { withCurrency: false })}</td>
+                        <td className="text-center font-num font-bold" dir="ltr">{formatMoney(m.creditM, { withCurrency: false })}</td>
+                        <td className="text-center font-num text-emerald-700 font-bold" dir="ltr">
+                          {formatMoney(m.collections, { withCurrency: false })}
                         </td>
-                        <td className="text-center font-mono font-bold text-slate-900">
-                          {formatNumber(m.totalSales)}
+                        <td className="text-center font-num font-extrabold text-slate-950" dir="ltr">
+                          {formatMoney(m.totalSales, { withCurrency: false })}
                         </td>
-                        <td className="text-center font-mono">
-                          <span className={m.remainM > 0 ? 'text-rose-600 font-bold' : 'text-emerald-600'}>
-                            {formatNumber(m.remainM)}
+                        <td className="text-center font-num font-bold" dir="ltr">
+                          <span className={m.remainM > 0 ? 'text-rose-600 font-extrabold' : 'text-emerald-600 font-bold'}>
+                            {formatMoney(m.remainM, { withCurrency: false })}
                           </span>
                         </td>
-                        <td className="text-center font-mono text-slate-500">{m.invoiceCount}</td>
+                        <td className="text-center font-num font-bold text-slate-600" dir="ltr">{formatNumber(m.invoiceCount)}</td>
                       </tr>
                     ))}
                   </tbody>

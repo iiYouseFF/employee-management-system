@@ -20,7 +20,7 @@ export default function AppNavigation({ groups, activeTab, onSelectTab }: AppNav
   return (
     <div className="mt-3">
       <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1.5 scrollbar-none">
-        {groups.map((group, idx) => {
+        {groups.map((group) => {
           const isGroupActive = group.id === activeGroupId
           return (
             <React.Fragment key={group.id}>
@@ -28,8 +28,6 @@ export default function AppNavigation({ groups, activeTab, onSelectTab }: AppNav
                 type="button"
                 onClick={() => { if (!isGroupActive && group.tabs[0]) onSelectTab(group.tabs[0].id) }}
                 className={`flex items-center gap-1.5 px-3.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold transition-all duration-150 whitespace-nowrap shrink-0 ${
-                  idx < groups.length - 1 ? 'border-inline-end border-white/20 rounded-e-none' : ''
-                } ${
                   isGroupActive
                     ? 'bg-white text-[#1a4971] shadow-float font-extrabold'
                     : 'bg-white/10 text-white/90 hover:bg-white/20 hover:text-white'
@@ -55,6 +53,7 @@ export default function AppNavigation({ groups, activeTab, onSelectTab }: AppNav
               <button
                 key={tab.id}
                 type="button"
+                aria-current={active ? 'page' : undefined}
                 onClick={() => onSelectTab(tab.id)}
                 className={`inline-flex items-center gap-1.5 px-3.5 min-h-[44px] md:min-h-[36px] rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap shrink-0 ${
                   active ? 'bg-white text-[#1a4971] shadow-sm font-extrabold' : 'bg-white/15 text-white hover:bg-white/25'

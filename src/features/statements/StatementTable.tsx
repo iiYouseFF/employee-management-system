@@ -1,4 +1,4 @@
-import { formatNumber } from '@/shared/lib/format'
+import { formatMoney, formatNumber } from '@/shared/lib/format'
 import type { StatementRow } from '@/features/statements/useStatements'
 import { getStatementReference, statementReferenceLabel } from '@/features/statements/statementReference'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
@@ -59,12 +59,12 @@ export default function StatementTable({
                 <span className={isOpening ? 'font-bold text-amber-900' : 'font-semibold text-slate-800'}>
                   {row.description}
                 </span>
-                <div className="text-xs text-slate-500 font-mono mt-0.5" dir="ltr">
+                <div className="text-xs text-slate-600 font-num font-semibold mt-0.5" dir="ltr">
                   {row.tx_date}
                 </div>
               </div>
-              <span className="text-xs text-slate-400 font-mono shrink-0">
-                {row.row_no === 0 ? '—' : row.row_no}
+              <span className="text-xs text-slate-500 font-num font-bold shrink-0" dir="ltr">
+                {row.row_no === 0 ? '—' : formatNumber(row.row_no)}
               </span>
             </div>
             {isOpening && (
@@ -91,11 +91,11 @@ export default function StatementTable({
                 )
               }
             />
-            <MobileCardRow label={`مدين ${debitSign}`} value={<span className="num font-bold text-blue-700">{row.debit !== null ? formatNumber(row.debit) : '-'}</span>} />
-            <MobileCardRow label={`دائن ${creditSign}`} value={<span className="num font-bold text-emerald-700">{row.credit !== null ? formatNumber(row.credit) : '-'}</span>} />
+            <MobileCardRow label={`مدين ${debitSign}`} value={<span className="num font-bold text-blue-700">{row.debit !== null ? formatMoney(row.debit, { withCurrency: false }) : '-'}</span>} />
+            <MobileCardRow label={`دائن ${creditSign}`} value={<span className="num font-bold text-emerald-700">{row.credit !== null ? formatMoney(row.credit, { withCurrency: false }) : '-'}</span>} />
             <MobileCardRow
               label="الرصيد التراكمي"
-              value={<span className="num font-extrabold text-primary-950">{formatNumber(row.balance)} ج.م</span>}
+              value={<span className="num font-extrabold text-primary-950">{formatMoney(row.balance)}</span>}
             />
           </MobileCard>
         )
@@ -126,14 +126,14 @@ export default function StatementTable({
                         : ''
                     }
                   >
-                    <td className="text-center text-xs text-slate-400 font-mono">
-                      {row.row_no === 0 ? '—' : row.row_no}
+                    <td className="text-center text-xs text-slate-500 font-num font-bold" dir="ltr">
+                      {row.row_no === 0 ? '—' : formatNumber(row.row_no)}
                     </td>
-                    <td className="text-center font-mono text-xs text-slate-600 whitespace-nowrap">
+                    <td className="text-center font-num text-xs font-semibold text-slate-700 whitespace-nowrap" dir="ltr">
                       {row.tx_date}
                     </td>
                     <td>
-                      <span className={isOpening ? 'font-bold text-amber-900' : 'font-medium text-slate-800'}>
+                      <span className={isOpening ? 'font-extrabold text-amber-900' : 'font-semibold text-slate-900'}>
                         {row.description}
                       </span>
                       {isOpening && (
@@ -142,7 +142,7 @@ export default function StatementTable({
                         </span>
                       )}
                     </td>
-                    <td className="text-center font-mono text-xs text-slate-500" dir="ltr">
+                    <td className="text-center font-num text-xs font-semibold text-slate-600" dir="ltr">
                       {(() => {
                         const target = getStatementReference(row)
                         const label = statementReferenceLabel(row)
@@ -164,14 +164,14 @@ export default function StatementTable({
                         return '-'
                       })()}
                     </td>
-                    <td className="text-center font-mono font-semibold text-blue-700 tabular-nums whitespace-nowrap">
-                      {row.debit !== null ? formatNumber(row.debit) : '-'}
+                    <td className="text-center font-num font-bold text-blue-700 tabular-nums whitespace-nowrap" dir="ltr">
+                      {row.debit !== null ? formatMoney(row.debit, { withCurrency: false }) : '-'}
                     </td>
-                    <td className="text-center font-mono font-semibold text-emerald-700 tabular-nums whitespace-nowrap">
-                      {row.credit !== null ? formatNumber(row.credit) : '-'}
+                    <td className="text-center font-num font-bold text-emerald-700 tabular-nums whitespace-nowrap" dir="ltr">
+                      {row.credit !== null ? formatMoney(row.credit, { withCurrency: false }) : '-'}
                     </td>
-                    <td className="text-center font-mono font-bold text-primary-950 text-sm tabular-nums whitespace-nowrap">
-                      {formatNumber(row.balance)} <span className="text-[11px] font-normal text-slate-400">ج.م</span>
+                    <td className="text-center font-num font-extrabold text-primary-950 text-sm tabular-nums whitespace-nowrap" dir="ltr">
+                      {formatMoney(row.balance)}
                     </td>
                   </tr>
                 )
@@ -182,15 +182,15 @@ export default function StatementTable({
                 <td colSpan={4} className="px-3.5 py-3.5 text-slate-800 font-extrabold text-sm">
                   إجمالي حركات الفترة والرصيد التراكمي الختامي
                 </td>
-                <td className="px-3.5 py-3.5 text-center font-mono text-blue-900 font-extrabold text-sm whitespace-nowrap">
-                  {formatNumber(totalDebit)}
+                <td className="px-3.5 py-3.5 text-center font-num text-blue-900 font-extrabold text-sm whitespace-nowrap" dir="ltr">
+                  {formatMoney(totalDebit, { withCurrency: false })}
                 </td>
-                <td className="px-3.5 py-3.5 text-center font-mono text-emerald-900 font-extrabold text-sm whitespace-nowrap">
-                  {formatNumber(totalCredit)}
+                <td className="px-3.5 py-3.5 text-center font-num text-emerald-900 font-extrabold text-sm whitespace-nowrap" dir="ltr">
+                  {formatMoney(totalCredit, { withCurrency: false })}
                 </td>
-                <td className="px-3.5 py-3.5 text-center font-mono text-base font-black text-primary-950 whitespace-nowrap">
-                  {formatNumber(finalBalance)} ج.م
-                  <span className="text-[10px] text-slate-500 font-normal ms-1">
+                <td className="px-3.5 py-3.5 text-center font-num text-base font-extrabold text-primary-950 whitespace-nowrap" dir="ltr">
+                  {formatMoney(finalBalance)}
+                  <span className="text-[10px] text-slate-500 font-semibold ms-1" dir="rtl">
                     ({accountType === 'customer' ? 'رصيد العميل' : 'مستحق للمورد'})
                   </span>
                 </td>

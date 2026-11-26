@@ -246,6 +246,21 @@ Purchases acquired from suppliers (Cash or Credit).
 - `created_by` (`uuid`, FK `auth.users.id`)
 - `created_at` (`timestamptz`, DEFAULT `now()`)
 
+Purchases are saved through the `save_supplier_purchase` RPC together with their product lines. The RPC creates the linked `stock_movements` (reference type `supplier_purchase`) and derives `total_amount` from the lines, so a purchase is recorded once instead of separately as a manual stock receipt. On edit, the current version's movements are archived (`supplier_purchase_history`) and reversed before the new ones are written; this makes repeated edits safe. Deleting archives and reverses the current version's movements and is blocked if it would drive stock negative; a repeated delete is a no-op. The RPCs are executable only by `authenticated` managers. Legacy purchases without lines are left untouched until edited, and the edit modal requires explicit acknowledgement before it adds stock for them.
+
+#### 12a. `supplier_purchase_lines`
+Line items of a supplier purchase (created by migration 0026).
+- `id` (`uuid`, PK, DEFAULT `gen_random_uuid()`)
+- `owner_id` (`uuid`, NOT NULL, FK `auth.users.id`, DEFAULT `current_owner_id()`)
+- `purchase_id` (`uuid`, NOT NULL, FK `supplier_purchases.id` ON DELETE CASCADE)
+- `product_id` (`uuid`, NOT NULL, FK `products.id` ON DELETE RESTRICT)
+- `qty` (`numeric(14,4)`, NOT NULL, CHECK `> 0`)
+- `unit_cost` (`numeric(14,2)`, NOT NULL, CHECK `>= 0`)
+- `line_total` (`numeric(14,2)`, GENERATED ALWAYS AS `qty * unit_cost` STORED)
+- `expiry_date` (`date`), `batch_number` (`text`)
+- `created_at` (`timestamptz`, DEFAULT `now()`)
+RLS: manager read-only on the table; all writes go through the security-definer RPCs.
+
 #### 13. `supplier_payments`
 Disbursements made to suppliers.
 - `id` (`uuid`, PK, DEFAULT `gen_random_uuid()`)

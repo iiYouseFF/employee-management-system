@@ -6,7 +6,7 @@ import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import { useDatePreset } from '@/shared/hooks/useDatePreset'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
-import { formatNumber, getTodayISO } from '@/shared/lib/format'
+import { formatMoney, getTodayISO } from '@/shared/lib/format'
 import { SUPPLIER_PAYMENT_METHODS, paymentMethodBadgeClass, paymentMethodLabel } from '@/shared/lib/paymentMethods'
 import {
   useAddSupplierPayment,
@@ -202,7 +202,7 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
                     <td className="text-center text-xs text-slate-400 font-mono">{filteredPayments.length - ((safePage - 1) * pageSize + idx)}</td>
                     <td className="text-center text-xs font-mono text-slate-600">{new Date(p.payment_date).toLocaleDateString('ar-EG')}</td>
                     <td className="font-semibold text-slate-800">{supplierName(p.supplier_id)}</td>
-                    <td className="text-center font-mono font-bold tabular-nums text-emerald-700">{formatNumber(Number(p.amount || 0))} <span className="text-[11px] font-normal text-slate-400">ج.م</span></td>
+                    <td className="text-center font-num font-extrabold tabular-nums text-emerald-700" dir="ltr">{formatMoney(Number(p.amount || 0))}</td>
                     <td className="text-center"><span className={paymentMethodBadgeClass(p.method)}>{paymentMethodLabel(p.method)}</span></td>
                     <td className="text-center font-mono text-xs" dir="ltr">{p.reference || '-'}</td>
                     <td className="text-xs text-slate-500">{p.notes || '-'}</td>
@@ -226,7 +226,7 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
                 <div className="text-[11px] text-slate-400 font-mono">{new Date(p.payment_date).toLocaleDateString('ar-EG')}</div>
               </div>
               <div className="text-end">
-                <div className="font-mono font-extrabold text-emerald-700 tabular-nums">{formatNumber(Number(p.amount || 0))} ج.م</div>
+                <div className="font-num font-extrabold text-emerald-700 tabular-nums" dir="ltr">{formatMoney(Number(p.amount || 0))}</div>
                 <span className={`${paymentMethodBadgeClass(p.method)} mt-1 inline-flex`}>{paymentMethodLabel(p.method)}</span>
               </div>
             </div>
@@ -259,7 +259,7 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
               <div className="mt-5 rounded-xl border border-primary-100 bg-primary-50/70 p-3 text-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-bold text-primary-900">رصيد المورد الحالي (الآجل غير المسدد)</span>
-                  <span className="num font-extrabold text-[13px] text-primary-900">{formatNumber(balance)} ج.م</span>
+                  <span className="num font-extrabold text-[13px] text-primary-900">{formatMoney(balance)}</span>
                 </div>
                 {values.supplier_id && balance > 0 && (
                   <button

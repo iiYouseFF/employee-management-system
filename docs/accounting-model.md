@@ -7,13 +7,13 @@
   - Full CRUD permissions across all system tables (`customers`, `cash_invoices`, `credit_invoices`, `payments`, `suppliers`, `supplier_purchases`, `supplier_payments`, `products`, `expenses`).
   - Access to team management, representative assignment, executive KPI dashboard, and supplier accounting.
 - **Sales Rep (`sales_rep`)**:
-  - Strict read-only access enforced at both Database RLS and Frontend levels.
-  - Can only query their own assigned customers and related invoices/payments.
-  - Can view and print the Product Price List.
-   - No access to Suppliers, operational expenses, or Manager Financial KPIs.
+  - Scoped to their own assigned customers and related invoices/payments; defaults to read-only access enforced at both Database RLS and Frontend levels.
+  - A manager can grant per-rep view/create/record flags from the reps panel; grants never bypass tenant or assigned-customer scope.
+  - Can view and print the Product Price List by default; print/export can be revoked per rep.
+  - No access to Suppliers, operational expenses, or Manager Financial KPIs.
 
-### Enforcement Details (migration `0014_rbac_hardening_v2`)
-- **Database is the boundary.** Reps hold only `select` policies; every write on customers, invoices, payments, suppliers, products and expenses is rejected at the DB (0 rows affected or RLS error), regardless of the UI.
+### Enforcement Details (migration `0014_rbac_hardening_v2`, extended by `0034_rep_granular_permissions`)
+- **Database is the boundary.** Reps hold `select` policies by default; writes on customers, invoices, payments, suppliers, products and expenses are rejected at the DB (0 rows affected or RLS error) unless the manager has granted the matching `reps.permissions` flag and the rep passes the RPC/RLS scope checks.
 - **Confirmation gate.** `current_role_name()` / `current_owner_id()` return `null` until `auth.users.email_confirmed_at` is set, so an unconfirmed account has no role and sees no rows (products included). The UI shows the «لا تملك صلاحية الوصول» screen in that case.
 - **Provisioning is centralised.** `public.provision_user_role(uuid)` (SECURITY DEFINER, execute revoked from `public`/`anon`/`authenticated`) is the only role-granting path. It runs from `handle_new_user()` on signup and `handle_user_email_confirmed()` when confirmation arrives.
 - **Role escalation is impossible from the client.** `user_roles` has RLS with no client-facing policy and no table grant; a rep cannot promote itself. `sync_rep_role` never demotes a manager and never moves a role across owners.

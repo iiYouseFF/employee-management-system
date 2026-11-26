@@ -34,7 +34,7 @@ export default function RepModal({ initialValues, onClose, onSubmit }: RepModalP
     if (!email.trim()) return
     const subject = encodeURIComponent('دعوة للانضمام إلى نظام المبيعات كمندوب')
     const body = encodeURIComponent(
-      `مرحباً ${name || 'المندوب'},\n\nتمت إضافتك كمندوب في نظام المبيعات.\nيمكنك الدخول والتسجيل عبر الرابط التالي بنفس بريدك الإلكتروني:\n${appUrl}/login\n\nستتمكن من الاطلاع على فواتيرك وعملائك بصلاحية قراءة فقط.`
+      `مرحباً ${name || 'المندوب'},\n\nتمت إضافتك كمندوب في نظام المبيعات.\nيمكنك الدخول والتسجيل عبر الرابط التالي بنفس بريدك الإلكتروني:\n${appUrl}/login\n\nستتمكن من الاطلاع على بياناتك حسب الصلاحيات التي يحددها المدير.`
     )
     window.open(`mailto:${email.trim()}?subject=${subject}&body=${body}`, '_blank')
   }
@@ -122,7 +122,7 @@ export default function RepModal({ initialValues, onClose, onSubmit }: RepModalP
             className="app-input font-mono"
           />
           <p className="text-[11px] text-slate-500 mt-1">
-            عند تسجيل المندوب بهذا البريد سيتم منحه صلاحية (عرض فقط) لعملائه وفواتيره الخاصة به فقط.
+            عند تسجيل المندوب بهذا البريد سيتمكن من الوصول لبياناته حسب الصلاحيات المحددة من زر «الصلاحيات».
           </p>
         </div>
 

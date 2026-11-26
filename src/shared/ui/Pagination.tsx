@@ -46,21 +46,22 @@ export default function Pagination({
       dir="rtl"
     >
       {/* Items count & page size selector */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 font-semibold">
         <span>
-          عرض <span className="font-bold font-mono">{startItem}</span> - <span className="font-bold font-mono">{endItem}</span> من إجمالي{' '}
-          <span className="font-bold font-mono text-primary-900">{totalItems}</span>
+          عرض <span className="font-extrabold font-num text-slate-900">{startItem}</span> - <span className="font-extrabold font-num text-slate-900">{endItem}</span> من إجمالي{' '}
+          <span className="font-extrabold font-num text-primary-900">{totalItems}</span>
         </span>
         {onPageSizeChange && (
-          <div className="flex items-center gap-1 ms-2">
-            <span className="text-slate-400">لكل صفحة:</span>
+          <div className="flex items-center gap-1.5 ms-2">
+            <span className="text-slate-500">لكل صفحة:</span>
             <select
+              aria-label="عدد العناصر لكل صفحة"
               value={pageSize}
               onChange={(e) => {
                 onPageSizeChange(Number(e.target.value))
                 onPageChange(1)
               }}
-              className="py-1 px-2 border border-slate-300 rounded-lg bg-white text-xs font-semibold focus:outline-none focus:border-primary-500"
+              className="py-1 px-2 border border-slate-300 rounded-lg bg-white text-xs font-num font-bold text-slate-900 focus:outline-none focus:border-primary-500"
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -79,17 +80,18 @@ export default function Pagination({
             type="button"
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage <= 1}
-            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-xs transition-colors"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xs text-slate-700 transition-colors"
             title="الصفحة السابقة"
           >
-            السابق
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
+            <span>السابق</span>
           </button>
 
           <div className="flex items-center gap-1">
             {pages.map((p, idx) => {
               if (p === '...') {
                 return (
-                  <span key={`dots-${idx}`} className="px-2 py-1 text-slate-400">
+                  <span key={`dots-${idx}`} className="px-2 py-1 text-slate-400 font-num">
                     ...
                   </span>
                 )
@@ -100,11 +102,12 @@ export default function Pagination({
                 <button
                   key={`page-${pageNum}`}
                   type="button"
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => onPageChange(pageNum)}
-                  className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold font-mono transition-colors ${
+                  className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-extrabold font-num transition-colors ${
                     isActive
                       ? 'bg-primary-700 text-white shadow-sm'
-                      : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                      : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-800'
                   }`}
                 >
                   {pageNum}
@@ -117,10 +120,11 @@ export default function Pagination({
             type="button"
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage >= totalPages}
-            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-xs transition-colors"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xs text-slate-700 transition-colors"
             title="الصفحة التالية"
           >
-            التالي
+            <span>التالي</span>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}

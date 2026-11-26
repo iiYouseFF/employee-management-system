@@ -32,8 +32,10 @@ import { useToast } from '@/shared/hooks/useToast'
 import { friendlyError } from '@/shared/lib/errors'
 import { supabase } from '@/shared/lib/supabase'
 import type { RepFormValues } from '@/features/reps/reps.types'
+import { canRepAccessTab, DEFAULT_REP_PERMISSIONS } from '@/features/reps/repPermissions'
 
 const REP_TABS = ['customers', 'cash', 'credit', 'overdue_invoices', 'payments', 'statement', 'returns', 'products']
+const REP_OPTIONAL_TABS = ['inventory', 'monthly']
 const MANAGER_TABS = [
   ...REP_TABS,
   'suppliers', 'supplier_purchases', 'supplier_payments', 'supplier_statement',
@@ -55,7 +57,7 @@ function AuthNotice({ title, message }: { title: string; message: string }) {
 }
 
 export default function Sheet() {
-  const { user, role, repProfile, isRep, isReadOnly, isManager, loading: authLoading } = useAuth()
+  const { user, role, repProfile, isRep, isReadOnly, isManager, can, loading: authLoading } = useAuth()
   const { data: settings, isLoading: settingsLoading } = useSettings()
   const { data: reps = [] } = useReps()
   const { data: unpaidInvoices = [] } = useUnpaidCreditInvoices()
@@ -68,9 +70,15 @@ export default function Sheet() {
   const [activeTabState, setActiveTabState] = useState<string>(() => {
     try { return sessionStorage.getItem('ems:activeTab') || 'cash' } catch { return 'cash' }
   })
-  const allowedTabs = isManager ? MANAGER_TABS : REP_TABS
-  // Ignore a stored tab that the current role cannot open (avoids a blank main area).
-  const activeTab = allowedTabs.includes(activeTabState) ? activeTabState : 'cash'
+  const repPermissions = repProfile?.permissions ?? DEFAULT_REP_PERMISSIONS
+  const allowedTabs = isManager
+    ? MANAGER_TABS
+    : [
+        ...REP_TABS.filter((tab) => canRepAccessTab(repPermissions, tab)),
+        ...REP_OPTIONAL_TABS.filter((tab) => canRepAccessTab(repPermissions, tab)),
+      ]
+  // Ignore a stored tab that the current role/permissions cannot open (avoids a blank main area).
+  const activeTab = allowedTabs.includes(activeTabState) ? activeTabState : allowedTabs[0] || 'customers'
   const [repFilter, setRepFilter] = useState<string>('all')
   const [reportAction, setReportAction] = useState<'print' | 'csv' | null>(null)
   const [repModalOpen, setRepModalOpen] = useState(false)
@@ -82,6 +90,12 @@ export default function Sheet() {
   const overdueCount = unpaidInvoices.filter(
     (inv) => inv.is_overdue && (badgeRepFilter === 'all' || inv.rep_id === badgeRepFilter)
   ).length
+
+  const canCreateCashInvoice = can('create_cash_invoice')
+  const canCreateCreditInvoice = can('create_credit_invoice')
+  const canRecordPayment = can('record_payment')
+  const canCreateReturn = can('create_return')
+  const canExportPrint = can('export_print')
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab)
@@ -119,6 +133,10 @@ export default function Sheet() {
     return <AuthNotice title="الحساب غير مرتبط بمندوب" message="تم تسجيل الدخول بنجاح لكن لم يتم ربط حسابك ببيانات مندوب. يرجى التواصل مع المدير." />
   }
 
+  if (isRep && allowedTabs.length === 0) {
+    return <AuthNotice title="لا تملك صلاحية عرض" message="لم يمنحك المدير صلاحية عرض أي قسم. يرجى التواصل مع المدير لتفعيل الصلاحيات." />
+  }
+
   const defaultTabNames: Record<string, string> = {
     cash: 'فاتورة نقدي', credit: 'فاتورة آجل', overdue_invoices: 'الفواتير المتأخرة وغير المسددة', payments: 'المدفوعات', statement: 'كشف حساب العميل',
     monthly: 'التقرير الشهري', customers: 'العملاء', returns: 'مرتجعات المبيعات', reps: 'إدارة المناديب',
@@ -129,9 +147,25 @@ export default function Sheet() {
   const customTabNames = typeof settings?.tab_names === 'object' && settings?.tab_names !== null ? (settings.tab_names as Record<string, string>) : {}
   const getTabLabel = (key: string) => customTabNames[key] || defaultTabNames[key] || key
 
+  const salesGroupIcon = (
+    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+    </svg>
+  )
+  const purchasesGroupIcon = (
+    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+    </svg>
+  )
+  const reportsGroupIcon = (
+    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  )
+
   const navGroups: NavGroup[] = isManager ? [
     {
-      id: 'sales', label: 'المبيعات والعملاء',
+      id: 'sales', label: 'المبيعات والعملاء', icon: salesGroupIcon,
       tabs: [
         { id: 'customers', label: getTabLabel('customers') },
         { id: 'cash', label: getTabLabel('cash') },
@@ -143,7 +177,7 @@ export default function Sheet() {
       ],
     },
     {
-      id: 'purchases', label: 'المشتريات والموردين',
+      id: 'purchases', label: 'المشتريات والموردين', icon: purchasesGroupIcon,
       tabs: [
         { id: 'suppliers', label: getTabLabel('suppliers') },
         { id: 'supplier_purchases', label: getTabLabel('supplier_purchases') },
@@ -153,7 +187,7 @@ export default function Sheet() {
       ],
     },
     {
-      id: 'inventory_reports', label: 'المخزون والتقارير',
+      id: 'inventory_reports', label: 'المخزون والتقارير', icon: reportsGroupIcon,
       tabs: [
         { id: 'inventory', label: getTabLabel('inventory') },
         { id: 'products', label: getTabLabel('products') },
@@ -165,7 +199,7 @@ export default function Sheet() {
     },
   ] : [
     {
-      id: 'sales', label: 'المبيعات والعملاء',
+      id: 'sales', label: 'المبيعات والعملاء', icon: salesGroupIcon,
       tabs: [
         { id: 'customers', label: getTabLabel('customers') },
         { id: 'cash', label: getTabLabel('cash') },
@@ -174,12 +208,18 @@ export default function Sheet() {
         { id: 'payments', label: getTabLabel('payments') },
         { id: 'statement', label: getTabLabel('statement') },
         { id: 'returns', label: getTabLabel('returns') },
-      ],
+      ].filter((tab) => allowedTabs.includes(tab.id)),
     },
-    {
-      id: 'inventory_reports', label: 'المخزون والتقارير',
-      tabs: [{ id: 'products', label: getTabLabel('products') }],
-    },
+    ...(() => {
+      const reportTabs = [
+        { id: 'products', label: getTabLabel('products') },
+        { id: 'inventory', label: getTabLabel('inventory') },
+        { id: 'monthly', label: getTabLabel('monthly') },
+      ].filter((tab) => allowedTabs.includes(tab.id))
+      return reportTabs.length
+        ? [{ id: 'inventory_reports', label: 'المخزون والتقارير', icon: reportsGroupIcon, tabs: reportTabs }]
+        : []
+    })(),
   ]
 
   const handleSaveRep = async (values: RepFormValues) => {
@@ -200,7 +240,7 @@ export default function Sheet() {
 
   const roleBadge = isManager
     ? <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 text-white border border-white/20 px-2.5 py-1 text-[11px] font-bold backdrop-blur-sm"><span className="h-2 w-2 rounded-full bg-emerald-400" />مدير النظام</span>
-    : <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 text-amber-950 border border-amber-300 px-2.5 py-1 text-[11px] font-bold"><span className="h-2 w-2 rounded-full bg-amber-700" />مندوب مبيعات — عرض فقط</span>
+    : <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 text-amber-950 border border-amber-300 px-2.5 py-1 text-[11px] font-bold"><span className="h-2 w-2 rounded-full bg-amber-700" />مندوب مبيعات</span>
 
   return (
     <div className="min-h-screen bg-page-bg text-slate-900" dir={document.documentElement.dir || 'rtl'}>
@@ -230,17 +270,33 @@ export default function Sheet() {
               {isManager && (
                 <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2.5 py-1.5 backdrop-blur-sm">
                   <span className="text-xs font-semibold text-white/90">عرض البيانات:</span>
-                  <select value={repFilter} onChange={(e) => setRepFilter(e.target.value)} className="app-select min-w-[150px] py-1.5 text-xs bg-white text-slate-800 border-white/30">
+                  <select aria-label="تصفية حسب المندوب" value={repFilter} onChange={(e) => setRepFilter(e.target.value)} className="app-select min-w-[150px] py-1.5 text-xs bg-white text-slate-800 border-white/30">
                     <option value="all">كل المناديب</option>
                     {reps.map((rep) => <option key={rep.id} value={rep.id}>{rep.name}</option>)}
                   </select>
                 </div>
               )}
 
-              <button type="button" onClick={() => setReportAction('print')} className="app-btn-header" title="طباعة تقرير الفواتير">طباعة</button>
-              <button type="button" onClick={() => setReportAction('csv')} className="app-btn-header" title="تصدير جدول البيانات CSV">تصدير CSV</button>
-              <button type="button" onClick={() => setChangePasswordOpen(true)} className="app-btn-header" title="تغيير كلمة المرور الخاصة بحسابك">كلمة المرور</button>
-              <button type="button" onClick={() => { void supabase.auth.signOut() }} className="app-btn-header hover:bg-rose-600/40 hover:border-rose-400/50" title="تسجيل الخروج من الحساب">تسجيل الخروج</button>
+              {canExportPrint && (
+                <>
+                  <button type="button" onClick={() => setReportAction('print')} className="app-btn-header inline-flex items-center gap-1.5" title="طباعة تقرير الفواتير">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                    <span>طباعة</span>
+                  </button>
+                  <button type="button" onClick={() => setReportAction('csv')} className="app-btn-header inline-flex items-center gap-1.5" title="تصدير جدول البيانات CSV">
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span>تصدير CSV</span>
+                  </button>
+                </>
+              )}
+              <button type="button" onClick={() => setChangePasswordOpen(true)} className="app-btn-header inline-flex items-center gap-1.5" title="تغيير كلمة المرور الخاصة بحسابك">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                <span>كلمة المرور</span>
+              </button>
+              <button type="button" onClick={() => { void supabase.auth.signOut() }} className="app-btn-header inline-flex items-center gap-1.5 hover:bg-rose-600/40 hover:border-rose-400/50" title="تسجيل الخروج من الحساب">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                <span>تسجيل الخروج</span>
+              </button>
             </div>
           </div>
 
@@ -249,24 +305,24 @@ export default function Sheet() {
       </header>
 
       {isManager && (
-        <div className="border-b border-border bg-slate-50/70">
-          <div className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-500 me-1">إجراءات سريعة:</span>
-            <button type="button" onClick={() => trigger('cash')} className="app-btn app-btn-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-100">+ فاتورة نقدي</button>
-            <button type="button" onClick={() => trigger('credit')} className="app-btn app-btn-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-100">+ فاتورة آجل</button>
-            <button type="button" onClick={() => trigger('payments')} className="app-btn app-btn-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-100">+ دفعة عميل</button>
-            <button type="button" onClick={() => trigger('supplier_purchases')} className="app-btn app-btn-sm bg-white border border-slate-200 text-slate-700 hover:bg-slate-100">+ مشتريات مورد</button>
+        <div className="border-b border-border bg-white/80 backdrop-blur-sm">
+          <div className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none">
+            <span className="text-xs font-extrabold text-slate-600 whitespace-nowrap shrink-0 me-1">إجراءات سريعة:</span>
+            <button type="button" onClick={() => trigger('cash')} className="app-btn app-btn-sm bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 whitespace-nowrap shrink-0">+ فاتورة نقدي</button>
+            <button type="button" onClick={() => trigger('credit')} className="app-btn app-btn-sm bg-sky-50 border border-sky-200 text-sky-800 hover:bg-sky-100 whitespace-nowrap shrink-0">+ فاتورة آجل</button>
+            <button type="button" onClick={() => trigger('payments')} className="app-btn app-btn-sm bg-violet-50 border border-violet-200 text-violet-800 hover:bg-violet-100 whitespace-nowrap shrink-0">+ دفعة عميل</button>
+            <button type="button" onClick={() => trigger('supplier_purchases')} className="app-btn app-btn-sm bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 whitespace-nowrap shrink-0">+ مشتريات مورد</button>
           </div>
         </div>
       )}
 
       <main className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-8 py-6">
         <div className="app-card p-4 sm:p-6 lg:p-7 min-h-[500px]">
-          {activeTab === 'cash' && <CashTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={isReadOnly} createSignal={pending === 'cash' ? nonce : undefined} onSignalHandled={consume} />}
-          {activeTab === 'credit' && <CreditTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={isReadOnly} createSignal={pending === 'credit' ? nonce : undefined} onSignalHandled={consume} />}
+          {activeTab === 'cash' && <CashTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={!canCreateCashInvoice} createSignal={pending === 'cash' ? nonce : undefined} onSignalHandled={consume} />}
+          {activeTab === 'credit' && <CreditTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={!canCreateCreditInvoice} createSignal={pending === 'credit' ? nonce : undefined} onSignalHandled={consume} />}
           {activeTab === 'overdue_invoices' && <OverdueInvoicesTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} />}
-          {activeTab === 'payments' && <PaymentsTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={isReadOnly} createSignal={pending === 'payments' ? nonce : undefined} onSignalHandled={consume} />}
-          {activeTab === 'returns' && <ReturnsTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={isReadOnly} />}
+          {activeTab === 'payments' && <PaymentsTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={!canRecordPayment} createSignal={pending === 'payments' ? nonce : undefined} onSignalHandled={consume} />}
+          {activeTab === 'returns' && <ReturnsTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={!canCreateReturn} />}
           {activeTab === 'statement' && <StatementTab repFilter={effectiveRepFilter} />}
           {activeTab === 'monthly' && <MonthlyTab repFilter={effectiveRepFilter} reps={reps} />}
           {activeTab === 'customers' && <CustomersTab showToast={showToast} repFilter={effectiveRepFilter} isReadOnly={isReadOnly} />}
@@ -275,7 +331,7 @@ export default function Sheet() {
           {activeTab === 'supplier_payments' && isManager && <SupplierPaymentsTab showToast={showToast} />}
           {activeTab === 'supplier_statement' && isManager && <SupplierStatementTab />}
           {activeTab === 'expenses' && isManager && <ExpensesTab showToast={showToast} />}
-          {activeTab === 'inventory' && isManager && <InventoryTab />}
+          {activeTab === 'inventory' && <InventoryTab isReadOnly={isRep} />}
           {activeTab === 'reps' && isManager && <RepsTab onAdd={() => { setEditingRep(null); setRepModalOpen(true) }} onEdit={(rep) => { setEditingRep(rep); setRepModalOpen(true) }} onDelete={handleDeleteRep} showToast={showToast} />}
           {activeTab === 'products' && <ProductsTab isReadOnly={isReadOnly} />}
           {activeTab === 'kpi' && isManager && <ManagerDashboardTab />}

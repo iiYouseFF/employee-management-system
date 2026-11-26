@@ -30,16 +30,6 @@
 - Reviewer subagent returned PASS WITH NOTES: RLS, tenant scoping, privileges, idempotency, money types and archive/reversal logic all verified OK; no blockers. Two non-blocking follow-ups logged: restore `search_path = public, pg_temp` on the three RPC definitions, and drop the redundant `OR owner_id = auth.uid()` tenant escape in existence checks. Both belong in a new additive migration (plan checkpoint required), not in this verification.
 - Updated docs/KNOWN_ISSUES.md with applied-status and follow-up notes; no new migration created.
 
-## 2026-11-26 - Product consumption analytics
-- Track: feature (+ migration layer). User confirmed migration `0030`, shared hook path, local bilingual labels, and commit scope.
-- Investigation: requested `0021_product_consumption_analytics.sql` conflicted with existing applied `0021_reservations_and_returns.sql`; local migrations run through `0029`. Verified the three RPC names did not exist remotely, then created additive/idempotent `0030_product_consumption_analytics.sql` and applied it via Supabase MCP to `pswyzpadnicjwdqgwwtd`.
-- RPCs `product_consumption_summary(uuid,date,date)`, `product_customer_breakdown(uuid,date,date)` and `product_sales_history(uuid,date,date)` are `SECURITY INVOKER`, `STABLE`, `search_path = public, pg_temp`, return numeric(14,4)/numeric(14,2)/bigint, and inherit RLS from invoice_lines + cash/credit invoices + customers + reps. Verified live: `prosecdef=false`, `proconfig` set, grantees = authenticated/postgres/service_role only (no anon/PUBLIC).
-- Regenerated remote types via Supabase MCP and merged the three signatures into `src/shared/types/supabase.ts` (retaining the local hand-tuned precision).
-- Added `src/shared/hooks/useProductAnalytics.ts` (three React Query calls, `enabled: Boolean(productId)`, null date bounds normalized, `friendlyError`), `src/shared/lib/bilingual.ts` (`t(ar,en)`, `ar-EG`/`en-US` formatting from `?dir`), and `src/features/reporting/productAnalyticsReport.ts` (unified-template PDF + WhatsApp share).
-- Added `src/features/products/ProductConsumptionModal.tsx`: near-fullscreen modal with AR/EN identity header, stock badge, four presets, CSV + PDF actions, four KPIs, customer table/mobile cards with share bars and statement drill-down, day/week/month Recharts trend, and collapsible invoice-line log.
-- Wired analytics entry points (clickable product name + "تحليل المبيعات" button) into both `ProductsTab.tsx` and `InventoryTab.tsx` for managers and reps.
-- Verification Gate: npm run typecheck PASS; npm run lint PASS (pre-existing warnings only, no new findings); npm run build PASS (chunk-size / ineffective-dynamic-import warnings only).
-- Reviewer subagent reviewed SQL + diff; findings above. Final push / Vercel verification pending this entry's completion.
 ## 2026-11-26 - Unpaid & Overdue Credit Invoices
 - Track: migration → feature → docs. User confirmed the Phase 2 plan including migration
   number 0031 (0022–0030 already exist), the trigger-based 15-day rule, extending
@@ -82,6 +72,19 @@
 - Verification Gate re-run on the isolated commit (HEAD + task files only): typecheck PASS;
   lint PASS (pre-existing warnings only); build PASS (pre-existing chunk-size warnings).
   The shared working tree has unrelated concurrent edits; those were not touched.
+
+## 2026-11-26 - Product consumption analytics
+- Track: feature (+ migration layer). User confirmed migration `0030`, shared hook path, local bilingual labels, and commit scope.
+- Investigation: requested `0021_product_consumption_analytics.sql` conflicted with existing applied `0021_reservations_and_returns.sql`; local migrations run through `0029`. Verified the three RPC names did not exist remotely, then created additive/idempotent `0030_product_consumption_analytics.sql` and applied it via Supabase MCP to `pswyzpadnicjwdqgwwtd`.
+- RPCs `product_consumption_summary(uuid,date,date)`, `product_customer_breakdown(uuid,date,date)` and `product_sales_history(uuid,date,date)` are `SECURITY INVOKER`, `STABLE`, `search_path = public, pg_temp`, return numeric(14,4)/numeric(14,2)/bigint, and inherit RLS from invoice_lines + cash/credit invoices + customers + reps. Verified live: `prosecdef=false`, `proconfig` set, grantees = authenticated/postgres/service_role only (no anon/PUBLIC).
+- Regenerated remote types via Supabase MCP and merged the three signatures into `src/shared/types/supabase.ts` (retaining the local hand-tuned precision).
+- Added `src/shared/hooks/useProductAnalytics.ts` (three React Query calls, `enabled: Boolean(productId)`, null date bounds normalized, `friendlyError`), `src/shared/lib/bilingual.ts` (`t(ar,en)`, `ar-EG`/`en-US` formatting from `?dir`), and `src/features/reporting/productAnalyticsReport.ts` (unified-template PDF + WhatsApp share).
+- Added `src/features/products/ProductConsumptionModal.tsx`: near-fullscreen modal with AR/EN identity header, stock badge, four presets, CSV + PDF actions, four KPIs, customer table/mobile cards with share bars and statement drill-down, day/week/month Recharts trend, and collapsible invoice-line log.
+- Wired analytics entry points (clickable product name + "تحليل المبيعات" button) into both `ProductsTab.tsx` and `InventoryTab.tsx` for managers and reps.
+- Verification Gate: npm run typecheck PASS; npm run lint PASS (pre-existing warnings only, no new findings); npm run build PASS (chunk-size / ineffective-dynamic-import warnings only).
+- Reviewer subagent returned PASS WITH NOTES (no blockers). Two majors fixed: (1) rep-facing Products tab no longer calls manager-only `product_stock_summary_v3()` — `useProductStock` now accepts `enabled` and ProductsTab passes `!isReadOnly`; (2) user approved additive `0031_product_customer_breakdown_fix.sql`, applied via MCP — customers now group by a stable key with `rep_name` from the latest line; live smoke test shows share_pct sums to 100.00 and privileges/SECURITY INVOKER unchanged.
+- Also addressed reviewer minors: nullable customer ids typed as nullable and excluded from statement drill-down, all three query errors aggregated with skeleton suppressed on error, CSV invoice type localized, week buckets start Saturday, money formatting keeps two decimals. Deferred to a future migration track: `customer_statement()` / `v_customer_transactions` non-`security_invoker`, and the narrower rep `invoice_lines` policy on invoices assigned by customer.
+- Re-ran Verification Gate after fixes. Final push / Vercel verification pending this entry's completion.
 
 ## 2026-11-26 - Invoice details: click-to-open, print, WhatsApp and CSV
 - Track: migration (✋ approved) → feature (✋ approved). User chose additive migration

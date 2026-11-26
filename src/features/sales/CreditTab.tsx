@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect } from 'react'
-import { addDays, getTodayISO, formatNumber } from '@/shared/lib/format'
+import { addDays, formatMoney, formatNumber, getTodayISO } from '@/shared/lib/format'
 import Modal from '@/shared/ui/Modal'
 import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
@@ -24,6 +24,7 @@ import {
   useInvoiceLines,
   type InvoiceLine,
 } from '@/features/inventory/useInventory'
+import { useAuth } from '@/features/auth/useAuth'
 
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString('ar-EG') : '-'
@@ -177,7 +178,7 @@ function CreditInvoiceModal({
   const customerOptions = toSearchableOptions(customers).map((option) => ({
     ...option,
     meta: balanceById[option.value]
-      ? <span className="font-bold tabular-nums text-primary-700">المتبقي: {formatNumber(balanceById[option.value])} ج.م</span>
+      ? <span className="font-bold font-num tabular-nums text-primary-700">المتبقي: <span dir="ltr">{formatMoney(balanceById[option.value])}</span></span>
       : undefined,
   }))
 
@@ -202,9 +203,9 @@ function CreditInvoiceModal({
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-semibold text-slate-600">
             <span>عدد الأصناف: <span className="num text-slate-900">{itemCount}</span></span>
             <span>إجمالي الكمية: <span className="num text-slate-900">{formatNumber(totalQty)}</span></span>
-            <span>المتبقي بعد الدفعة: <span className="num font-bold text-rose-700">{formatNumber(Math.max(0, grandTotal - Number(form.paid)))}</span></span>
+            <span>المتبقي بعد الدفعة: <span className="num font-bold text-rose-700">{formatMoney(Math.max(0, grandTotal - Number(form.paid)))}</span></span>
             <span className="flex items-center gap-1.5">الإجمالي الكلي:
-              <span className="num font-extrabold text-[18px] text-primary-700">{formatNumber(grandTotal)} ج.م</span>
+              <span className="num font-extrabold text-[18px] text-primary-700">{formatMoney(grandTotal)}</span>
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -278,7 +279,7 @@ function CreditInvoiceModal({
           {form.customer_id && (
             <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs font-bold text-primary-800 flex flex-wrap items-center justify-between gap-2">
               <span>رصيد العميل الحالي (الآجل غير المسدد)</span>
-              <span className="num font-extrabold text-[13px]">{formatNumber(liveBalance)} ج.م</span>
+              <span className="num font-extrabold text-[13px]">{formatMoney(liveBalance)}</span>
             </div>
           )}
         </section>
@@ -338,6 +339,8 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
   const { data: products = [] } = useProducts()
   const { data: stockRows = [] } = useProductStock()
   const deleteInvoice = useDeleteCreditInvoiceWithStock()
+  const { can } = useAuth()
+  const canExportPrint = can('export_print')
 
   const stockMap: Record<string, number> = {}
   for (const r of stockRows) stockMap[r.product_id] = Number(r.on_hand)
@@ -458,11 +461,11 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
               <span>إجمالي الآجل:</span>
-              <span className="num font-extrabold text-sm">{formatNumber(filteredTotals.amount)} ج.م</span>
+              <span className="num font-extrabold text-sm">{formatMoney(filteredTotals.amount)}</span>
             </div>
             <div className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
               <span>المتبقي:</span>
-              <span className="num font-extrabold text-sm">{formatNumber(filteredTotals.remaining)} ج.م</span>
+              <span className="num font-extrabold text-sm">{formatMoney(filteredTotals.remaining)}</span>
             </div>
             {!isReadOnly && (
               <button type="button" onClick={openNew} className="app-btn app-btn-primary">+ فاتورة آجلة جديدة</button>
@@ -544,29 +547,29 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
                 <td className="text-xs text-slate-500 max-w-xs truncate">
                   {invoice.item || '-'}
                 </td>
-                <td className="text-center font-bold text-slate-900 font-mono text-sm whitespace-nowrap">
-                  {formatNumber(invoice.amount || 0)}
+                <td className="text-center font-extrabold text-slate-950 font-num text-sm whitespace-nowrap" dir="ltr">
+                  {formatMoney(invoice.amount || 0, { withCurrency: false })}
                 </td>
-                <td className="text-center text-xs text-slate-600 font-mono whitespace-nowrap">
+                <td className="text-center text-xs text-slate-600 font-num font-semibold whitespace-nowrap" dir="ltr">
                   {formatDate(invoice.due_date)}
                 </td>
-                <td className="text-center font-mono text-xs text-emerald-700 whitespace-nowrap">
-                  {formatNumber(parseFloat(invoice.paid || 0) + parseFloat(invoice.linked_payments || 0))}
+                <td className="text-center font-num font-bold text-xs text-emerald-700 whitespace-nowrap" dir="ltr">
+                  {formatMoney(parseFloat(invoice.paid || 0) + parseFloat(invoice.linked_payments || 0), { withCurrency: false })}
                 </td>
-                <td className="text-center font-mono text-sm font-bold text-rose-700 whitespace-nowrap">
-                  {formatNumber(invoice.remaining || 0)}
+                <td className="text-center font-num text-sm font-extrabold text-rose-700 whitespace-nowrap" dir="ltr">
+                  {formatMoney(invoice.remaining || 0, { withCurrency: false })}
                 </td>
                 <td className="text-center">{getStatusBadge(invoice)}</td>
                 <td>
                   <div className="flex flex-nowrap justify-center gap-1">
                     <button
                       type="button"
-                      title="عرض / طباعة"
-                      aria-label={`عرض / طباعة الفاتورة ${invoice.invoice_no}`}
+                      title={canExportPrint ? 'عرض / طباعة' : 'عرض'}
+                      aria-label={`${canExportPrint ? 'عرض / طباعة' : 'عرض'} الفاتورة ${invoice.invoice_no}`}
                       onClick={(e) => { e.stopPropagation(); openDetails(invoice) }}
                       className="app-btn app-btn-sm app-btn-ghost px-2 text-xs text-[var(--primary)] hover:border-blue-400"
                     >
-                      عرض / طباعة
+                      {canExportPrint ? 'عرض / طباعة' : 'عرض'}
                     </button>
                     {!isReadOnly && (
                       <>
@@ -597,15 +600,15 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
                 <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={6}>
                   {hasActiveFilters ? 'إجمالي نتائج البحث' : 'الإجمالي'}
                 </td>
-                <td className="px-3.5 py-3 text-center text-slate-900 font-mono text-sm font-extrabold whitespace-nowrap tabular-nums">
-                  {formatNumber(filteredTotals.amount)}
+                <td className="px-3.5 py-3 text-center text-slate-950 font-num text-sm font-extrabold whitespace-nowrap tabular-nums" dir="ltr">
+                  {formatMoney(filteredTotals.amount, { withCurrency: false })}
                 </td>
                 <td className="px-3.5 py-3"></td>
-                <td className="px-3.5 py-3 text-center text-emerald-800 font-mono text-sm font-extrabold whitespace-nowrap tabular-nums">
-                  {formatNumber(filteredTotals.paid)}
+                <td className="px-3.5 py-3 text-center text-emerald-800 font-num text-sm font-extrabold whitespace-nowrap tabular-nums" dir="ltr">
+                  {formatMoney(filteredTotals.paid, { withCurrency: false })}
                 </td>
-                <td className="px-3.5 py-3 text-center text-rose-800 font-mono text-sm font-extrabold whitespace-nowrap tabular-nums">
-                  {formatNumber(filteredTotals.remaining)}
+                <td className="px-3.5 py-3 text-center text-rose-800 font-num text-sm font-extrabold whitespace-nowrap tabular-nums" dir="ltr">
+                  {formatMoney(filteredTotals.remaining, { withCurrency: false })}
                 </td>
                 <td colSpan={2}></td>
               </tr>
@@ -644,24 +647,24 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
                 </div>
               </div>
               <div className="text-end">
-                <span className="font-mono font-black text-slate-900 text-base block">
-                  {formatNumber(invoice.amount || 0)}
+                <span className="font-num font-extrabold text-slate-950 text-base block" dir="ltr">
+                  {formatMoney(invoice.amount || 0)}
                 </span>
-                <span className="text-[10px] text-slate-400">ج.م آجل</span>
+                <span className="text-[10px] font-bold text-slate-500">آجل</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl">
               <div>
-                <span className="text-slate-400 block text-[10px]">المسدد:</span>
-                <span className="font-mono font-bold text-emerald-700 text-xs">
-                  {formatNumber(parseFloat(invoice.paid || 0) + parseFloat(invoice.linked_payments || 0))} ج.م
+                <span className="text-slate-500 font-semibold block text-[10px]">المسدد:</span>
+                <span className="font-num font-bold text-emerald-700 text-xs" dir="ltr">
+                  {formatMoney(parseFloat(invoice.paid || 0) + parseFloat(invoice.linked_payments || 0))}
                 </span>
               </div>
               <div className="text-center">
-                <span className="text-slate-400 block text-[10px]">المتبقي:</span>
-                <span className="font-mono font-extrabold text-rose-700 text-xs">
-                  {formatNumber(invoice.remaining || 0)} ج.م
+                <span className="text-slate-500 font-semibold block text-[10px]">المتبقي:</span>
+                <span className="font-num font-extrabold text-rose-700 text-xs" dir="ltr">
+                  {formatMoney(invoice.remaining || 0)}
                 </span>
               </div>
               <div className="text-end">

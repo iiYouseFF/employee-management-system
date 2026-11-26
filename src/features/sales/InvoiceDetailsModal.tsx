@@ -9,6 +9,7 @@ import {
   type InvoicePdfInput,
 } from '@/features/reporting/pdfGenerators'
 import { exportCSV } from '@/features/reporting/csv'
+import { useAuth } from '@/features/auth/useAuth'
 
 interface InvoiceDetailsModalProps {
   invoiceId: string
@@ -86,6 +87,8 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
   const { data: settings } = useSettings()
   const [busy, setBusy] = useState<BusyAction>(null)
   const [actionError, setActionError] = useState('')
+  const { can } = useAuth()
+  const canExportPrint = can('export_print')
 
   const companyName = settings?.title || 'شركة توريد'
   const dir: 'rtl' | 'ltr' = typeof document !== 'undefined' && document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl'
@@ -182,35 +185,37 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
               </span>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <WhatsAppShareButton
-              disabled={!details || busy !== null}
-              onClick={() => void runAction('whatsapp')}
-              busy={busy === 'whatsapp'}
-            />
-            <button
-              type="button"
-              disabled={!details || busy !== null}
-              onClick={() => void runAction('print')}
-              className="app-btn app-btn-ghost text-xs font-bold disabled:opacity-50"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <PrintIcon />
-                {busy === 'print' ? 'جاري الطباعة...' : 'طباعة A4'}
-              </span>
-            </button>
-            <button
-              type="button"
-              disabled={!details || busy !== null}
-              onClick={() => void runAction('csv')}
-              className="app-btn app-btn-primary text-xs font-bold disabled:opacity-50"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <CsvIcon />
-                {busy === 'csv' ? 'جاري التصدير...' : 'تصدير CSV'}
-              </span>
-            </button>
-          </div>
+          {canExportPrint && (
+            <div className="flex flex-wrap items-center gap-2">
+              <WhatsAppShareButton
+                disabled={!details || busy !== null}
+                onClick={() => void runAction('whatsapp')}
+                busy={busy === 'whatsapp'}
+              />
+              <button
+                type="button"
+                disabled={!details || busy !== null}
+                onClick={() => void runAction('print')}
+                className="app-btn app-btn-ghost text-xs font-bold disabled:opacity-50"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <PrintIcon />
+                  {busy === 'print' ? 'جاري الطباعة...' : 'طباعة A4'}
+                </span>
+              </button>
+              <button
+                type="button"
+                disabled={!details || busy !== null}
+                onClick={() => void runAction('csv')}
+                className="app-btn app-btn-primary text-xs font-bold disabled:opacity-50"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <CsvIcon />
+                  {busy === 'csv' ? 'جاري التصدير...' : 'تصدير CSV'}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       }
     >
