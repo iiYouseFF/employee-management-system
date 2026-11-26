@@ -5,6 +5,8 @@ import { useSettings } from '@/features/settings/useSettings'
 import { useReps, useDeleteRep, useAddRep, useUpdateRep } from '@/features/reps/useReps'
 import CashTab from '@/features/sales/CashTab'
 import CreditTab from '@/features/sales/CreditTab'
+import OverdueInvoicesTab from '@/features/sales/OverdueInvoicesTab'
+import { useUnpaidCreditInvoices } from '@/features/sales/useInvoices'
 import PaymentsTab from '@/features/payments/PaymentsTab'
 import StatementTab from '@/features/statements/StatementTab'
 import MonthlyTab from '@/features/dashboard/MonthlyTab'
@@ -31,7 +33,7 @@ import { friendlyError } from '@/shared/lib/errors'
 import { supabase } from '@/shared/lib/supabase'
 import type { RepFormValues } from '@/features/reps/reps.types'
 
-const REP_TABS = ['customers', 'cash', 'credit', 'payments', 'statement', 'returns', 'products']
+const REP_TABS = ['customers', 'cash', 'credit', 'overdue_invoices', 'payments', 'statement', 'returns', 'products']
 const MANAGER_TABS = [
   ...REP_TABS,
   'suppliers', 'supplier_purchases', 'supplier_payments', 'supplier_statement',
@@ -56,6 +58,7 @@ export default function Sheet() {
   const { user, role, repProfile, isRep, isReadOnly, isManager, loading: authLoading } = useAuth()
   const { data: settings, isLoading: settingsLoading } = useSettings()
   const { data: reps = [] } = useReps()
+  const { data: unpaidInvoices = [] } = useUnpaidCreditInvoices()
   const addRep = useAddRep()
   const updateRep = useUpdateRep()
   const deleteRep = useDeleteRep()
@@ -75,6 +78,10 @@ export default function Sheet() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
   const effectiveRepFilter = isRep && repProfile?.id ? repProfile.id : repFilter
+  const badgeRepFilter = isManager ? repFilter : (repProfile?.id || 'all')
+  const overdueCount = unpaidInvoices.filter(
+    (inv) => inv.is_overdue && (badgeRepFilter === 'all' || inv.rep_id === badgeRepFilter)
+  ).length
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab)
@@ -113,7 +120,7 @@ export default function Sheet() {
   }
 
   const defaultTabNames: Record<string, string> = {
-    cash: 'فاتورة نقدي', credit: 'فاتورة آجل', payments: 'المدفوعات', statement: 'كشف حساب العميل',
+    cash: 'فاتورة نقدي', credit: 'فاتورة آجل', overdue_invoices: 'الفواتير المتأخرة وغير المسددة', payments: 'المدفوعات', statement: 'كشف حساب العميل',
     monthly: 'التقرير الشهري', customers: 'العملاء', returns: 'مرتجعات المبيعات', reps: 'إدارة المناديب',
     suppliers: 'دليل الموردين', supplier_purchases: 'مشتريات الموردين', supplier_payments: 'مدفوعات الموردين', supplier_statement: 'كشف حساب مورد',
     expenses: 'المصاريف', inventory: 'المخزون', products: 'كتالوج الأسعار والمنتجات',
@@ -129,6 +136,7 @@ export default function Sheet() {
         { id: 'customers', label: getTabLabel('customers') },
         { id: 'cash', label: getTabLabel('cash') },
         { id: 'credit', label: getTabLabel('credit') },
+        { id: 'overdue_invoices', label: getTabLabel('overdue_invoices'), badge: overdueCount > 0 ? overdueCount : undefined },
         { id: 'payments', label: getTabLabel('payments') },
         { id: 'statement', label: getTabLabel('statement') },
         { id: 'returns', label: getTabLabel('returns') },
@@ -162,6 +170,7 @@ export default function Sheet() {
         { id: 'customers', label: getTabLabel('customers') },
         { id: 'cash', label: getTabLabel('cash') },
         { id: 'credit', label: getTabLabel('credit') },
+        { id: 'overdue_invoices', label: getTabLabel('overdue_invoices'), badge: overdueCount > 0 ? overdueCount : undefined },
         { id: 'payments', label: getTabLabel('payments') },
         { id: 'statement', label: getTabLabel('statement') },
         { id: 'returns', label: getTabLabel('returns') },
@@ -255,6 +264,7 @@ export default function Sheet() {
         <div className="app-card p-4 sm:p-6 lg:p-7 min-h-[500px]">
           {activeTab === 'cash' && <CashTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={isReadOnly} createSignal={pending === 'cash' ? nonce : undefined} onSignalHandled={consume} />}
           {activeTab === 'credit' && <CreditTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={isReadOnly} createSignal={pending === 'credit' ? nonce : undefined} onSignalHandled={consume} />}
+          {activeTab === 'overdue_invoices' && <OverdueInvoicesTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} />}
           {activeTab === 'payments' && <PaymentsTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={isReadOnly} createSignal={pending === 'payments' ? nonce : undefined} onSignalHandled={consume} />}
           {activeTab === 'returns' && <ReturnsTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={isReadOnly} />}
           {activeTab === 'statement' && <StatementTab repFilter={effectiveRepFilter} />}

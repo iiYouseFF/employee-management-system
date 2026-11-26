@@ -1,9 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Modal from '@/shared/ui/Modal'
 import { supabase } from '@/shared/lib/supabase'
 import { formatNumber } from '@/shared/lib/format'
+import { formatLocalDate, formatLocalNumber, getUiLang, t } from '@/shared/lib/bilingual'
 import { useInvoiceLines } from '@/features/inventory/useInventory'
+import { useSettings } from '@/features/settings/useSettings'
+import { exportCSV } from '@/features/reporting/csv'
+import { buildUnifiedReportTemplate } from '@/features/reporting/pdfGenerators'
+import { generatePdfFromHtml, printHtml, sharePdfBlobViaWhatsApp } from '@/shared/lib/pdfShare'
 
 interface InvoiceDetailsModalProps {
   invoiceId: string
@@ -16,6 +21,7 @@ type InvoiceHeader = {
   date: string
   invoice_no: string
   customer_name: string
+  customer_phone?: string | null
   rep_name: string
   amount: number
   paid?: number
@@ -35,7 +41,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
       if (invoiceType === 'cash') {
         const { data, error } = await supabase
           .from('cash_invoices')
-          .select('id,date,invoice_no,amount,status,notes,item,customer_id,rep_id,customers(name),reps(name)')
+          .select('id,date,invoice_no,amount,status,notes,item,customer_id,rep_id,customers(name,phone),reps(name)')
           .eq('id', invoiceId)
           .maybeSingle()
         if (error) throw error
@@ -46,6 +52,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
           date: String(row.date || ''),
           invoice_no: String(row.invoice_no || ''),
           customer_name: String((row.customers as Record<string, unknown> | null)?.name || '-'),
+          customer_phone: (row.customers as Record<string, unknown> | null)?.phone as string | null ?? null,
           rep_name: String((row.reps as Record<string, unknown> | null)?.name || '-'),
           amount: Number(row.amount || 0),
           status: (row.status as string | null) ?? null,
@@ -56,7 +63,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
 
       const { data, error } = await supabase
         .from('credit_invoices')
-        .select('id,date,invoice_no,amount,paid,status,due_date,item,customer_id,rep_id,customers(name),reps(name)')
+        .select('id,date,invoice_no,amount,paid,status,due_date,item,customer_id,rep_id,customers(name,phone),reps(name)')
         .eq('id', invoiceId)
         .maybeSingle()
       if (error) throw error
@@ -74,6 +81,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
         date: String(row.date || ''),
         invoice_no: String(row.invoice_no || ''),
         customer_name: String((row.customers as Record<string, unknown> | null)?.name || '-'),
+        customer_phone: (row.customers as Record<string, unknown> | null)?.phone as string | null ?? null,
         rep_name: String((row.reps as Record<string, unknown> | null)?.name || '-'),
         amount,
         paid,
@@ -91,9 +99,66 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
     () => lines.reduce((sum, l) => sum + Number(l.line_total || 0), 0),
     [lines]
   )
+  const lang = getUiLang()
+  const { data: settings } = useSettings()
+  const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const reportHtml = useMemo(
+    () => header
+      ? buildInvoiceReportHtml(header, lines, settings?.title || t(lang, 'نظام المبيعات', 'Sales system'), lang, invoiceType)
+      : '',
+    [header, lines, settings?.title, lang, invoiceType]
+  )
+
+  const handleCsv = () => {
+    if (!header) return
+    const labels = lang === 'ar'
+      ? ['المنتج', 'الكمية', 'سعر الوحدة', 'الإجمالي']
+      : ['Product', 'Qty', 'Unit price', 'Total']
+    const data = lines.map((line) => {
+      const product = (line as Record<string, unknown>).products as Record<string, unknown> | null
+      return Object.fromEntries([
+        [labels[0], String(product?.name_ar || product?.name_en || 'منتج')],
+        [labels[1], Number(line.qty || 0)],
+        [labels[2], Number(line.unit_price || 0)],
+        [labels[3], Number(line.line_total || 0)],
+      ])
+    })
+    exportCSV(`invoice-${header.invoice_no}.csv`, data, labels)
+  }
+
+  const handleWhatsApp = async () => {
+    if (!header || !reportHtml) return
+    setBusy(true)
+    setActionError('')
+    try {
+      const blob = await generatePdfFromHtml(reportHtml)
+      await sharePdfBlobViaWhatsApp({
+        blob,
+        filename: `invoice-${header.invoice_no}.pdf`,
+        recipientPhone: header.customer_phone,
+        message: `${t(lang, 'فاتورة', 'Invoice')} ${header.invoice_no} — ${header.customer_name}`,
+      })
+    } catch (e) {
+      setActionError((e as Error).message || t(lang, 'تعذّر إرسال الفاتورة', 'Could not send the invoice'))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
-    <Modal title={title} onClose={onClose} overlayClassName="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 md:p-6 animate-fade-in">
+    <Modal title={title} onClose={onClose} overlayClassName="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 md:p-6 animate-fade-in"
+      footer={
+        <div className="flex w-full flex-wrap items-center justify-end gap-2">
+          {actionError && <span className="me-auto text-xs font-semibold text-rose-700">{actionError}</span>}
+          <button type="button" onClick={handleCsv} disabled={!header} className="app-btn app-btn-ghost text-xs">{t(lang, 'تصدير CSV', 'Export CSV')}</button>
+          <button type="button" onClick={() => { void printHtml(reportHtml, header?.invoice_no || 'invoice') }} disabled={!header} className="app-btn app-btn-ghost text-xs">{t(lang, 'طباعة A4', 'Print A4')}</button>
+          <button type="button" onClick={() => { void handleWhatsApp() }} disabled={!header || busy} className="app-btn app-btn-primary text-xs">
+            {busy ? t(lang, 'جارٍ الإعداد...', 'Preparing...') : t(lang, 'إرسال PDF واتساب', 'Send PDF on WhatsApp')}
+          </button>
+        </div>
+      }
+    >
         {headerQuery.isLoading ? (
           <div className="py-10 text-center text-sm text-slate-500">جاري تحميل تفاصيل الفاتورة...</div>
         ) : headerQuery.error ? (
@@ -187,4 +252,75 @@ function statusLabel(status: string): string {
     case 'cancelled': return 'ملغاة'
     default: return status
   }
+}
+
+function esc(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function buildInvoiceReportHtml(
+  header: InvoiceHeader,
+  lines: { qty?: number | string; unit_price?: number | string; line_total?: number | string; products?: unknown }[],
+  companyName: string,
+  lang: 'ar' | 'en',
+  invoiceType: 'cash' | 'credit',
+): string {
+  const num = (value: number | string | null | undefined) => esc(formatLocalNumber(value, lang))
+  const date = (value: string) => esc(formatLocalDate(value, lang))
+  const bodyRows = lines.map((line) => {
+    const product = line.products as { name_ar?: string; name_en?: string; unit?: string } | null
+    return `
+      <tr>
+        <td>${esc(product?.name_ar || product?.name_en || '—')}</td>
+        <td class="num">${num(line.qty)} ${esc(product?.unit || '')}</td>
+        <td class="num">${num(line.unit_price)}</td>
+        <td class="num">${num(line.line_total)}</td>
+      </tr>`
+  }).join('')
+  const meta = [
+    { label: t(lang, 'التاريخ', 'Date'), value: date(header.date) },
+    { label: t(lang, 'العميل', 'Customer'), value: header.customer_name },
+    { label: t(lang, 'المندوب', 'Rep'), value: header.rep_name },
+    { label: t(lang, 'الحالة', 'Status'), value: header.status ? esc(statusLabel(header.status)) : '—' },
+  ]
+  if (invoiceType === 'credit' && header.due_date) {
+    meta.push({ label: t(lang, 'تاريخ الاستحقاق', 'Due date'), value: date(header.due_date) })
+  }
+  if (invoiceType === 'credit') {
+    meta.push({ label: t(lang, 'المدفوع', 'Paid'), value: num(header.paid || 0) })
+    meta.push({ label: t(lang, 'المتبقي', 'Remaining'), value: num(header.remaining || 0) })
+  }
+
+  return buildUnifiedReportTemplate({
+    companyName,
+    dir: lang === 'ar' ? 'rtl' : 'ltr',
+    docBadge: invoiceType === 'cash'
+      ? t(lang, 'فاتورة نقدية', 'Cash invoice')
+      : t(lang, 'فاتورة آجلة', 'Credit invoice'),
+    entityTitle: t(lang, 'رقم الفاتورة', 'Invoice no.') + ': ' + esc(header.invoice_no),
+    meta,
+    bodyHtml: `
+      <section class="pdf-section">
+        <h3 class="pdf-section-title">${t(lang, 'بنود الفاتورة', 'Invoice lines')}</h3>
+        <div class="pdf-table-wrap"><table class="pdf-table">
+          <thead><tr>
+            <th>${t(lang, 'المنتج', 'Product')}</th>
+            <th class="num">${t(lang, 'الكمية', 'Qty')}</th>
+            <th class="num">${t(lang, 'سعر الوحدة', 'Unit price')}</th>
+            <th class="num">${t(lang, 'الإجمالي', 'Total')}</th>
+          </tr></thead>
+          <tbody>${bodyRows || `<tr><td colspan="4" class="pdf-empty">${t(lang, 'لا توجد بنود', 'No line items')}</td></tr>`}</tbody>
+          <tfoot><tr class="row-total">
+            <td colspan="3">${t(lang, 'الإجمالي الكلي', 'Grand total')}</td>
+            <td class="num">${num(header.amount)}</td>
+          </tr></tfoot>
+        </table></div>
+      </section>`,
+    notes: header.item || undefined,
+  })
 }

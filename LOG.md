@@ -40,3 +40,45 @@
 - Wired analytics entry points (clickable product name + "تحليل المبيعات" button) into both `ProductsTab.tsx` and `InventoryTab.tsx` for managers and reps.
 - Verification Gate: npm run typecheck PASS; npm run lint PASS (pre-existing warnings only, no new findings); npm run build PASS (chunk-size / ineffective-dynamic-import warnings only).
 - Reviewer subagent reviewed SQL + diff; findings above. Final push / Vercel verification pending this entry's completion.
+## 2026-11-26 - Unpaid & Overdue Credit Invoices
+- Track: migration → feature → docs. User confirmed the Phase 2 plan including migration
+  number 0031 (0022–0030 already exist), the trigger-based 15-day rule, extending
+  InvoiceDetailsModal, scoped commit, and remote migration application.
+- No `WORKFLOW.md` exists in the repo; used docs/workflows/TRACKS.md with the requested
+  plan checkpoint (workflow discrepancy confirmed by user).
+- Created `supabase/migrations/0031_unpaid_overdue_invoices.sql`: backfill/default
+  `due_date`, BEFORE INSERT/UPDATE trigger `credit_invoices_set_due_date`, and
+  SECURITY INVOKER RPC `unpaid_credit_invoices_list()` returning 14 columns,
+  ordered most-overdue first; anon EXECUTE revoked, authenticated granted.
+- Applied migration to Supabase project `pswyzpadnicjwdqgwwtd` via MCP (`apply_migration`);
+  regenerated types via MCP and added the RPC return type to `src/shared/types/supabase.ts`
+  while retaining existing hand-tuned local typings.
+- Added `useUnpaidCreditInvoices()` (`['unpaid-credit-invoices']`) and invalidations on
+  credit invoice save/delete, payments add/edit/delete, and customer mutations.
+- `CreditTab`: invoice date changes now auto-set `due_date = date + 15` via `addDays`;
+  new invoices start with today + 15; due date remains manually editable.
+- Added `src/features/sales/OverdueInvoicesTab.tsx` with KPI strip, status pills,
+  search (invoice/customer/phone), manager rep filter, CSV export, unified-template
+  WhatsApp PDF, desktop `.app-table` + mobile cards, and click-through to
+  `InvoiceDetailsModal`; registered `overdue_invoices` for reps and managers in
+  `Sheet.tsx` with a live red badge in `AppNavigation`.
+- Extended `InvoiceDetailsModal` with A4 print, CSV export and WhatsApp PDF actions.
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only, no new
+  findings in changed files); build PASS (pre-existing chunk-size warnings).
+- Reviewer subagent: PASS WITH NOTES, no blockers. Fixed in code: KPI strip and PDF header
+  now derive totals from the same filtered rows as the table/CSV; rep add/update/delete
+  invalidates `['unpaid-credit-invoices']`; CSV/print buttons and company fallback are
+  bilingual; generated RPC type uses `Record<string, never>` and nullable `customer_id`;
+  zero-day invoices read "مستحقة اليوم" / "Due today".
+- Reviewer SQL follow-up (user-approved): created and applied
+  `supabase/migrations/0032_unpaid_credit_invoices_fix.sql`. It reports the invoice's own
+  `rep_id`/`rep_name` (instead of coalescing with the customer's rep, which disagreed with
+  RLS and other sales tabs) while keeping the exact 14-column RPC contract, and updates
+  `credit_invoices_set_due_date()` so an invoice-date change moves `due_date` to `date + 15`
+  unless the statement explicitly changed `due_date`. Regenerated types: RPC signature
+  unchanged; live smoke test shows 18 unpaid rows with no null reps.
+- Both `0031_*` files remain applied under distinct remote timestamp versions; they were
+  not renamed. `docs/KNOWN_ISSUES.md` records the duplicate-prefix note and next free `0033`.
+- Verification Gate re-run on the isolated commit (HEAD + task files only): typecheck PASS;
+  lint PASS (pre-existing warnings only); build PASS (pre-existing chunk-size warnings).
+  The shared working tree has unrelated concurrent edits; those were not touched.

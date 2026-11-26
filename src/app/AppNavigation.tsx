@@ -4,7 +4,7 @@ export interface NavGroup {
   id: string
   label: string
   icon?: React.ReactNode
-  tabs: { id: string; label: string; badge?: string | number }[]
+  tabs: { id: string; label: string; badge?: React.ReactNode }[]
 }
 
 interface AppNavigationProps {
@@ -37,7 +37,7 @@ export default function AppNavigation({ groups, activeTab, onSelectTab }: AppNav
               >
                 {group.icon}
                 <span>{group.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono tabular-nums ${isGroupActive ? 'bg-[var(--primary-soft)] text-[var(--primary)]' : 'bg-white/20 text-white'}`}>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-num font-extrabold tabular-nums ${isGroupActive ? 'bg-[var(--primary-soft)] text-[var(--primary)]' : 'bg-white/20 text-white'}`}>
                   {group.tabs.length}
                 </span>
               </button>
@@ -56,11 +56,16 @@ export default function AppNavigation({ groups, activeTab, onSelectTab }: AppNav
                 key={tab.id}
                 type="button"
                 onClick={() => onSelectTab(tab.id)}
-                className={`px-3 min-h-[44px] md:min-h-[36px] rounded-lg text-xs font-semibold transition-all duration-150 whitespace-nowrap shrink-0 ${
-                  active ? 'bg-white text-[#1a4971] shadow-sm font-bold' : 'bg-white/15 text-white hover:bg-white/25'
+                className={`inline-flex items-center gap-1.5 px-3.5 min-h-[44px] md:min-h-[36px] rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap shrink-0 ${
+                  active ? 'bg-white text-[#1a4971] shadow-sm font-extrabold' : 'bg-white/15 text-white hover:bg-white/25'
                 }`}
               >
                 {tab.label}
+              {tab.badge !== undefined && tab.badge !== null && (
+                <span className="ms-1 inline-flex min-w-[20px] items-center justify-center rounded-full border border-rose-300 bg-rose-600 px-1.5 py-0.5 text-[10px] font-num font-extrabold tabular-nums text-white shadow-sm">
+                  {tab.badge}
+                </span>
+              )}
               </button>
             )
           })}

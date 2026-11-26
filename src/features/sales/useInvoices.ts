@@ -44,6 +44,7 @@ export function useUpsertCustomer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }
@@ -70,6 +71,7 @@ export function useUpdateCustomer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }
@@ -86,6 +88,7 @@ export function useDeleteCustomer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }
@@ -130,6 +133,36 @@ export function useCreditInvoices(repFilter?: string) {
   })
 }
 
+export type UnpaidCreditInvoice = {
+  invoice_id: string
+  invoice_no: string
+  invoice_date: string
+  due_date: string
+  days_diff: number
+  is_overdue: boolean
+  customer_id: string | null
+  customer_name: string | null
+  customer_phone: string | null
+  rep_id: string | null
+  rep_name: string | null
+  total_amount: number
+  paid_amount: number
+  remaining_amount: number
+  status: string
+}
+
+/** Unpaid / overdue credit invoices, RLS-scoped by the SECURITY INVOKER RPC. */
+export function useUnpaidCreditInvoices() {
+  return useQuery({
+    queryKey: ['unpaid-credit-invoices'],
+    queryFn: async (): Promise<UnpaidCreditInvoice[]> => {
+      const { data, error } = await supabase.rpc('unpaid_credit_invoices_list')
+      if (error) throw error
+      return (data || []) as UnpaidCreditInvoice[]
+    },
+  })
+}
+
 export function usePayments(repFilter?: string) {
   return useQuery({
     queryKey: ['payments', repFilter],
@@ -166,6 +199,7 @@ export function useAddPayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['credit_invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }
@@ -186,6 +220,7 @@ export function useUpdatePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['credit_invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }
@@ -203,6 +238,7 @@ export function useDeletePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] })
       queryClient.invalidateQueries({ queryKey: ['credit_invoices'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }

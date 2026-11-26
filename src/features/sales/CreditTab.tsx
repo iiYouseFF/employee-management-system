@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect } from 'react'
-import { getTodayISO, formatNumber } from '@/shared/lib/format'
+import { addDays, getTodayISO, formatNumber } from '@/shared/lib/format'
 import Modal from '@/shared/ui/Modal'
 import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
@@ -95,6 +95,10 @@ function CreditInvoiceModal({
   const setField = (name: string, value: unknown) =>
     setForm((f) => {
       const next = { ...f, [name]: value }
+      if (name === 'date' && typeof value === 'string' && value) {
+        // 15-day payment term: keep the due date in sync with the invoice date.
+        next.due_date = addDays(value, 15)
+      }
       if (name === 'customer_id') {
         const cust = customers.find((c) => c.id === value)
         if (cust?.representative_id) next.rep_id = cust.representative_id
@@ -255,7 +259,7 @@ function CreditInvoiceModal({
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ الاستحقاق</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">تاريخ الاستحقاق <span className="font-medium text-slate-400">(تلقائي: +15 يوم)</span></label>
             <input type="date" value={form.due_date} onChange={(e) => setField('due_date', e.target.value)}
               className="app-input text-xs" />
           </div>
@@ -349,13 +353,14 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
 
   const openNew = () => {
     const defaultRep = repFilter !== 'all' ? repFilter : reps[0]?.id || ''
+    const today = getTodayISO()
     setEditing({
-      date: getTodayISO(),
+      date: today,
       invoice_no: nextInvoiceNo(),
       customer_id: '',
       rep_id: defaultRep,
       item: '',
-      due_date: '',
+      due_date: addDays(today, 15),
       paid: 0,
     })
   }

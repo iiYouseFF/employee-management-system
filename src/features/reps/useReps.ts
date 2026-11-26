@@ -41,6 +41,7 @@ export function useAddRep() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reps'] })
       queryClient.invalidateQueries({ queryKey: ['rep_directory'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }
@@ -68,6 +69,7 @@ export function useUpdateRep() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reps'] })
       queryClient.invalidateQueries({ queryKey: ['rep_directory'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }
@@ -85,6 +87,7 @@ export function useDeleteRep() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reps'] })
       queryClient.invalidateQueries({ queryKey: ['rep_directory'] })
+      queryClient.invalidateQueries({ queryKey: ['unpaid-credit-invoices'] })
     },
   })
 }
