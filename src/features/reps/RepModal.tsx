@@ -68,8 +68,8 @@ export default function RepModal({ initialValues, onClose, onSubmit }: RepModalP
         is_active: isActive,
       })
       onClose()
-    } catch (err: any) {
-      setError(err?.message || 'حدث خطأ أثناء حفظ بيانات المندوب')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'حدث خطأ أثناء حفظ بيانات المندوب')
     } finally {
       setLoading(false)
     }

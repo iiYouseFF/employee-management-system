@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import Modal from '@/shared/ui/Modal'
-import { useAuth } from '@/features/auth/useAuth'
 import { useUpdateRepPermissions } from '@/features/reps/useReps'
 import {
   DEFAULT_REP_PERMISSIONS,
@@ -29,7 +28,6 @@ export default function RepPermissionsModal({
   const [values, setValues] = useState<RepPermissions>(() => normalizeRepPermissions(permissions))
   const [error, setError] = useState('')
   const updatePermissions = useUpdateRepPermissions()
-  const { refresh } = useAuth()
 
   const toggle = (key: RepPermissionKey) => {
     setValues((current) => ({ ...current, [key]: !current[key] }))
@@ -39,7 +37,6 @@ export default function RepPermissionsModal({
     setError('')
     try {
       await updatePermissions.mutateAsync({ id: repId, permissions: values })
-      await refresh()
       onSaved?.()
       onClose()
     } catch (err) {
@@ -50,7 +47,7 @@ export default function RepPermissionsModal({
   return (
     <Modal
       title={`صلاحيات المندوب: ${repName}`}
-      subtitle="اختر ما يسمح له هذا المندوب بعرضه أو تنفيذه. التغييرات تُطبّق فوراً على حساب المندوب."
+      subtitle="اختر ما يسمح له هذا المندوب بعرضه أو تنفيذه. تُطبّق التغييرات عند عودة المندوب إلى التطبيق أو إعادة فتح تبويبه."
       onClose={onClose}
       footer={
         <>

@@ -12,14 +12,14 @@
   - Can view and print the Product Price List by default; print/export can be revoked per rep.
   - No access to Suppliers, operational expenses, or Manager Financial KPIs.
 
-### Enforcement Details (migration `0014_rbac_hardening_v2`, extended by `0034_rep_granular_permissions`)
+### Enforcement Details (migration `0014_rbac_hardening_v2`, extended by `0034_rep_granular_permissions`, `0035_permissions_hardening` and `0036_legacy_stock_rpc_guard`)
 - **Database is the boundary.** Reps hold `select` policies by default; writes on customers, invoices, payments, suppliers, products and expenses are rejected at the DB (0 rows affected or RLS error) unless the manager has granted the matching `reps.permissions` flag and the rep passes the RPC/RLS scope checks.
 - **Confirmation gate.** `current_role_name()` / `current_owner_id()` return `null` until `auth.users.email_confirmed_at` is set, so an unconfirmed account has no role and sees no rows (products included). The UI shows the «لا تملك صلاحية الوصول» screen in that case.
 - **Provisioning is centralised.** `public.provision_user_role(uuid)` (SECURITY DEFINER, execute revoked from `public`/`anon`/`authenticated`) is the only role-granting path. It runs from `handle_new_user()` on signup and `handle_user_email_confirmed()` when confirmation arrives.
 - **Role escalation is impossible from the client.** `user_roles` has RLS with no client-facing policy and no table grant; a rep cannot promote itself. `sync_rep_role` never demotes a manager and never moves a role across owners.
 - **Rep identity is bound to one row.** `uq_reps_user_id` (partial unique index) guarantees one rep row per user, so `get_current_rep_id()` is unambiguous.
 - **Rep visibility rule.** A rep sees a customer when `representative_id = get_current_rep_id()`, and sees an invoice/payment when it carries their `rep_id` or belongs to one of their customers. There is no cross-rep visibility.
-- **Search path hardening.** Every `public` SECURITY DEFINER function runs with `search_path = public, pg_temp`; `auth` objects stay fully qualified.
+- **Search path hardening.** SECURITY DEFINER functions remediated by `0014`, `0035` and `0036` run with `search_path = public, pg_temp`; some legacy functions (e.g. supplier-purchase RPCs from `0026`–`0029`) still use `search_path = public` — see `docs/KNOWN_ISSUES.md`. `auth` objects stay fully qualified.
 
 ---
 

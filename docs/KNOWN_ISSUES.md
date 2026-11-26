@@ -3,20 +3,20 @@
 > Produced during the architecture review / cleanup. These are **findings and recommendations**,
 > not changes applied to already-run migrations or live data. Items are ordered by priority.
 
-## 1. Database defects (fix in a NEW additive migration — `0036_…` or later, never edit applied files)
+## 1. Database defects (fix in a NEW additive migration — `0037_…` or later, never edit applied files)
 
-**Status (2026-11-27):** migrations through `0035_permissions_hardening` are applied on the
+**Status (2026-11-27):** migrations through `0036_legacy_stock_rpc_guard` are applied on the
 remote project. `0031` added the 15-day credit due-date trigger and the
 `unpaid_credit_invoices_list()` RPC; `0032` corrected the report's rep attribution and due-date
 trigger behavior; `0033` fixed sales-rep visibility of invoice lines for assigned customers;
 `0034` added the granular per-rep permission flags, RLS guards and helper RPCs; `0035` hardened
-that implementation (statement isolation, ACLs, reference validation and `search_path`).
-The next free number is `0036`.
+that implementation (statement isolation, ACLs, reference validation and `search_path`);
+`0036` closed the legacy stock RPC bypass. The next free number is `0037`.
 
 **Migration filename note:** both applied migrations use the `0031_` prefix locally
 (`0031_unpaid_overdue_invoices.sql` and `0031_product_customer_breakdown_fix.sql`); the remote
 tracks them under distinct timestamp versions. They are applied files and must not be renamed;
-use `0036_` or later for the next migration.
+use `0037_` or later for the next migration.
 
 | # | Issue | Evidence | Recommended fix |
 |---|---|---|---|
@@ -24,7 +24,7 @@ use `0036_` or later for the next migration.
 | 2 | Audit trigger reads `NEW.title` / `OLD.title` on `expenses`, but the column is `description` | `0019_audit_logs.sql:162,212,243` | Use `NEW.description` / `OLD.description` |
 | 3 | ~~App calls `product_stock_summary_v3()` but no migration defines it~~ **Resolved by `0035`** — the function is now created explicitly with authenticated-only EXECUTE. |
 | 4 | `DROP FUNCTION product_stock_summary()` may be blocked by `stock_valuation()` dependency | `0020_expiry_and_stock_alerts.sql:76`; `0018_inventory.sql:588-605` | Drop/recreate both functions together in a new migration |
-| 5 | SECURITY DEFINER functions recreated with `search_path = public` (loses `pg_temp` hardening from `0014`) — **partially resolved by `0035`** for the statement, invoice/return write, stock and permission functions; supplier-purchase functions from `0026`–`0029` remain open | `0018`, `0020`, `0021`, `0026`–`0029` | Re-apply `SET search_path = public, pg_temp` to the remaining functions |
+| 5 | SECURITY DEFINER functions recreated with `search_path = public` (loses `pg_temp` hardening from `0014`) — **partially resolved**: `0035` covered the statement, invoice/return write, v3 stock and permission functions; `0036` covered the legacy stock functions; supplier-purchase functions from `0026`–`0029` remain open | `0018`, `0020`, `0021`, `0026`–`0029` | Re-apply `SET search_path = public, pg_temp` to the remaining supplier-purchase functions |
 | 6 | `get_email_by_phone()` granted to `anon` allows phone→email enumeration | `0016_phone_login_lookup.sql:10-23` | Restrict to authenticated callers or move server-side |
 | 7 | ~~`v_customer_transactions` lost `security_invoker = true`~~ **Resolved by `0035`**; `customer_statement()` additionally filters `owner_id` and assigned-customer scope, with anon/PUBLIC EXECUTE revoked. | `0011_rbac_hardening.sql:481` vs `0022_customer_phone_payment_methods_and_statement_invoice_link.sql:90`, `0024_statement_reference_links.sql:19` | No further action; verify rep isolation if the view is recreated again |
 
@@ -35,7 +35,7 @@ rep. Applied migration `0033_rep_invoice_lines_assigned_customers.sql` recreates
 `rep_read_invoice_lines` with the same assigned-customer branch for both cash and credit lines,
 keeping the manager exclusion and tenant boundary. Verified via `pg_policies`.
 
-### Granular permission hardening (0034/0035 review, 2026-11-27)
+### Granular permission hardening (0034/0035/0036 review, 2026-11-27)
 
 Applied migrations `0034_rep_granular_permissions.sql` and `0035_permissions_hardening.sql`
 close the reviewer findings for the per-rep permission feature:
@@ -54,8 +54,13 @@ close the reviewer findings for the per-rep permission feature:
   reference the referenced invoice; `rep_can_write_for()` no longer returns true for a
   non-rep caller with arbitrary IDs.
 - `export_print` is enforced in the UI only (no server-side print endpoint exists).
+- Applied `0036_legacy_stock_rpc_guard.sql` adds the `view_inventory` guard to the still-callable
+  legacy `product_stock_summary()` / `product_stock_summary_v2()` RPCs, restores
+  `search_path = public, pg_temp`, and revokes anon/PUBLIC EXECUTE. Their live return shapes are
+  older than the local `0020`/`0021` text, so `0036` preserves the live signatures;
+  `CREATE OR REPLACE` cannot change an OUT row type.
 
-**Deferred (not fixed in 0035):** product/invoice reference checks rely on validated
+**Deferred (not fixed in 0035/0036):** product/invoice reference checks rely on validated
 `rep_id`/`customer_id` payloads; a rep with a write grant can still submit an invoice
 whose lines reference products outside their assigned customer's own history. Tighten
 this in a later migration if reps receive broad write grants. Supplier-purchase

@@ -7,6 +7,7 @@ import InvoiceLineEditor, { type LineItem } from '@/features/sales/InvoiceLineEd
 import { createEmptyInvoiceLine, isMeaningfulInvoiceLine } from '@/features/sales/invoiceLineUtils'
 import BulkProductMatrixModal, { type BulkMatrixLine } from '@/features/sales/BulkProductMatrixModal'
 import InvoiceDetailsModal from '@/features/sales/InvoiceDetailsModal'
+import PostSaveInvoicePrintPrompt from '@/features/sales/PostSaveInvoicePrintPrompt'
 import Pagination from '@/shared/ui/Pagination'
 import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
@@ -46,7 +47,7 @@ function CashInvoiceModal({
   products: { id: string; name_ar: string; name_en: string | null; sku: string | null; unit: string | null; price: number; is_active: boolean }[]
   stockMap: Record<string, number>
   onClose: () => void
-  onSaved: (msg: string) => void
+  onSaved: (msg: string, savedInvoiceId?: string, status?: 'draft' | 'confirmed' | 'cancelled', isNew?: boolean) => void
 }) {
   const isEdit = !!invoice.id
   const { data: existingLines = [], isLoading: linesLoading } = useInvoiceLines(
@@ -151,13 +152,16 @@ function CashInvoiceModal({
     try {
       const payload: Record<string, unknown> = { ...form, status: finalStatus }
       if (isEdit) payload.id = invoice.id
-      await save.mutateAsync({ invoice: payload, lines: validLines })
+      const savedId = await save.mutateAsync({ invoice: payload, lines: validLines })
       onSaved(
         finalStatus === 'draft'
           ? 'تم حفظ الفاتورة كمسودة وحجز الكميات (Draft)'
           : isEdit
           ? 'تم تحديث الفاتورة وتعديل المخزون'
-          : 'تمت إضافة الفاتورة وتأكيد صرف المخزون'
+          : 'تمت إضافة الفاتورة وتأكيد صرف المخزون',
+        (savedId as string) || (invoice.id as string) || '',
+        finalStatus,
+        !isEdit
       )
     } catch (e: unknown) {
       setErr((e as Error).message)
@@ -340,6 +344,7 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
+  const [printPrompt, setPrintPrompt] = useState<{ id: string; invoiceNo?: string } | null>(null)
   useEffect(() => { if (createSignal) { openNew(); onSignalHandled?.() } }, [createSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openNew = () => {
@@ -615,7 +620,7 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
                 onClick={(e) => { e.stopPropagation(); openDetails(invoice) }}
                 className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-bold text-[var(--primary)] border-blue-200 hover:bg-blue-50"
               >
-                عرض / طباعة
+                {canExportPrint ? 'عرض / طباعة' : 'عرض'}
               </button>
               {!isReadOnly && (
                 <>
@@ -669,10 +674,23 @@ export default function CashTab({ repFilter, reps, showToast, isReadOnly = false
           products={products}
           stockMap={stockMap}
           onClose={() => setEditing(null)}
-          onSaved={(msg) => {
+          onSaved={(msg, savedInvoiceId, status, isNew) => {
             showToast(msg)
+            const invoiceNo = String(editing.invoice_no || '')
             setEditing(null)
+            if (isNew && status === 'confirmed' && savedInvoiceId) {
+              setPrintPrompt({ id: savedInvoiceId, invoiceNo })
+            }
           }}
+        />
+      )}
+
+      {printPrompt && (
+        <PostSaveInvoicePrintPrompt
+          invoiceId={printPrompt.id}
+          invoiceType="cash"
+          invoiceNo={printPrompt.invoiceNo}
+          onClose={() => setPrintPrompt(null)}
         />
       )}
     </div>
