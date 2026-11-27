@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Modal from '@/shared/ui/Modal'
 import { MoneyText } from '@/shared/ui/MoneyText'
 import type { EmployeeRow } from './hr.types'
@@ -6,9 +6,10 @@ import { useEmployees, useSaveEmployee, type SaveEmployeeInput } from './useHr'
 
 interface EmployeesDirectorySectionProps {
   showToast: (message: string) => void
+  openNewSignal?: number
 }
 
-export default function EmployeesDirectorySection({ showToast }: EmployeesDirectorySectionProps) {
+export default function EmployeesDirectorySection({ showToast, openNewSignal }: EmployeesDirectorySectionProps) {
   const { data: employees = [], isLoading, isError } = useEmployees()
   const saveEmployee = useSaveEmployee()
   const [editing, setEditing] = useState<SaveEmployeeInput | null>(null)
@@ -25,6 +26,12 @@ export default function EmployeesDirectorySection({ showToast }: EmployeesDirect
       is_active: true,
     })
   }
+
+  useEffect(() => {
+    if (openNewSignal && openNewSignal > 0) {
+      openNew()
+    }
+  }, [openNewSignal])
 
   const openEdit = (emp: EmployeeRow) => {
     setEditing({

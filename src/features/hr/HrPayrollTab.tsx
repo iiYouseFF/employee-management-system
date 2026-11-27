@@ -20,12 +20,27 @@ const SUB_TABS: { id: HrSubTab; label: string }[] = [
 
 export default function HrPayrollTab({ showToast }: HrPayrollTabProps) {
   const [subTab, setSubTab] = useState<HrSubTab>('attendance')
+  const [openNewSignal, setOpenNewSignal] = useState(0)
+
+  const handleQuickAddEmployee = () => {
+    setSubTab('directory')
+    setOpenNewSignal((n) => n + 1)
+  }
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="شؤون الموظفين والرواتب"
         subtitle="متابعة الحضور والانصراف اليومي، السُلف، المكافآت والخصومات، ومسير الرواتب الشهري"
+        actions={
+          <button
+            type="button"
+            onClick={handleQuickAddEmployee}
+            className="app-btn app-btn-sm app-btn-primary shrink-0"
+          >
+            + إضافة موظف
+          </button>
+        }
       />
 
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
@@ -51,7 +66,9 @@ export default function HrPayrollTab({ showToast }: HrPayrollTabProps) {
       {subTab === 'attendance' && <AttendanceSection showToast={showToast} />}
       {subTab === 'loans_adj' && <LoansAdjustmentsSection showToast={showToast} />}
       {subTab === 'payroll' && <PayrollSection showToast={showToast} />}
-      {subTab === 'directory' && <EmployeesDirectorySection showToast={showToast} />}
+      {subTab === 'directory' && (
+        <EmployeesDirectorySection showToast={showToast} openNewSignal={openNewSignal} />
+      )}
     </div>
   )
 }
