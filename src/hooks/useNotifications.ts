@@ -64,6 +64,17 @@ export function useNotifications() {
     },
   })
 
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('notifications').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY })
+      void queryClient.invalidateQueries({ queryKey: ALERTS_KEY })
+    },
+  })
+
   const notifications = notificationsQuery.data ?? []
   const alerts = alertsQuery.data ?? []
 
@@ -82,5 +93,7 @@ export function useNotifications() {
     markRead: markReadMutation.mutateAsync,
     markAllRead: () => markReadMutation.mutateAsync([]),
     isMarkingRead: markReadMutation.isPending,
+    deleteNotification: deleteNotificationMutation.mutateAsync,
+    isDeletingNotification: deleteNotificationMutation.isPending,
   }
 }

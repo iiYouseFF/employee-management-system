@@ -47,17 +47,29 @@ export default function MobileNavDrawer({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open, onClose])
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="قائمة التنقل">
+    <div
+      className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-300 ${
+        open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      }`}
+      role="dialog"
+      aria-modal="true"
+      aria-hidden={!open}
+      aria-label="قائمة التنقل"
+    >
       <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+        className={`fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300 ${
+          open ? 'opacity-100' : 'opacity-0'
+        }`}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <aside className="fixed inset-y-0 start-0 z-10 flex w-[85vw] max-w-[320px] flex-col bg-white text-slate-900 shadow-2xl">
+      <aside
+        className={`fixed inset-y-0 start-0 z-10 flex w-[85vw] max-w-[320px] flex-col bg-white text-slate-900 shadow-2xl transition-transform duration-300 ease-out ${
+          open ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
         <div
           className="flex items-center justify-between gap-3 px-4 py-3.5 text-white"
           style={{

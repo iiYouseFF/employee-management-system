@@ -60,12 +60,11 @@ export default function NotificationsDrawer({
     markRead,
     markAllRead,
     isMarkingRead,
+    deleteNotification,
     refetch,
   } = useNotifications()
   const [printing, setPrinting] = useState(false)
   const [actionError, setActionError] = useState('')
-
-  if (!open) return null
 
   const handlePrintLowStock = async () => {
     setPrinting(true)
@@ -90,19 +89,38 @@ export default function NotificationsDrawer({
     }
   }
 
+  const handleDeleteNotification = async (id: string) => {
+    setActionError('')
+    try {
+      await deleteNotification(id)
+    } catch {
+      setActionError('تعذر حذف الإشعار. حاول مرة أخرى.')
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50" dir={document.documentElement.dir || 'rtl'}>
+    <div
+      className={`fixed inset-0 z-50 transition-opacity duration-300 ${
+        open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+      }`}
+      dir={document.documentElement.dir || 'rtl'}
+      aria-hidden={!open}
+    >
       <button
         type="button"
         aria-label="إغلاق التنبيهات"
         onClick={onClose}
-        className="absolute inset-0 w-full h-full bg-slate-900/50 backdrop-blur-[2px]"
+        className={`absolute inset-0 w-full h-full bg-slate-900/50 backdrop-blur-[2px] transition-opacity duration-300 ${
+          open ? 'opacity-100' : 'opacity-0'
+        }`}
       />
 
       <aside
         role="dialog"
         aria-label="تنبيهات النظام"
-        className="absolute top-0 end-0 h-dvh w-screen sm:w-[440px] bg-white shadow-2xl flex flex-col"
+        className={`absolute top-0 end-0 h-dvh w-screen sm:w-[440px] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-border bg-gradient-to-r from-[#102a43] to-[#1a4971] text-white">
           <div className="flex items-center gap-2 min-w-0">
@@ -259,20 +277,22 @@ export default function NotificationsDrawer({
 
             <div className="space-y-2">
               {notifications.map((row) => (
-                <button
+                <div
                   key={row.id}
-                  type="button"
-                  onClick={() => {
-                    if (!row.is_read) void markRead([row.id]).catch(() => undefined)
-                    if (row.target_tab) onNavigate(row.target_tab)
-                  }}
-                  className={`w-full text-start rounded-xl border p-3 transition-colors ${
+                  className={`relative flex items-start gap-2 rounded-xl border p-3 transition-colors ${
                     row.is_read
                       ? 'border-slate-200 bg-white hover:bg-slate-50'
                       : 'border-sky-200 bg-sky-50/60 hover:bg-sky-50'
                   }`}
                 >
-                  <div className="flex items-start gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!row.is_read) void markRead([row.id]).catch(() => undefined)
+                      if (row.target_tab) onNavigate(row.target_tab)
+                    }}
+                    className="flex min-w-0 flex-1 items-start gap-2 text-start"
+                  >
                     <span
                       className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${row.is_read ? 'bg-slate-300' : 'bg-rose-600'}`}
                     />
@@ -285,8 +305,19 @@ export default function NotificationsDrawer({
                       </div>
                       <p className="mt-0.5 text-[11px] leading-5 text-slate-600">{row.message}</p>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteNotification(row.id)}
+                    aria-label="حذف الإشعار"
+                    title="حذف الإشعار"
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-slate-400 hover:bg-rose-100 hover:text-rose-600 transition-colors"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               ))}
             </div>
           </section>
