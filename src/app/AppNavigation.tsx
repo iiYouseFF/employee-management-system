@@ -18,35 +18,30 @@ export default function AppNavigation({ groups, activeTab, onSelectTab }: AppNav
   const activeGroup = groups.find((g) => g.id === activeGroupId) || groups[0]
 
   return (
-    <div className="mt-3">
-      <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1.5 scrollbar-none">
+    <div className="mt-2.5 border-t border-white/10 pt-2">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1.5 scrollbar-none">
         {groups.map((group) => {
           const isGroupActive = group.id === activeGroupId
           return (
-            <React.Fragment key={group.id}>
-              <button
-                type="button"
-                onClick={() => { if (!isGroupActive && group.tabs[0]) onSelectTab(group.tabs[0].id) }}
-                className={`flex items-center gap-1.5 px-3.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold transition-all duration-150 whitespace-nowrap shrink-0 ${
-                  isGroupActive
-                    ? 'bg-white text-[#1a4971] shadow-float font-extrabold'
-                    : 'bg-white/10 text-white/90 hover:bg-white/20 hover:text-white'
-                }`}
-              >
-                {group.icon}
-                <span>{group.label}</span>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-num font-extrabold tabular-nums ${isGroupActive ? 'bg-[var(--primary-soft)] text-[var(--primary)]' : 'bg-white/20 text-white'}`}>
-                  {group.tabs.length}
-                </span>
-              </button>
-            </React.Fragment>
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => { if (!isGroupActive && group.tabs[0]) onSelectTab(group.tabs[0].id) }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-150 whitespace-nowrap shrink-0 ${
+                isGroupActive
+                  ? 'bg-white text-[#1a4971] shadow-sm font-extrabold'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {group.icon}
+              <span>{group.label}</span>
+            </button>
           )
         })}
       </div>
 
       {activeGroup && activeGroup.tabs.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 pb-1 scrollbar-none border-t border-white/15 mt-1.5">
-          <span className="text-[11px] font-bold text-white/70 whitespace-nowrap shrink-0 me-1">{activeGroup.label}:</span>
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-1.5 pb-0.5 scrollbar-none border-t border-white/10 mt-1">
           {activeGroup.tabs.map((tab) => {
             const active = activeTab === tab.id
             return (
@@ -55,16 +50,18 @@ export default function AppNavigation({ groups, activeTab, onSelectTab }: AppNav
                 type="button"
                 aria-current={active ? 'page' : undefined}
                 onClick={() => onSelectTab(tab.id)}
-                className={`inline-flex items-center gap-1.5 px-3.5 min-h-[44px] md:min-h-[36px] rounded-xl text-xs font-bold transition-all duration-150 whitespace-nowrap shrink-0 ${
-                  active ? 'bg-white text-[#1a4971] shadow-sm font-extrabold' : 'bg-white/15 text-white hover:bg-white/25'
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 whitespace-nowrap shrink-0 ${
+                  active
+                    ? 'bg-white/20 text-white ring-1 ring-white/30 font-extrabold'
+                    : 'text-white/75 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 {tab.label}
-              {tab.badge !== undefined && tab.badge !== null && (
-                <span className="ms-1 inline-flex min-w-[20px] items-center justify-center rounded-full border border-rose-300 bg-rose-600 px-1.5 py-0.5 text-[10px] font-num font-extrabold tabular-nums text-white shadow-sm">
-                  {tab.badge}
-                </span>
-              )}
+                {tab.badge !== undefined && tab.badge !== null && (
+                  <span className="ms-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-num font-extrabold tabular-nums text-white">
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             )
           })}
