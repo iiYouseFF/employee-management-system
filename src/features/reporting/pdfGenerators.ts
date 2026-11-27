@@ -1120,3 +1120,130 @@ export async function shareDailyReportWhatsApp(input: DailyReportInput) {
     message,
   })
 }
+
+export interface SalarySlipPdfInput {
+  companyName: string
+  year: number
+  month: number
+  employeeName: string
+  jobTitle: string
+  phone?: string | null
+  presentDays: number
+  absentDays: number
+  lateDays: number
+  totalOvertimeHours: number
+  baseSalary: number
+  overtimeTotal: number
+  bonusesTotal: number
+  deductionsTotal: number
+  suggestedLoanDeduction: number
+  activeLoanBalance: number
+  netSalary: number
+  dir?: 'rtl' | 'ltr'
+}
+
+export function buildSalarySlipHtml(input: SalarySlipPdfInput): string {
+  const {
+    companyName,
+    year,
+    month,
+    employeeName,
+    jobTitle,
+    phone,
+    presentDays,
+    absentDays,
+    lateDays,
+    totalOvertimeHours,
+    baseSalary,
+    overtimeTotal,
+    bonusesTotal,
+    deductionsTotal,
+    suggestedLoanDeduction,
+    activeLoanBalance,
+    netSalary,
+    dir = 'rtl',
+  } = input
+
+  const bodyHtml = `
+    <section class="pdf-section">
+      <h3 class="pdf-section-title">ملخص الحضور الشهري</h3>
+      <div class="pdf-table-wrap">
+        <table class="pdf-table">
+          <thead>
+            <tr>
+              <th class="num">أيام الحضور</th>
+              <th class="num">أيام الغياب</th>
+              <th class="num">مرات التأخير</th>
+              <th class="num">ساعات الإضافي</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">${esc(formatNumber(presentDays))}</td>
+              <td class="num">${esc(formatNumber(absentDays))}</td>
+              <td class="num">${esc(formatNumber(lateDays))}</td>
+              <td class="num">${esc(formatNumber(totalOvertimeHours))} س</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="pdf-section" style="margin-top: 16px;">
+      <h3 class="pdf-section-title">تفاصيل المستحقات والاستقطاعات</h3>
+      <div class="pdf-table-wrap">
+        <table class="pdf-table">
+          <thead>
+            <tr>
+              <th>البند</th>
+              <th class="num">المبلغ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>الراتب الأساسي</td><td class="num">${esc(formatNumber(baseSalary))} ج.م</td></tr>
+            <tr><td>بدل ساعات إضافية</td><td class="num">+ ${esc(formatNumber(overtimeTotal))} ج.م</td></tr>
+            <tr><td>المكافآت</td><td class="num">+ ${esc(formatNumber(bonusesTotal))} ج.م</td></tr>
+            <tr><td>الخصومات</td><td class="num">- ${esc(formatNumber(deductionsTotal))} ج.م</td></tr>
+            <tr><td>قسط السُلفة (الرصيد المتبقي: ${esc(formatNumber(activeLoanBalance))} ج.م)</td><td class="num">- ${esc(formatNumber(suggestedLoanDeduction))} ج.م</td></tr>
+          </tbody>
+          <tfoot>
+            <tr class="row-total">
+              <td>صافي الراتب المستحق</td>
+              <td class="num">${esc(formatNumber(netSalary))} ج.م</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>`
+
+  return buildUnifiedReportTemplate({
+    companyName,
+    docBadge: 'قسيمة راتب شهرية',
+    meta: [
+      { label: 'الفترة', value: `${month}/${year}` },
+      { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+    ],
+    entityTitle: `الموظف: ${employeeName}${phone ? ` — هاتف: ${phone}` : ''}`,
+    entitySubtitle: `المسمى الوظيفي: ${jobTitle}`,
+    bodyHtml,
+    footerStamp: 'قسيمة راتب صادرة من النظام',
+    dir,
+  })
+}
+
+export async function printSalarySlip(input: SalarySlipPdfInput) {
+  return printHtml(buildSalarySlipHtml(input), `قسيمة راتب - ${input.employeeName} (${input.month}/${input.year})`)
+}
+
+export async function shareSalarySlipWhatsApp(input: SalarySlipPdfInput) {
+  const html = buildSalarySlipHtml(input)
+  const blob = await generatePdfFromHtml(html)
+  const safeName = input.employeeName.replace(/[^\w\u0600-\u06FF-]+/g, '_') || 'employee'
+  const filename = `قسيمة_راتب_${safeName}_${input.year}_${input.month}.pdf`
+  const message = `قسيمة راتب ${input.employeeName} لشهر ${input.month}/${input.year} — صافي المستحق: ${formatNumber(input.netSalary)} ج.م`
+  return sharePdfBlobViaWhatsApp({
+    blob,
+    filename,
+    recipientPhone: input.phone || undefined,
+    message,
+  })
+}

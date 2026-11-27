@@ -27,6 +27,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import Toast from '@/shared/ui/Toast'
 import ReportModal from '@/features/reporting/ReportModal'
 import DailyReportModal from '@/features/reporting/DailyReportModal'
+import HrPayrollTab from '@/features/hr/HrPayrollTab'
 import RepModal from '@/features/reps/RepModal'
 import ChangePasswordModal from '@/features/auth/ChangePasswordModal'
 import AppNavigation, { type NavGroup } from '@/app/AppNavigation'
@@ -43,7 +44,7 @@ const REP_OPTIONAL_TABS = ['inventory', 'monthly']
 const MANAGER_TABS = [
   ...REP_TABS,
   'suppliers', 'supplier_purchases', 'supplier_payments', 'supplier_statement',
-  'expenses', 'inventory', 'monthly', 'kpi', 'reps', 'audit_logs',
+  'expenses', 'inventory', 'monthly', 'kpi', 'reps', 'hr_payroll', 'audit_logs',
 ]
 
 function AuthNotice({ title, message }: { title: string; message: string }) {
@@ -167,7 +168,7 @@ export default function Sheet() {
     monthly: 'التقرير الشهري', customers: 'العملاء', returns: 'مرتجعات المبيعات', reps: 'إدارة المناديب',
     suppliers: 'دليل الموردين', supplier_purchases: 'مشتريات الموردين', supplier_payments: 'مدفوعات الموردين', supplier_statement: 'كشف حساب مورد',
     expenses: 'المصاريف', inventory: 'المخزون', products: 'كتالوج الأسعار والمنتجات',
-    kpi: 'مؤشرات الأداء المالية (KPIs)', audit_logs: 'سجل العمليات والنظام',
+    kpi: 'مؤشرات الأداء المالية (KPIs)', hr_payroll: 'شؤون الموظفين والرواتب', audit_logs: 'سجل العمليات والنظام',
   }
   const customTabNames = typeof settings?.tab_names === 'object' && settings?.tab_names !== null ? (settings.tab_names as Record<string, string>) : {}
   const getTabLabel = (key: string) => customTabNames[key] || defaultTabNames[key] || key
@@ -219,6 +220,7 @@ export default function Sheet() {
         { id: 'monthly', label: getTabLabel('monthly') },
         { id: 'kpi', label: getTabLabel('kpi') },
         { id: 'reps', label: getTabLabel('reps') },
+        { id: 'hr_payroll', label: getTabLabel('hr_payroll') },
         { id: 'audit_logs', label: getTabLabel('audit_logs') },
       ],
     },
@@ -421,6 +423,7 @@ export default function Sheet() {
             />
           )}
           {activeTab === 'reps' && isManager && <RepsTab onAdd={() => { setEditingRep(null); setRepModalOpen(true) }} onEdit={(rep) => { setEditingRep(rep); setRepModalOpen(true) }} onDelete={handleDeleteRep} showToast={showToast} />}
+          {activeTab === 'hr_payroll' && isManager && <HrPayrollTab showToast={showToast} />}
           {activeTab === 'products' && <ProductsTab isReadOnly={isReadOnly} />}
           {activeTab === 'kpi' && isManager && <ManagerDashboardTab />}
           {activeTab === 'audit_logs' && isManager && <AuditLogsTab />}
