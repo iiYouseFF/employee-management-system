@@ -212,6 +212,7 @@ src/
 ```
 
 - **Separation of Concerns:** Component tabs handle rendering and presentation; data synchronization, pagination, and caching reside strictly inside isolated custom hooks (`src/hooks/`).
+- **Current layout (post-restructure):** `src/app/` (shell/routing), `src/features/*` (per-domain hooks/components/pages), `src/shared/{ui,hooks,lib,types}`. Live alerts, the notification log and the system-alerts drawer live in `src/features/notifications/`, backed by `src/hooks/useNotifications.ts`.
 - **Standardized Error Handling:** Global error boundary catches unexpected render crashes, while asynchronous query failures trigger structured contextual toasts.
 
 ---
@@ -219,5 +220,5 @@ src/
 ## 7. Deployment & Operational Lifecycle
 
 - **Hosting Environment:** Optimized for Vercel Static Hosting with automated build pipeline (`npm run build`).
-- **Database Migrations:** Version-controlled sequential SQL migrations stored under `supabase/migrations/` (from `0001_init.sql` up to `0021_reservations_and_returns.sql`; versions `0004`–`0006` were skipped historically).
+- **Database Migrations:** Version-controlled sequential SQL migrations stored under `supabase/migrations/` (from `0001_init.sql` through `0037_notifications_and_low_stock_10.sql`; versions `0004`–`0006` were skipped historically).
 - **Type Generation:** Continuous alignment with the database schema through the Supabase CLI (`supabase gen types typescript`).

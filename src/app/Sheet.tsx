@@ -22,6 +22,8 @@ import RepsTab from '@/features/reps/RepsTab'
 import InventoryTab from '@/features/inventory/InventoryTab'
 import ReturnsTab from '@/features/sales/ReturnsTab'
 import AuditLogsTab from '@/features/audit/AuditLogsTab'
+import NotificationsDrawer, { type NotificationTargetFilter } from '@/features/notifications/NotificationsDrawer'
+import { useNotifications } from '@/hooks/useNotifications'
 import Toast from '@/shared/ui/Toast'
 import ReportModal from '@/features/reporting/ReportModal'
 import RepModal from '@/features/reps/RepModal'
@@ -66,6 +68,13 @@ export default function Sheet() {
   const deleteRep = useDeleteRep()
   const { toast, showToast } = useToast()
   const { pending, nonce, trigger, consume } = useQuickAction()
+  const { unreadCount, criticalCount } = useNotifications()
+
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [inventoryNav, setInventoryNav] = useState<{
+    filter: NotificationTargetFilter
+    nonce: number
+  }>({ filter: 'all', nonce: 0 })
 
   const [activeTabState, setActiveTabState] = useState<string>(() => {
     try { return sessionStorage.getItem('ems:activeTab') || 'cash' } catch { return 'cash' }
@@ -99,7 +108,19 @@ export default function Sheet() {
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab)
+    // A normal tab switch always opens Inventory in its default on-hand view.
+    setInventoryNav((prev) => ({ filter: 'all', nonce: prev.nonce + 1 }))
     try { sessionStorage.setItem('ems:activeTab', tab) } catch { /* ignore */ }
+  }
+
+  const navigateFromAlert = (tab: string, filter?: NotificationTargetFilter) => {
+    if (!allowedTabs.includes(tab)) return
+    setActiveTabState(tab)
+    try { sessionStorage.setItem('ems:activeTab', tab) } catch { /* ignore */ }
+    if (tab === 'inventory') {
+      setInventoryNav((prev) => ({ filter: filter ?? 'alerts', nonce: prev.nonce + 1 }))
+    }
+    setNotificationsOpen(false)
   }
 
   useEffect(() => {
@@ -267,6 +288,24 @@ export default function Sheet() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setNotificationsOpen(true)}
+                aria-label="تنبيهات النظام"
+                title="تنبيهات النظام"
+                className="app-btn-header relative inline-flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span>التنبيهات</span>
+                {unreadCount + criticalCount > 0 && (
+                  <span className="absolute -top-1.5 -end-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white grid place-items-center text-[10px] font-extrabold tabular-nums shadow-sm">
+                    {unreadCount + criticalCount > 99 ? '99+' : unreadCount + criticalCount}
+                  </span>
+                )}
+              </button>
+
               {isManager && (
                 <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2.5 py-1.5 backdrop-blur-sm">
                   <span className="text-xs font-semibold text-white/90">عرض البيانات:</span>
@@ -331,7 +370,15 @@ export default function Sheet() {
           {activeTab === 'supplier_payments' && isManager && <SupplierPaymentsTab showToast={showToast} />}
           {activeTab === 'supplier_statement' && isManager && <SupplierStatementTab />}
           {activeTab === 'expenses' && isManager && <ExpensesTab showToast={showToast} />}
-          {activeTab === 'inventory' && <InventoryTab isReadOnly={isRep} />}
+          {activeTab === 'inventory' && (
+            <InventoryTab
+              key={inventoryNav.nonce}
+              isReadOnly={isRep}
+              companyName={settings?.title}
+              initialAlertFilter={inventoryNav.filter}
+              canExportPrint={canExportPrint}
+            />
+          )}
           {activeTab === 'reps' && isManager && <RepsTab onAdd={() => { setEditingRep(null); setRepModalOpen(true) }} onEdit={(rep) => { setEditingRep(rep); setRepModalOpen(true) }} onDelete={handleDeleteRep} showToast={showToast} />}
           {activeTab === 'products' && <ProductsTab isReadOnly={isReadOnly} />}
           {activeTab === 'kpi' && isManager && <ManagerDashboardTab />}
@@ -339,6 +386,15 @@ export default function Sheet() {
         </div>
       </main>
 
+      {notificationsOpen && (
+        <NotificationsDrawer
+          open={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+          onNavigate={navigateFromAlert}
+          companyName={settings?.title}
+          canExportPrint={canExportPrint}
+        />
+      )}
       {repModalOpen && <RepModal initialValues={editingRep} onClose={() => { setRepModalOpen(false); setEditingRep(null) }} onSubmit={handleSaveRep} />}
       {reportAction && <ReportModal defaultTab={activeTab} defaultRepFilter={effectiveRepFilter} defaultAction={reportAction} showToast={showToast} onClose={() => setReportAction(null)} />}
       <ChangePasswordModal isOpen={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} onSuccess={(msg) => showToast(msg)} />

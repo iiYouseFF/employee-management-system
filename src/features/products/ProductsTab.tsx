@@ -8,6 +8,7 @@ import {
 } from '@/features/products/useProducts'
 import { useSettings } from '@/features/settings/useSettings'
 import { formatNumber } from '@/shared/lib/format'
+import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
 import Modal from '@/shared/ui/Modal'
 import CategorySelect from '@/features/products/CategorySelect'
 import WhatsAppShareButton from '@/shared/ui/WhatsAppShareButton'
@@ -49,7 +50,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
     category: '',
     unit: 'قطعة',
     price: 0,
-    min_stock_alert: 0,
+    min_stock_alert: LOW_STOCK_THRESHOLD,
     expiry_date: '',
     batch_number: '',
     is_active: true,
@@ -126,7 +127,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         category: '',
         unit: 'قطعة',
         price: 0,
-        min_stock_alert: 0,
+        min_stock_alert: LOW_STOCK_THRESHOLD,
         expiry_date: '',
         batch_number: '',
         is_active: true,

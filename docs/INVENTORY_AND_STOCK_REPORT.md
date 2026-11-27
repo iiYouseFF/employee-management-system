@@ -63,20 +63,20 @@ flowchart TD
 
 ### 3.1 What Was Added:
 1. **Product Master Fields:**
-   - `min_stock_alert` (`numeric(14,4)`): Configurable threshold per item. When available stock drops to or below this level, an alert is triggered.
+   - `min_stock_alert` (`numeric(14,4)`): Configurable threshold per item. Values of `NULL`, `0` or `1` fall back to the tenant default `app_settings.low_stock_threshold` (10); when available stock drops to or below the effective level, a نواقص alert is triggered.
    - `expiry_date` (`date`): Tracks when the current batch or product expires.
    - `batch_number` (`text`): Tracks Lot or Batch tracking numbers.
 2. **Stock Movements Batch Tracking:**
    - When receiving shipments (`receive_stock`), managers can specify the expiration date and batch number of the received batch.
 3. **Automated Alert Categorization:**
-   The database procedure `product_stock_summary()` automatically computes:
+   The database procedure `product_stock_summary_v3()` automatically computes:
    - `alert_status`:
      - **`out_of_stock` (نفد المخزون):** Available quantity $\le 0$.
      - **`expired` (منتهي الصلاحية):** Expiration date has passed while stock is on hand.
      - **`expiring_soon` (قريب الانتهاء):** Expires within the next 30 days.
-     - **`low_stock` (مخزون منخفض):** Available quantity $\le$ `min_stock_alert`.
+     - **`low_stock` (نواقص):** Available quantity $\le$ the effective security threshold (tenant default `10`; legacy product values `0`/`1` fall back to it).
      - **`ok` (طبيعي):** Stock level and shelf-life are healthy.
 4. **Dedicated UI Views:**
    - **Interactive Alert Badges:** Highlighted status on on-hand tables and mobile cards.
-   - **Dedicated "التنبيهات والصلاحية" Tab:** An actionable dashboard with fast filters (`منتهي الصلاحية`, `قريب الانتهاء (30 يوم)`, `نفد المخزون`, `مخزون منخفض`) and quick shortcuts to receive stock or execute inventory adjustments.
+   - **Dedicated "التنبيهات والصلاحية" Tab:** An actionable dashboard with fast filters (`منتهي الصلاحية`, `قريب الانتهاء (30 يوم)`, `نفد المخزون`, `نواقص (≤10)`) and quick shortcuts to receive stock, execute inventory adjustments, print the نواقص purchase list (`N`) or share it via WhatsApp.
    - **Product Form Integration:** Ability to set security stock limits and expiry dates when adding or editing products in the price list.

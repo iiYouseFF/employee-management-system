@@ -349,15 +349,17 @@ src/
     reps/                        # RepsTab, RepModal, useReps, reps.types
     settings/                    # useSettings
     audit/                       # AuditLogsTab, useAuditLogs, auditLogs.types
+    notifications/               # NotificationsDrawer (live alerts + notification log)
+  hooks/                         # App-wide React Query hooks (useNotifications)
   shared/                        # Cross-feature building blocks
     ui/                          # Modal, FormModal, Pagination, Toast, WhatsAppShareButton
     hooks/                       # useToast
-    lib/                         # supabase, tenant, format, errors, query, pdfShare
+    lib/                         # supabase, tenant, format, errors, query, pdfShare, stockThresholds
     types/                       # supabase.ts (generated database types)
   styles/
     index.css                    # Tailwind base + design tokens + component classes
 supabase/
-  migrations/                    # Additive SQL migrations (0001–0021; 0004–0006 skipped historically)
+  migrations/                    # Additive SQL migrations (0001–0037 applied; 0004–0006 skipped historically)
 docs/
   APP_SUMMARY.md                 # Technical reference: schema, RPCs, workflows
   SYSTEM_ARCHITECTURE.md         # High-level architecture & tech stack

@@ -130,3 +130,40 @@
 - Feature commit `b04c6ee` was pushed to `main`; Vercel production deployment
   `dpl_DEGVpv5HpoYNGGhhHDNzGeXep1fv` reported READY for that SHA. A docs-only follow-up
   records the deployment status; no application code changed after verification.
+
+## 2026-11-27 - System Alerts: live notifications and نواقص purchase list
+- Track: feature ✋ (plan checkpoint approved) with its migration layer. User confirmed
+  migration number `0037` (requested `0025` was already applied), defaulted override argument,
+  10,000 EGP high-custody default, drawer path, remote application/type sync, push and Vercel
+  verification. `WORKFLOW.md` is absent; `docs/workflows/TRACKS.md` was followed.
+- Created `supabase/migrations/0037_notifications_and_low_stock_10.sql`: tenant thresholds,
+  effective-threshold `product_stock_summary_v3()`, `notifications` table + RLS/index, rep
+  activity triggers, `save_credit_invoice(jsonb,jsonb,boolean DEFAULT false)` with override
+  notification, SECURITY INVOKER `get_operational_alerts()` and SECURITY DEFINER
+  `mark_notifications_read(uuid[])`. Applied via Supabase MCP; live checks confirmed the
+  migration version, RLS, policy, index, triggers, signatures, `search_path` and grants.
+- Regenerated types via Supabase MCP and merged the new table/RPCs/threshold columns and the
+  third `save_credit_invoice` argument into `src/shared/types/supabase.ts` while retaining the
+  hand-tuned local typings.
+- Added `src/hooks/useNotifications.ts` (React Query 15s polling, unread and critical counts,
+  mark-read mutation) and
+  `src/features/notifications/NotificationsDrawer.tsx` (severity groups, direct navigation,
+  notification log with unread dots and mark-all-read, "طباعة النواقص").
+- `Sheet.tsx` header now has a bell with a live rose badge; drawer navigation switches tabs and
+  preselects the inventory low-stock filter; the drawer is mounted from the shell.
+- `InventoryTab.tsx` gained "طباعة النواقص (N)" and "مشاركة النواقص واتساب", a low-stock KPI
+  label and filter renamed to نواقص (≤10); `InvoiceLineEditor.tsx` now warns at ≤10.
+- `pdfGenerators.ts` gained `buildLowStockReportHtml`, `printLowStockReport` and
+  `shareLowStockWhatsApp` on `buildUnifiedReportTemplate`, with 7 columns and a blank
+  `الكمية المطلوبة (Order Qty)` box (`min-width: 90px`); `report.ts` routes low-stock reports
+  through the same template. `lowStock.ts` fetches rows for the drawer.
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only, none new);
+  build PASS (pre-existing chunk-size warning only).
+- Reviewer returned PASS WITH NOTES; all actionable in-scope notes were addressed: alert
+  navigation now remounts Inventory with the correct filter (stock/expiry → alerts view), the
+  global `N` shortcut ignores key repeat and open dialogs, low-stock print/share are gated by
+  `export_print`, the notification log has its own loading state, and new products default to
+  the 10-unit threshold. Realtime publication was not enabled by a second migration; the
+  15-second poll keeps the badge live without another schema change.
+- Docs updated: canonical `INVENTORY_AND_STOCK_REPORT.md` + `docs/docs.md` snapshot, README
+  structure, and `KNOWN_ISSUES.md` next migration (`0038`).

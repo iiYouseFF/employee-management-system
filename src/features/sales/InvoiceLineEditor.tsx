@@ -4,6 +4,7 @@ import { formatNumber } from '@/shared/lib/format'
 import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import { isEmptyPlaceholderInvoiceLine } from '@/features/sales/invoiceLineUtils'
+import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
 
 export interface LineItem {
   /** temporary client-side key */
@@ -183,7 +184,7 @@ export default function InvoiceLineEditor({
           const selected = Boolean(line.product_id)
           const insufficient = selected && qty > onHand
           const outOfStock = selected && onHand <= 0
-          const lowStock = selected && !outOfStock && (insufficient || onHand <= 5)
+          const lowStock = selected && !outOfStock && (insufficient || onHand <= LOW_STOCK_THRESHOLD)
 
           const rowTone = outOfStock
             ? 'border-red-300 bg-red-50/70'
@@ -272,13 +273,15 @@ export default function InvoiceLineEditor({
                               ? 'bg-amber-100 text-amber-950 border-amber-400'
                               : 'bg-emerald-100 text-emerald-900 border-emerald-300'
                         }`}
-                        title={outOfStock ? 'غير متوفر بالمخزون' : insufficient ? `الكمية تتجاوز المتاح (${formatNumber(onHand)})` : `المتاح: ${formatNumber(onHand)} ${line.unit || ''}`}
+                        title={outOfStock ? 'غير متوفر بالمخزون' : insufficient ? `الكمية تتجاوز المتاح (${formatNumber(onHand)})` : lowStock ? `ناقص — المتاح ${formatNumber(onHand)} ${line.unit || ''} (حد الأمان ${formatNumber(LOW_STOCK_THRESHOLD)})` : `المتاح: ${formatNumber(onHand)} ${line.unit || ''}`}
                       >
                         {outOfStock
                           ? `نفد (0)`
                           : insufficient
                             ? `يتجاوز (${formatNumber(onHand)})`
-                            : `متاح ${formatNumber(onHand)}`}
+                            : lowStock
+                              ? `ناقص ${formatNumber(onHand)}`
+                              : `متاح ${formatNumber(onHand)}`}
                       </span>
                       <span className="font-mono text-xs font-extrabold text-slate-900 tabular-nums whitespace-nowrap">
                         {formatNumber(line.line_total)}

@@ -3,6 +3,7 @@ import { formatNumber } from '@/shared/lib/format'
 import type { StatementRow } from '@/features/statements/useStatements'
 import type { Product } from '@/features/products/useProducts'
 import type { Report, Cell } from '@/features/reporting/report'
+import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
 
 function esc(val: unknown): string {
   if (val === null || val === undefined) return ''
@@ -631,6 +632,112 @@ export async function shareGeneralReportWhatsApp(input: GeneralReportPdfInput) {
 
 export async function printGeneralReport(input: GeneralReportPdfInput) {
   return printHtml(buildGeneralReportHtml(input), input.report.title || 'تقرير')
+}
+
+// ─── Low-stock ("نواقص") purchase list ───────────────────────────────────────
+export interface LowStockReportRow {
+  name_ar: string
+  sku?: string | null
+  category?: string | null
+  unit?: string | null
+  available_qty: number
+  min_stock_alert?: number | null
+  alert_status?: string | null
+}
+
+export interface LowStockReportPdfInput {
+  rows: LowStockReportRow[]
+  companyName?: string
+}
+
+const LOW_STOCK_REPORT_CSS = `
+  .lowstock-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .lowstock-table th, .lowstock-table td {
+    border: 1px solid #cbd5e1; padding: 8px 10px; text-align: center; vertical-align: middle;
+  }
+  .lowstock-table th {
+    background: #e0eefb !important; color: #103352; font-weight: 800;
+  }
+  .lowstock-table td.lowstock-name { text-align: start; font-weight: 700; }
+  .lowstock-meta { font-size: 11px; color: #64748b; font-weight: 500; }
+  .lowstock-order-box {
+    display: inline-block; min-width: 90px; height: 22px;
+    border: 1px solid #94a3b8; border-radius: 4px; background: #ffffff;
+  }
+  .lowstock-out { color: #be123c; font-weight: 800; }
+`
+
+/** Shared template used by both print and WhatsApp sharing of the نواقص list. */
+export function buildLowStockReportHtml({
+  rows,
+  companyName = 'شركة توريد',
+}: LowStockReportPdfInput): string {
+  const bodyRows = rows.length
+    ? rows
+        .map(
+          (row, index) => `
+            <tr>
+              <td class="tabular-nums">${esc(index + 1)}</td>
+              <td class="lowstock-name">
+                ${esc(row.name_ar)}
+                ${row.unit ? `<div class="lowstock-meta">الوحدة: ${esc(row.unit)}</div>` : ''}
+              </td>
+              <td dir="ltr">${esc(row.sku || '-')}</td>
+              <td>${esc(row.category || '-')}</td>
+              <td class="tabular-nums ${row.alert_status === 'out_of_stock' ? 'lowstock-out' : ''}">
+                ${esc(formatNumber(Number(row.available_qty) || 0))}
+              </td>
+              <td class="tabular-nums">${esc(formatNumber(Number(row.min_stock_alert ?? LOW_STOCK_THRESHOLD) || LOW_STOCK_THRESHOLD))}</td>
+              <td><span class="lowstock-order-box"></span></td>
+            </tr>`
+        )
+        .join('')
+    : '<tr><td colspan="7"><div class="pdf-empty">لا توجد أصناف نواقص حالياً</div></td></tr>'
+
+  const bodyHtml = `
+    <style>${LOW_STOCK_REPORT_CSS}</style>
+    <section class="pdf-section">
+      <h3 class="pdf-section-title">الأصناف النواقص (رصيد متاح ≤ ${esc(formatNumber(LOW_STOCK_THRESHOLD))})</h3>
+      <table class="lowstock-table">
+        <thead>
+          <tr>
+            <th>م</th>
+            <th>الصنف</th>
+            <th>الكود (SKU)</th>
+            <th>الفئة</th>
+            <th>الرصيد المتاح</th>
+            <th>حد الأمان</th>
+            <th>الكمية المطلوبة (Order Qty)</th>
+          </tr>
+        </thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </section>
+  `
+
+  return buildUnifiedReportTemplate({
+    companyName,
+    docBadge: 'قائمة نواقص المخزون (للطلب من الموردين)',
+    meta: [
+      { label: 'تاريخ الإصدار', value: new Date().toLocaleDateString('ar-EG') },
+      { label: 'عدد الأصناف', value: formatNumber(rows.length) },
+    ],
+    entityTitle: 'قائمة نواقص المخزون',
+    entitySubtitle: `الأصناف التي وصل رصيدها المتاح إلى ${formatNumber(LOW_STOCK_THRESHOLD)} أو أقل — تُستخدم لطلب الموردين.`,
+    bodyHtml,
+    footerStamp: 'قائمة نواقص صادرة من النظام',
+  })
+}
+
+export async function printLowStockReport(input: LowStockReportPdfInput) {
+  return printHtml(buildLowStockReportHtml(input), 'نواقص المخزون')
+}
+
+export async function shareLowStockWhatsApp(input: LowStockReportPdfInput) {
+  const blob = await generatePdfFromHtml(buildLowStockReportHtml(input))
+  const filename = `low-stock_${new Date().toISOString().slice(0, 10)}.pdf`
+  const message = `السلام عليكم ورحمة الله،\nمرفق قائمة نواقص المخزون (${input.rows.length} صنف) لطلب الموردين.`
+  return sharePdfBlobViaWhatsApp({ blob, filename, message })
 }
 
 export interface InvoicePdfLine {

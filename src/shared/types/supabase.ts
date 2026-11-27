@@ -67,28 +67,34 @@ export type Database = {
       }
       app_settings: {
         Row: {
+          allow_negative_stock: boolean
+          high_custody_threshold: number
           id: string
+          low_stock_threshold: number
           owner_id: string
           tab_names: Json
           title: string
           updated_at: string
-          allow_negative_stock?: boolean
         }
         Insert: {
+          allow_negative_stock?: boolean
+          high_custody_threshold?: number
           id?: string
+          low_stock_threshold?: number
           owner_id: string
           tab_names?: Json
           title?: string
           updated_at?: string
-          allow_negative_stock?: boolean
         }
         Update: {
+          allow_negative_stock?: boolean
+          high_custody_threshold?: number
           id?: string
+          low_stock_threshold?: number
           owner_id?: string
           tab_names?: Json
           title?: string
           updated_at?: string
-          allow_negative_stock?: boolean
         }
         Relationships: []
       }
@@ -291,6 +297,48 @@ export type Database = {
           description?: string | null
           id?: string
           owner_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          owner_id: string
+          recipient_user_id: string | null
+          severity: string
+          target_id: string | null
+          target_tab: string | null
+          title: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          owner_id: string
+          recipient_user_id?: string | null
+          severity: string
+          target_id?: string | null
+          target_tab?: string | null
+          title: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          owner_id?: string
+          recipient_user_id?: string | null
+          severity?: string
+          target_id?: string | null
+          target_tab?: string | null
+          title?: string
         }
         Relationships: []
       }
@@ -953,11 +1001,25 @@ export type Database = {
       get_current_rep_owner_id: { Args: never; Returns: string }
       get_email_by_phone: { Args: { p_phone: string }; Returns: Json }
       get_manager_id: { Args: never; Returns: string }
+      get_operational_alerts: {
+        Args: never
+        Returns: {
+          alert_key: string
+          category: string
+          count: number
+          message: string
+          severity: string
+          target_id: string | null
+          target_tab: string
+          title: string
+        }[]
+      }
       is_manager: { Args: never; Returns: boolean }
       is_rep_user: { Args: never; Returns: boolean }
+      kpi_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
+      mark_notifications_read: { Args: { p_ids?: string[] }; Returns: number }
       rep_can_write_for: { Args: { p_customer_id: string; p_rep_id: string }; Returns: boolean }
       rep_has_permission: { Args: { p_key: string }; Returns: boolean }
-      kpi_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       receivables_aging: {
         Args: { p_as_of?: string }
         Returns: {
@@ -1129,6 +1191,7 @@ export type Database = {
         Args: {
           p_invoice: Json
           p_lines: Json
+          p_manager_override?: boolean
         }
         Returns: string
       }

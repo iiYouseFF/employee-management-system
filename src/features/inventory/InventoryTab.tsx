@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   useProductStock,
   useStockMovements,
@@ -20,6 +20,8 @@ import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import BulkProductMatrixModal from '@/features/sales/BulkProductMatrixModal'
 import ProductConsumptionModal from '@/features/products/ProductConsumptionModal'
+import { printLowStockReport, shareLowStockWhatsApp, type LowStockReportRow } from '@/features/reporting/pdfGenerators'
+import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
 
 // ─── Stock-in form modal ──────────────────────────────────────────────────────
 function StockInModal({
@@ -271,11 +273,25 @@ function movementReferenceLabel(type: string) {
 }
 
 // ─── Main InventoryTab ────────────────────────────────────────────────────────
-export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: boolean }) {
+interface InventoryTabProps {
+  isReadOnly?: boolean
+  companyName?: string
+  initialAlertFilter?: 'low_stock' | 'out_of_stock' | 'alerts' | 'all'
+  canExportPrint?: boolean
+}
+
+export default function InventoryTab({
+  isReadOnly = false,
+  companyName,
+  initialAlertFilter = 'all',
+  canExportPrint = true,
+}: InventoryTabProps) {
   const { data: products = [], isLoading: loadingProducts } = useProducts()
   const { data: stock = [], isLoading: loadingStock, error: stockError } = useProductStock()
   const receiveStockMutation = useReceiveStock()
-  const [activeSection, setActiveSection] = useState<'onhand' | 'movements' | 'valuation' | 'alerts'>('onhand')
+  const [activeSection, setActiveSection] = useState<'onhand' | 'movements' | 'valuation' | 'alerts'>(
+    initialAlertFilter !== 'all' ? 'alerts' : 'onhand'
+  )
   const [stockInOpen, setStockInOpen] = useState(false)
   const [bulkReceiveOpen, setBulkReceiveOpen] = useState(false)
   const [adjustOpen, setAdjustOpen] = useState(false)
@@ -284,7 +300,10 @@ export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: bool
   const [toast, setToast] = useState('')
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
-  const [alertFilter, setAlertFilter] = useState<'all' | 'out_of_stock' | 'low_stock' | 'expired' | 'expiring_soon'>('all')
+  const [alertFilter, setAlertFilter] = useState<'all' | 'out_of_stock' | 'low_stock' | 'expired' | 'expiring_soon'>(
+    initialAlertFilter === 'alerts' ? 'all' : initialAlertFilter
+  )
+  const [sharingLowStock, setSharingLowStock] = useState(false)
 
   // Movement filter
   const [movFilter, setMovFilter] = useState({ productId: '' })
@@ -296,10 +315,10 @@ export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: bool
   })
   const { data: valuation = [], isLoading: loadingValuation, error: valuationError } = useStockValuation()
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(''), 3500)
-  }
+  }, [])
 
   const categories = useMemo(() => {
     const s = new Set<string>()
@@ -367,6 +386,61 @@ export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: bool
     return alertProducts.slice(start, start + pageSize)
   }, [alertProducts, currentPage, pageSize])
 
+  const lowStockReportRows = useMemo<LowStockReportRow[]>(
+    () =>
+      stock
+        .filter((row) => row.alert_status === 'low_stock' || row.alert_status === 'out_of_stock')
+        .map((row) => ({
+          name_ar: row.name_ar,
+          sku: row.sku,
+          category: row.category,
+          unit: row.unit,
+          available_qty: Number(row.available_qty) || 0,
+          min_stock_alert: Number(row.min_stock_alert) || undefined,
+          alert_status: row.alert_status,
+        })),
+    [stock]
+  )
+
+  const handlePrintLowStock = useCallback(async () => {
+    if (!lowStockReportRows.length) {
+      showToast('لا توجد أصناف نواقص حالياً')
+      return false
+    }
+    const printed = await printLowStockReport({ rows: lowStockReportRows, companyName })
+    if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+    return printed
+  }, [lowStockReportRows, companyName, showToast])
+
+  const handleShareLowStock = async () => {
+    if (!lowStockReportRows.length) {
+      showToast('لا توجد أصناف نواقص حالياً')
+      return
+    }
+    setSharingLowStock(true)
+    try {
+      await shareLowStockWhatsApp({ rows: lowStockReportRows, companyName })
+      showToast('تم تجهيز قائمة النواقص للمشاركة عبر واتساب')
+    } catch {
+      showToast('تعذر مشاركة قائمة النواقص. حاول مرة أخرى.')
+    } finally {
+      setSharingLowStock(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!canExportPrint) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'n' || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if (document.querySelector('[role="dialog"], [aria-modal="true"]')) return
+      void handlePrintLowStock()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handlePrintLowStock, canExportPrint])
+
   if (loadingProducts || loadingStock) {
     return (
       <div className="flex justify-center items-center py-16 text-slate-500 gap-3">
@@ -409,6 +483,24 @@ export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: bool
             >
               تسوية مخزون
             </button>
+            {canExportPrint && (
+              <>
+                <button
+                  onClick={() => void handlePrintLowStock()}
+                  className="app-btn app-btn-ghost text-xs py-2 border-orange-300 text-orange-800 hover:bg-orange-50"
+                  title={`طباعة الأصناف التي رصيدها ${formatNumber(LOW_STOCK_THRESHOLD)} أو أقل`}
+                >
+                  طباعة النواقص (N)
+                </button>
+                <button
+                  onClick={() => void handleShareLowStock()}
+                  disabled={sharingLowStock}
+                  className="app-btn app-btn-ghost text-xs py-2 border-emerald-300 text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
+                >
+                  {sharingLowStock ? 'جاري المشاركة...' : 'مشاركة النواقص واتساب'}
+                </button>
+              </>
+            )}
           </>
         }
       />
@@ -441,7 +533,7 @@ export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: bool
             {totalAlertsCount}
           </p>
           <div className="text-[10px] text-slate-500 mt-1 flex gap-2">
-            <span>نفد/منخفض: {lowStockCount}</span>
+            <span>النواقص (≤{formatNumber(LOW_STOCK_THRESHOLD)}): {lowStockCount}</span>
             <span>•</span>
             <span>صلاحية: {expiredCount + expiringSoonCount}</span>
           </div>
@@ -590,7 +682,7 @@ export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: bool
                         )}
                         {row.alert_status === 'low_stock' && (
                           <span className="badge text-[10px] bg-orange-50 text-orange-800 border-orange-300">
-                            مخزون منخفض (حد: {row.min_stock_alert})
+                            ناقص (حد الأمان: {formatNumber(row.min_stock_alert)})
                           </span>
                         )}
                         {row.alert_status === 'ok' && row.expiry_date && (
@@ -711,7 +803,7 @@ export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: bool
                       )}
                       {row.alert_status === 'low_stock' && (
                         <span className="badge text-xs bg-orange-50 text-orange-800 border-orange-300">
-                          مخزون منخفض (حد: {row.min_stock_alert})
+                          ناقص (حد الأمان: {formatNumber(row.min_stock_alert)})
                         </span>
                       )}
                     </div>
@@ -791,7 +883,7 @@ export default function InventoryTab({ isReadOnly = false }: { isReadOnly?: bool
               { id: 'expired', label: `منتهي الصلاحية (${expiredCount})`, color: 'bg-rose-100 text-rose-800' },
               { id: 'expiring_soon', label: `قريب الانتهاء (30 يوم) (${expiringSoonCount})`, color: 'bg-amber-100 text-amber-800' },
               { id: 'out_of_stock', label: `نفد المخزون (${stock.filter(r => r.alert_status === 'out_of_stock').length})`, color: 'bg-red-100 text-red-800' },
-              { id: 'low_stock', label: `مخزون منخفض (${stock.filter(r => r.alert_status === 'low_stock').length})`, color: 'bg-orange-100 text-orange-800' },
+              { id: 'low_stock', label: `نواقص (≤${formatNumber(LOW_STOCK_THRESHOLD)}) (${stock.filter(r => r.alert_status === 'low_stock').length})`, color: 'bg-orange-100 text-orange-800' },
             ].map((f) => (
               <button
                 key={f.id}

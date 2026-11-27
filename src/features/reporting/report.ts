@@ -1,4 +1,6 @@
 import { formatNumber, monthNames } from '@/shared/lib/format'
+import { printGeneralReport, printLowStockReport } from '@/features/reporting/pdfGenerators'
+import type { LowStockReportRow } from '@/features/reporting/pdfGenerators'
 
 export type Cell = string | number | { date: string | null } | { money: number }
 
@@ -353,9 +355,41 @@ function cellText(cell: Cell, csv: boolean): string {
   return csv ? dayOf(cell.date) : formatDay(cell.date) || '-'
 }
 
+function lowStockRowsFromReport(report: Report): LowStockReportRow[] {
+  const section =
+    report.sections.find((item) => item.key === 'low_stock') ?? report.sections[0]
+  if (!section) return []
+
+  const cellText = (cell: Cell | undefined, index: number): string => {
+    if (cell === undefined || cell === null) return ''
+    if (typeof cell === 'string') return cell
+    if (typeof cell === 'number') return String(cell)
+    if ('money' in cell) return String(cell.money)
+    return dayOf(cell.date) || String(index)
+  }
+
+  return section.rows.map((cells) => ({
+    name_ar: cellText(cells[0], 0),
+    sku: cellText(cells[1], 1),
+    category: cellText(cells[2], 2),
+    unit: cellText(cells[3], 3),
+    available_qty: num(cellText(cells[4], 4)),
+    min_stock_alert: num(cellText(cells[5], 5)),
+    alert_status: undefined,
+  }))
+}
+
 export async function printReport(report: Report, company?: string): Promise<boolean> {
-  const { printGeneralReport } = await import('@/features/reporting/pdfGenerators')
-  return printGeneralReport({ report, companyName: company || 'شركة توريد' })
+  const companyName = company || 'شركة توريد'
+  const isLowStock =
+    report.sections.some((section) => section.key === 'low_stock') ||
+    /نواقص المخزون/.test(report.title || '')
+
+  if (isLowStock) {
+    return printLowStockReport({ rows: lowStockRowsFromReport(report), companyName })
+  }
+
+  return printGeneralReport({ report, companyName })
 }
 
 export function exportReportCsv(report: Report, filename: string, company?: string) {

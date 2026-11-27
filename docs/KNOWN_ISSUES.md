@@ -3,20 +3,22 @@
 > Produced during the architecture review / cleanup. These are **findings and recommendations**,
 > not changes applied to already-run migrations or live data. Items are ordered by priority.
 
-## 1. Database defects (fix in a NEW additive migration — `0037_…` or later, never edit applied files)
+## 1. Database defects (fix in a NEW additive migration — `0038_…` or later, never edit applied files)
 
-**Status (2026-11-27):** migrations through `0036_legacy_stock_rpc_guard` are applied on the
-remote project. `0031` added the 15-day credit due-date trigger and the
+**Status (2026-11-27):** migrations through `0037_notifications_and_low_stock_10` are applied on the
+remote project. `0037` added the notifications table/RLS, live operational-alerts RPC, rep-activity
+triggers, the `save_credit_invoice()` override flag, and the effective 10-unit low-stock threshold.
+`0031` added the 15-day credit due-date trigger and the
 `unpaid_credit_invoices_list()` RPC; `0032` corrected the report's rep attribution and due-date
 trigger behavior; `0033` fixed sales-rep visibility of invoice lines for assigned customers;
 `0034` added the granular per-rep permission flags, RLS guards and helper RPCs; `0035` hardened
 that implementation (statement isolation, ACLs, reference validation and `search_path`);
-`0036` closed the legacy stock RPC bypass. The next free number is `0037`.
+`0036` closed the legacy stock RPC bypass. The next free number is `0038`.
 
 **Migration filename note:** both applied migrations use the `0031_` prefix locally
 (`0031_unpaid_overdue_invoices.sql` and `0031_product_customer_breakdown_fix.sql`); the remote
 tracks them under distinct timestamp versions. They are applied files and must not be renamed;
-use `0037_` or later for the next migration.
+use `0038_` or later for the next migration.
 
 | # | Issue | Evidence | Recommended fix |
 |---|---|---|---|

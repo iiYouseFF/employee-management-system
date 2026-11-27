@@ -137,3 +137,46 @@ Let managers and sales reps open a complete invoice from cash/credit lists — i
 - [x] Reviewer subagent: initial PASS WITH NOTES; canonical credit totals, cache invalidation, PDF payment history and accessibility follow-ups fixed and re-reviewed
 - [x] PLAN/LOG committed, pushed, Vercel READY (main b04c6ee → tawreed production, deployment dpl_DEGVpv5HpoYNGGhhHDNzGeXep1fv)
 - [ ] Authenticated RTL/LTR 375px/1440px visual QA (skipped by user: no credentials supplied)
+
+---
+
+# System Alerts — live notifications, overdue/low-stock alerts and نواقص PDF
+
+## Goal
+Surface live operational alerts in the app shell, persist a notification log with role-safe
+RLS, and provide a printable/WhatsApp-shareable Arabic low-stock purchase list at a 10-unit
+threshold.
+
+## Scope & decisions
+- Additive migration `0037_notifications_and_low_stock_10.sql` (requested `0025` collided with
+  an applied file; remote migrations run through `0036`). Applied via Supabase MCP to
+  `pswyzpadnicjwdqgwwtd`; next free number is `0038`.
+- Threshold: `app_settings.low_stock_threshold` default `10` and
+  `high_custody_threshold` default `10000`. Existing product rows are not rewritten;
+  `product_stock_summary_v3()` treats `NULL`/`0`/`1` as "use the tenant threshold".
+- `public.notifications` has RLS: managers see tenant-wide null-recipient rows, recipients
+  see their own; writes happen in `SECURITY DEFINER` triggers/RPCs only.
+- `get_operational_alerts()` is `SECURITY INVOKER` and covers low stock/نواقص, out of stock,
+  overdue invoices, expired/expiring stock and high rep custody.
+- `save_credit_invoice()` gains a defaulted third argument `p_manager_override boolean DEFAULT
+  false`; two-argument callers are unchanged, and override saves write a warning notification.
+- Paths follow the current layout: `src/hooks/useNotifications.ts`,
+  `src/features/notifications/NotificationsDrawer.tsx`, `src/shared/types/supabase.ts`.
+- The notification query is not in the Realtime publication; a 15-second React Query poll
+  refreshes the badge/log instead of adding a second schema migration.
+- `WORKFLOW.md` does not exist; `docs/workflows/TRACKS.md` governed the track. Authenticated
+  visual QA was skipped by the user.
+
+## Acceptance criteria
+- [x] Migration applied; live RLS/policy/index/trigger/privilege checks verified
+- [x] Generated types merged: notifications table, operational-alerts RPC, read RPC, override arg
+- [x] Header bell shows live unread + critical count; drawer groups alerts by severity
+- [x] Alert actions navigate to Inventory low-stock filter and Overdue Invoices tab
+- [x] Notification log shows unread dots and "تحديد الكل كمقروء"
+- [x] Inventory and InvoiceLineEditor use the 10-unit threshold; N key prints نواقص
+- [x] Print and WhatsApp share use the exact same unified-template PDF (7 columns, blank order qty)
+- [x] Verification Gate: typecheck PASS, lint PASS (pre-existing warnings only), build PASS
+- [x] Reviewer pass on migration + diff
+- [x] PLAN/LOG/known-issues/docs snapshot updated
+- [ ] Push and Vercel production READY
+- [ ] Authenticated RTL/LTR 375px/1440px visual QA (skipped by user)
