@@ -178,5 +178,5 @@ threshold.
 - [x] Verification Gate: typecheck PASS, lint PASS (pre-existing warnings only), build PASS
 - [x] Reviewer pass on migration + diff
 - [x] PLAN/LOG/known-issues/docs snapshot updated
-- [ ] Push and Vercel production READY
+- [x] Push and Vercel production READY (`3d6f486`, deployment `dpl_4Gp1U8xP4GdRK88rKA3EnNUsSzRv`)
 - [ ] Authenticated RTL/LTR 375px/1440px visual QA (skipped by user)

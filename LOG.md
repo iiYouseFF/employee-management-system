@@ -166,4 +166,9 @@
   the 10-unit threshold. Realtime publication was not enabled by a second migration; the
   15-second poll keeps the badge live without another schema change.
 - Docs updated: canonical `INVENTORY_AND_STOCK_REPORT.md` + `docs/docs.md` snapshot, README
-  structure, and `KNOWN_ISSUES.md` next migration (`0038`).
+  structure, `SYSTEM_ARCHITECTURE.md`, and `KNOWN_ISSUES.md` next migration (`0038`).
+- Reviewer follow-up returned PASS WITH NOTES (no blockers); the remaining snapshot drift was
+  already fixed before this log entry.
+- Feature commit `3d6f486` was pushed to `main`; Vercel production deployment
+  `dpl_4Gp1U8xP4GdRK88rKA3EnNUsSzRv` reported READY for that SHA. This docs-only follow-up
+  records the deployment status; no application code changed after verification.
