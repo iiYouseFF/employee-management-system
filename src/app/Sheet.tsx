@@ -29,6 +29,7 @@ import ReportModal from '@/features/reporting/ReportModal'
 import RepModal from '@/features/reps/RepModal'
 import ChangePasswordModal from '@/features/auth/ChangePasswordModal'
 import AppNavigation, { type NavGroup } from '@/app/AppNavigation'
+import MobileNavDrawer from '@/app/MobileNavDrawer'
 import { useQuickAction } from '@/app/quickActionStore'
 import { useToast } from '@/shared/hooks/useToast'
 import { friendlyError } from '@/shared/lib/errors'
@@ -93,6 +94,7 @@ export default function Sheet() {
   const [repModalOpen, setRepModalOpen] = useState(false)
   const [editingRep, setEditingRep] = useState<(RepFormValues & { id?: string }) | null>(null)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const effectiveRepFilter = isRep && repProfile?.id ? repProfile.id : repFilter
   const badgeRepFilter = isManager ? repFilter : (repProfile?.id || 'all')
@@ -265,6 +267,24 @@ export default function Sheet() {
 
   return (
     <div className="min-h-screen bg-page-bg text-slate-900" dir={document.documentElement.dir || 'rtl'}>
+      <MobileNavDrawer
+        open={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        title={settings?.title || (isRep ? `مرحباً، ${repProfile?.name || 'مندوب'}` : 'لوحة إدارة المؤسسة')}
+        roleBadge={roleBadge}
+        groups={navGroups}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        isManager={isManager}
+        repFilter={repFilter}
+        onRepFilterChange={setRepFilter}
+        reps={reps}
+        canExportPrint={canExportPrint}
+        onPrint={() => setReportAction('print')}
+        onExportCsv={() => setReportAction('csv')}
+        onChangePassword={() => setChangePasswordOpen(true)}
+        onSignOut={() => { void supabase.auth.signOut() }}
+      />
       <header
         className="sticky top-0 z-40 border-b border-[#122e49] text-white shadow-header"
         style={{
@@ -272,33 +292,43 @@ export default function Sheet() {
           backgroundImage: 'linear-gradient(135deg, #102a43 0%, #1a4971 60%, #245e8e 100%)',
         }}
       >
-        <div className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3.5 min-w-0">
-              <div className="h-10 w-10 rounded-2xl bg-white text-[#1a4971] grid place-items-center font-extrabold text-xl shadow-card border border-white/20 shrink-0">م</div>
+        <div className="mx-auto max-w-[1480px] px-3 sm:px-6 lg:px-8 py-2.5 lg:py-3">
+          <div className="flex items-center justify-between gap-2.5 lg:gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="فتح قائمة التنقل"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/15 text-white hover:bg-white/25 lg:hidden"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl sm:rounded-2xl bg-white text-[#1a4971] grid place-items-center font-extrabold text-lg sm:text-xl shadow-card border border-white/20 shrink-0">م</div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="hidden sm:flex items-center gap-2 flex-wrap">
                   <p className="text-[11px] text-white/75 font-medium">نظام مبيعات وحسابات بنكهة الفاتورة</p>
                   {roleBadge}
                 </div>
-                <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight truncate">
+                <h1 className="text-sm sm:text-lg font-extrabold tracking-tight text-white leading-tight truncate">
                   {settings?.title || (isRep ? `مرحباً، ${repProfile?.name || 'مندوب'}` : 'لوحة إدارة المؤسسة')}
                 </h1>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setNotificationsOpen(true)}
                 aria-label="تنبيهات النظام"
                 title="تنبيهات النظام"
-                className="app-btn-header relative inline-flex items-center gap-1.5"
+                className="app-btn-header relative inline-flex items-center gap-1.5 px-2.5 lg:px-3"
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                <span>التنبيهات</span>
+                <span className="hidden lg:inline">التنبيهات</span>
                 {unreadCount + criticalCount > 0 && (
                   <span className="absolute -top-1.5 -end-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white grid place-items-center text-[10px] font-extrabold tabular-nums shadow-sm">
                     {unreadCount + criticalCount > 99 ? '99+' : unreadCount + criticalCount}
@@ -307,7 +337,7 @@ export default function Sheet() {
               </button>
 
               {isManager && (
-                <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2.5 py-1.5 backdrop-blur-sm">
+                <div className="hidden lg:flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2.5 py-1.5 backdrop-blur-sm">
                   <span className="text-xs font-semibold text-white/90">عرض البيانات:</span>
                   <select aria-label="تصفية حسب المندوب" value={repFilter} onChange={(e) => setRepFilter(e.target.value)} className="app-select min-w-[150px] py-1.5 text-xs bg-white text-slate-800 border-white/30">
                     <option value="all">كل المناديب</option>
@@ -318,28 +348,30 @@ export default function Sheet() {
 
               {canExportPrint && (
                 <>
-                  <button type="button" onClick={() => setReportAction('print')} className="app-btn-header inline-flex items-center gap-1.5" title="طباعة تقرير الفواتير">
+                  <button type="button" onClick={() => setReportAction('print')} className="app-btn-header hidden lg:inline-flex items-center gap-1.5" title="طباعة تقرير الفواتير">
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                     <span>طباعة</span>
                   </button>
-                  <button type="button" onClick={() => setReportAction('csv')} className="app-btn-header inline-flex items-center gap-1.5" title="تصدير جدول البيانات CSV">
+                  <button type="button" onClick={() => setReportAction('csv')} className="app-btn-header hidden lg:inline-flex items-center gap-1.5" title="تصدير جدول البيانات CSV">
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                     <span>تصدير CSV</span>
                   </button>
                 </>
               )}
-              <button type="button" onClick={() => setChangePasswordOpen(true)} className="app-btn-header inline-flex items-center gap-1.5" title="تغيير كلمة المرور الخاصة بحسابك">
+              <button type="button" onClick={() => setChangePasswordOpen(true)} className="app-btn-header hidden lg:inline-flex items-center gap-1.5" title="تغيير كلمة المرور الخاصة بحسابك">
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                 <span>كلمة المرور</span>
               </button>
-              <button type="button" onClick={() => { void supabase.auth.signOut() }} className="app-btn-header inline-flex items-center gap-1.5 hover:bg-rose-600/40 hover:border-rose-400/50" title="تسجيل الخروج من الحساب">
+              <button type="button" onClick={() => { void supabase.auth.signOut() }} className="app-btn-header hidden lg:inline-flex items-center gap-1.5 hover:bg-rose-600/40 hover:border-rose-400/50" title="تسجيل الخروج من الحساب">
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                 <span>تسجيل الخروج</span>
               </button>
             </div>
           </div>
 
-          <AppNavigation groups={navGroups} activeTab={activeTab} onSelectTab={setActiveTab} />
+          <div className="hidden lg:block">
+            <AppNavigation groups={navGroups} activeTab={activeTab} onSelectTab={setActiveTab} />
+          </div>
         </div>
       </header>
 
@@ -355,8 +387,8 @@ export default function Sheet() {
         </div>
       )}
 
-      <main className="mx-auto max-w-[1480px] px-4 sm:px-6 lg:px-8 py-6">
-        <div className="app-card p-4 sm:p-6 lg:p-7 min-h-[500px]">
+      <main className="mx-auto max-w-[1480px] px-2.5 py-3 sm:px-6 lg:px-8 sm:py-6">
+        <div className="app-card p-3 sm:p-6 lg:p-7 min-h-[500px]">
           {activeTab === 'cash' && <CashTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={!canCreateCashInvoice} createSignal={pending === 'cash' ? nonce : undefined} onSignalHandled={consume} />}
           {activeTab === 'credit' && <CreditTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} isReadOnly={!canCreateCreditInvoice} createSignal={pending === 'credit' ? nonce : undefined} onSignalHandled={consume} />}
           {activeTab === 'overdue_invoices' && <OverdueInvoicesTab repFilter={effectiveRepFilter} reps={reps} showToast={showToast} />}
