@@ -26,6 +26,7 @@ import NotificationsDrawer, { type NotificationTargetFilter } from '@/features/n
 import { useNotifications } from '@/hooks/useNotifications'
 import Toast from '@/shared/ui/Toast'
 import ReportModal from '@/features/reporting/ReportModal'
+import DailyReportModal from '@/features/reporting/DailyReportModal'
 import RepModal from '@/features/reps/RepModal'
 import ChangePasswordModal from '@/features/auth/ChangePasswordModal'
 import AppNavigation, { type NavGroup } from '@/app/AppNavigation'
@@ -91,6 +92,7 @@ export default function Sheet() {
   const activeTab = allowedTabs.includes(activeTabState) ? activeTabState : allowedTabs[0] || 'customers'
   const [repFilter, setRepFilter] = useState<string>('all')
   const [reportAction, setReportAction] = useState<'print' | 'csv' | null>(null)
+  const [dailyReportOpen, setDailyReportOpen] = useState(false)
   const [repModalOpen, setRepModalOpen] = useState(false)
   const [editingRep, setEditingRep] = useState<(RepFormValues & { id?: string }) | null>(null)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
@@ -280,6 +282,7 @@ export default function Sheet() {
         onRepFilterChange={setRepFilter}
         reps={reps}
         canExportPrint={canExportPrint}
+        onDailyReport={isManager ? () => setDailyReportOpen(true) : undefined}
         onPrint={() => setReportAction('print')}
         onExportCsv={() => setReportAction('csv')}
         onChangePassword={() => setChangePasswordOpen(true)}
@@ -346,6 +349,12 @@ export default function Sheet() {
                 </div>
               )}
 
+              {isManager && (
+                <button type="button" onClick={() => setDailyReportOpen(true)} className="app-btn-header hidden lg:inline-flex items-center gap-1.5" title="التقرير اليومي المختصر">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <span>التقرير اليومي</span>
+                </button>
+              )}
               {canExportPrint && (
                 <>
                   <button type="button" onClick={() => setReportAction('print')} className="app-btn-header hidden lg:inline-flex items-center gap-1.5" title="طباعة تقرير الفواتير">
@@ -429,6 +438,7 @@ export default function Sheet() {
       )}
       {repModalOpen && <RepModal initialValues={editingRep} onClose={() => { setRepModalOpen(false); setEditingRep(null) }} onSubmit={handleSaveRep} />}
       {reportAction && <ReportModal defaultTab={activeTab} defaultRepFilter={effectiveRepFilter} defaultAction={reportAction} showToast={showToast} onClose={() => setReportAction(null)} />}
+      {dailyReportOpen && <DailyReportModal onClose={() => setDailyReportOpen(false)} showToast={showToast} />}
       <ChangePasswordModal isOpen={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} onSuccess={(msg) => showToast(msg)} />
       <Toast message={toast} />
     </div>

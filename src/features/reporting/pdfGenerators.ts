@@ -963,3 +963,160 @@ export async function shareInvoiceWhatsApp(input: InvoicePdfInput) {
 export async function printInvoice(input: InvoicePdfInput) {
   return printHtml(buildInvoicePdfHtml(input), `فاتورة ${input.invoice_no}`)
 }
+
+export interface DailyReportRepRow {
+  repName: string
+  cashTotal: number
+  creditTotal: number
+  paymentsTotal: number
+}
+
+export interface DailyReportInput {
+  date: string
+  companyName: string
+  cashCount: number
+  cashTotal: number
+  creditCount: number
+  creditTotal: number
+  paymentsCount: number
+  paymentsTotal: number
+  returnsCount: number
+  returnsTotal: number
+  expensesCount: number
+  expensesTotal: number
+  netCashFlow: number
+  repRows: DailyReportRepRow[]
+  dir?: 'rtl' | 'ltr'
+}
+
+export function buildDailyReportHtml(input: DailyReportInput): string {
+  const {
+    date,
+    companyName,
+    cashCount,
+    cashTotal,
+    creditCount,
+    creditTotal,
+    paymentsCount,
+    paymentsTotal,
+    returnsCount,
+    returnsTotal,
+    expensesCount,
+    expensesTotal,
+    netCashFlow,
+    repRows,
+    dir = 'rtl',
+  } = input
+
+  const summaryRows = [
+    { label: 'المبيعات النقدية', count: cashCount, total: cashTotal },
+    { label: 'المبيعات الآجلة', count: creditCount, total: creditTotal },
+    { label: 'تحصيلات العملاء', count: paymentsCount, total: paymentsTotal },
+    { label: 'المرتجعات', count: returnsCount, total: returnsTotal },
+    { label: 'المصروفات', count: expensesCount, total: expensesTotal },
+  ]
+
+  const summaryRowsHtml = summaryRows
+    .map(
+      (r) => `
+      <tr>
+        <td>${esc(r.label)}</td>
+        <td class="num">${esc(formatNumber(r.count))}</td>
+        <td class="num">${esc(formatNumber(r.total))} ج.م</td>
+      </tr>`
+    )
+    .join('')
+
+  const repSectionHtml = repRows.length
+    ? `
+    <section class="pdf-section" style="margin-top: 18px;">
+      <h3 class="pdf-section-title">ملخص نشاط المناديب</h3>
+      <div class="pdf-table-wrap">
+        <table class="pdf-table">
+          <thead>
+            <tr>
+              <th>المندوب</th>
+              <th class="num">مبيعات نقدي</th>
+              <th class="num">مبيعات آجل</th>
+              <th class="num">تحصيلات</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${repRows
+              .map(
+                (rep) => `
+              <tr>
+                <td>${esc(rep.repName)}</td>
+                <td class="num">${esc(formatNumber(rep.cashTotal))} ج.م</td>
+                <td class="num">${esc(formatNumber(rep.creditTotal))} ج.م</td>
+                <td class="num">${esc(formatNumber(rep.paymentsTotal))} ج.م</td>
+              </tr>`
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>`
+    : ''
+
+  const bodyHtml = `
+    <section class="pdf-section">
+      <h3 class="pdf-section-title">ملخص الحركة اليومية</h3>
+      <div class="pdf-table-wrap">
+        <table class="pdf-table">
+          <thead>
+            <tr>
+              <th>البند</th>
+              <th class="num">العدد</th>
+              <th class="num">الإجمالي</th>
+            </tr>
+          </thead>
+          <tbody>${summaryRowsHtml}</tbody>
+          <tfoot>
+            <tr class="row-total">
+              <td colspan="2">صافي الحركة النقدية اليومية (النقدي + التحصيلات - المصروفات)</td>
+              <td class="num">${esc(formatNumber(netCashFlow))} ج.م</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+    ${repSectionHtml}`
+
+  return buildUnifiedReportTemplate({
+    companyName,
+    docBadge: 'التقرير اليومي المختصر',
+    meta: [
+      { label: 'تاريخ التقرير', value: date },
+      { label: 'تاريخ الطباعة', value: new Date().toLocaleDateString('ar-EG') },
+    ],
+    entityTitle: 'ملخص نهاية اليوم',
+    entitySubtitle: 'نظرة سريعة على المبيعات والتحصيلات والمصروفات',
+    bodyHtml,
+    footerStamp: 'تقرير يومي صادر من النظام',
+    dir,
+  })
+}
+
+export async function printDailyReport(input: DailyReportInput) {
+  return printHtml(buildDailyReportHtml(input), `التقرير اليومي - ${input.date}`)
+}
+
+export async function shareDailyReportWhatsApp(input: DailyReportInput) {
+  const html = buildDailyReportHtml(input)
+  const blob = await generatePdfFromHtml(html)
+  const filename = `التقرير_اليومي_${input.date}.pdf`
+  const message =
+    `التقرير اليومي (${input.date}):\n` +
+    `• المبيعات النقدية: ${formatNumber(input.cashTotal)} ج.م (${input.cashCount})\n` +
+    `• المبيعات الآجلة: ${formatNumber(input.creditTotal)} ج.م (${input.creditCount})\n` +
+    `• التحصيلات: ${formatNumber(input.paymentsTotal)} ج.م (${input.paymentsCount})\n` +
+    `• المصروفات: ${formatNumber(input.expensesTotal)} ج.م (${input.expensesCount})\n` +
+    `• صافي الحركة النقدية: ${formatNumber(input.netCashFlow)} ج.م`
+
+  return sharePdfBlobViaWhatsApp({
+    blob,
+    filename,
+    message,
+  })
+}

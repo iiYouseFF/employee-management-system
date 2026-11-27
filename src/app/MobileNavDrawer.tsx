@@ -14,6 +14,7 @@ interface MobileNavDrawerProps {
   onRepFilterChange: (value: string) => void
   reps: { id: string; name: string }[]
   canExportPrint: boolean
+  onDailyReport?: () => void
   onPrint: () => void
   onExportCsv: () => void
   onChangePassword: () => void
@@ -33,6 +34,7 @@ export default function MobileNavDrawer({
   onRepFilterChange,
   reps,
   canExportPrint,
+  onDailyReport,
   onPrint,
   onExportCsv,
   onChangePassword,
@@ -156,6 +158,18 @@ export default function MobileNavDrawer({
         </div>
 
         <div className="border-t border-slate-200 bg-slate-50 p-3 space-y-2">
+          {isManager && onDailyReport && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                onDailyReport()
+              }}
+              className="app-btn app-btn-sm w-full justify-center border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100"
+            >
+              التقرير اليومي
+            </button>
+          )}
           {canExportPrint && (
             <div className="grid grid-cols-2 gap-2">
               <button
