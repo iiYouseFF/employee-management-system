@@ -32,7 +32,7 @@ export function useUpsertCustomer() {
         .from('customers')
         .insert({
           name,
-          phone: phone || null,
+          phone: phone || '',
           representative_id: representative_id || null,
           representative_name: representative_name || null,
           owner_id: tenantId,

@@ -97,9 +97,9 @@ export function useStockMovements(params?: {
     queryKey: ['stock_movements', params?.productId, params?.from, params?.to],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('stock_movement_history', {
-        p_product_id: params?.productId ?? null,
-        p_from: params?.from ?? null,
-        p_to: params?.to ?? null,
+        p_product_id: params?.productId ?? undefined,
+        p_from: params?.from ?? undefined,
+        p_to: params?.to ?? undefined,
       })
       if (error) throw error
       return (data || []) as StockMovementRow[]
@@ -144,10 +144,10 @@ export function useReceiveStock() {
         p_product_id: productId,
         p_qty: qty,
         p_unit_cost: unitCost,
-        p_notes: notes ?? null,
-        p_reference: reference ?? null,
-        p_expiry_date: expiryDate || null,
-        p_batch_number: batchNumber || null,
+        p_notes: notes ?? undefined,
+        p_reference: reference ?? undefined,
+        p_expiry_date: expiryDate || undefined,
+        p_batch_number: batchNumber || undefined,
       })
       if (error) throw error
       return data
@@ -178,7 +178,7 @@ export function useAdjustStock() {
       const { data, error } = await supabase.rpc('adjust_stock', {
         p_product_id: productId,
         p_qty_delta: qtyDelta,
-        p_notes: notes ?? null,
+        p_notes: notes ?? undefined,
       })
       if (error) throw error
       return data

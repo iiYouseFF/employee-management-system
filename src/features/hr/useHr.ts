@@ -17,14 +17,11 @@ const LOANS_KEY = ['hr', 'loans'] as const
 const ADJUSTMENTS_KEY = ['hr', 'adjustments'] as const
 const PAYROLL_KEY = (year: number, month: number) => ['hr', 'payroll', year, month] as const
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any
-
 export function useEmployees() {
   return useQuery({
     queryKey: EMPLOYEES_KEY,
     queryFn: async (): Promise<EmployeeRow[]> => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('employees')
         .select('*')
         .order('full_name', { ascending: true })
@@ -61,10 +58,10 @@ export function useSaveEmployee() {
         is_active: input.is_active,
       }
       if (input.id) {
-        const { error } = await db.from('employees').update(payload).eq('id', input.id)
+        const { error } = await supabase.from('employees').update(payload).eq('id', input.id)
         if (error) throw error
       } else {
-        const { error } = await db.from('employees').insert(payload)
+        const { error } = await supabase.from('employees').insert(payload)
         if (error) throw error
       }
     },
@@ -78,7 +75,7 @@ export function useAttendanceLogs(workDate: string) {
   return useQuery({
     queryKey: ATTENDANCE_KEY(workDate),
     queryFn: async (): Promise<AttendanceLogRow[]> => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('attendance_logs')
         .select('*')
         .eq('work_date', workDate)
@@ -114,7 +111,7 @@ export function useUpsertAttendance(workDate: string) {
         late_minutes: Math.max(0, Math.round(Number(r.late_minutes || 0))),
         notes: r.notes?.trim() || null,
       }))
-      const { error } = await db
+      const { error } = await supabase
         .from('attendance_logs')
         .upsert(payload, { onConflict: 'employee_id,work_date' })
       if (error) throw error
@@ -130,7 +127,7 @@ export function useEmployeeLoans() {
   return useQuery({
     queryKey: LOANS_KEY,
     queryFn: async (): Promise<EmployeeLoanRow[]> => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('employee_loans')
         .select('*')
         .order('loan_date', { ascending: false })
@@ -157,7 +154,7 @@ export function useCreateLoan() {
     mutationFn: async (input: CreateLoanInput) => {
       const total = fromPiastres(toPiastres(input.total_amount))
       const installment = fromPiastres(toPiastres(input.monthly_installment))
-      const { error } = await db.from('employee_loans').insert({
+      const { error } = await supabase.from('employee_loans').insert({
         employee_id: input.employee_id,
         loan_date: input.loan_date,
         total_amount: total,
@@ -190,7 +187,7 @@ export function useEmployeeAdjustments() {
   return useQuery({
     queryKey: ADJUSTMENTS_KEY,
     queryFn: async (): Promise<EmployeeAdjustmentRow[]> => {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('employee_adjustments')
         .select('*')
         .order('tx_date', { ascending: false })
@@ -215,7 +212,7 @@ export function useAddAdjustment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: AddAdjustmentInput) => {
-      const { error } = await db.from('employee_adjustments').insert({
+      const { error } = await supabase.from('employee_adjustments').insert({
         employee_id: input.employee_id,
         tx_date: input.tx_date,
         kind: input.kind,
@@ -236,7 +233,7 @@ export function useMonthlyPayroll(year: number, month: number) {
   return useQuery({
     queryKey: PAYROLL_KEY(year, month),
     queryFn: async (): Promise<MonthlyPayrollRow[]> => {
-      const { data, error } = await db.rpc('monthly_payroll_summary', {
+      const { data, error } = await supabase.rpc('monthly_payroll_summary', {
         p_year: year,
         p_month: month,
       })
@@ -275,7 +272,7 @@ export function useSettlePayroll() {
           if (payPiastres <= 0) continue
 
           const nextRemPiastres = remPiastres - payPiastres
-          const { error: loanErr } = await db
+          const { error: loanErr } = await supabase
             .from('employee_loans')
             .update({
               remaining_amount: fromPiastres(nextRemPiastres),
@@ -284,7 +281,7 @@ export function useSettlePayroll() {
             .eq('id', loan.id)
           if (loanErr) throw loanErr
 
-          const { error: adjErr } = await db.from('employee_adjustments').insert({
+          const { error: adjErr } = await supabase.from('employee_adjustments').insert({
             employee_id: row.employee_id,
             tx_date: txDate,
             kind: 'loan_repayment',

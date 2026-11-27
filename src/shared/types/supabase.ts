@@ -14,57 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      audit_logs: {
-        Row: {
-          id: string
-          owner_id: string
-          actor_id: string | null
-          actor_email: string | null
-          actor_name: string | null
-          actor_role: string | null
-          table_name: string
-          record_id: string
-          action: 'INSERT' | 'UPDATE' | 'DELETE'
-          old_data: Json | null
-          new_data: Json | null
-          changed_fields: string[] | null
-          description: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          owner_id: string
-          actor_id?: string | null
-          actor_email?: string | null
-          actor_name?: string | null
-          actor_role?: string | null
-          table_name: string
-          record_id: string
-          action: 'INSERT' | 'UPDATE' | 'DELETE'
-          old_data?: Json | null
-          new_data?: Json | null
-          changed_fields?: string[] | null
-          description?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          owner_id?: string
-          actor_id?: string | null
-          actor_email?: string | null
-          actor_name?: string | null
-          actor_role?: string | null
-          table_name?: string
-          record_id?: string
-          action?: 'INSERT' | 'UPDATE' | 'DELETE'
-          old_data?: Json | null
-          new_data?: Json | null
-          changed_fields?: string[] | null
-          description?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
       app_settings: {
         Row: {
           allow_negative_stock: boolean
@@ -81,7 +30,7 @@ export type Database = {
           high_custody_threshold?: number
           id?: string
           low_stock_threshold?: number
-          owner_id: string
+          owner_id?: string
           tab_names?: Json
           title?: string
           updated_at?: string
@@ -98,6 +47,107 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_logs: {
+        Row: {
+          check_in_time: string | null
+          check_out_time: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          late_minutes: number
+          notes: string | null
+          overtime_hours: number
+          owner_id: string
+          status: string
+          work_date: string
+        }
+        Insert: {
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          late_minutes?: number
+          notes?: string | null
+          overtime_hours?: number
+          owner_id?: string
+          status?: string
+          work_date?: string
+        }
+        Update: {
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          late_minutes?: number
+          notes?: string | null
+          overtime_hours?: number
+          owner_id?: string
+          status?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          changed_fields: string[] | null
+          created_at: string
+          description: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          owner_id: string
+          record_id: string
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          changed_fields?: string[] | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          owner_id: string
+          record_id: string
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          changed_fields?: string[] | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          owner_id?: string
+          record_id?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       cash_invoices: {
         Row: {
           amount: number
@@ -110,7 +160,7 @@ export type Database = {
           notes: string | null
           owner_id: string
           rep_id: string | null
-          status: 'draft' | 'confirmed' | 'cancelled'
+          status: string
         }
         Insert: {
           amount?: number
@@ -123,7 +173,7 @@ export type Database = {
           notes?: string | null
           owner_id?: string
           rep_id?: string | null
-          status?: 'draft' | 'confirmed' | 'cancelled'
+          status?: string
         }
         Update: {
           amount?: number
@@ -136,7 +186,7 @@ export type Database = {
           notes?: string | null
           owner_id?: string
           rep_id?: string | null
-          status?: 'draft' | 'confirmed' | 'cancelled'
+          status?: string
         }
         Relationships: [
           {
@@ -175,7 +225,7 @@ export type Database = {
           owner_id: string
           paid: number
           rep_id: string | null
-          status: 'draft' | 'confirmed' | 'cancelled'
+          status: string
         }
         Insert: {
           amount?: number
@@ -189,7 +239,7 @@ export type Database = {
           owner_id?: string
           paid?: number
           rep_id?: string | null
-          status?: 'draft' | 'confirmed' | 'cancelled'
+          status?: string
         }
         Update: {
           amount?: number
@@ -203,7 +253,7 @@ export type Database = {
           owner_id?: string
           paid?: number
           rep_id?: string | null
-          status?: 'draft' | 'confirmed' | 'cancelled'
+          status?: string
         }
         Relationships: [
           {
@@ -236,7 +286,7 @@ export type Database = {
           name: string
           opening_balance: number
           owner_id: string
-          phone: string | null
+          phone: string
           representative_id: string | null
           representative_name: string | null
         }
@@ -246,7 +296,7 @@ export type Database = {
           name: string
           opening_balance?: number
           owner_id?: string
-          phone?: string | null
+          phone: string
           representative_id?: string | null
           representative_name?: string | null
         }
@@ -256,7 +306,7 @@ export type Database = {
           name?: string
           opening_balance?: number
           owner_id?: string
-          phone?: string | null
+          phone?: string
           representative_id?: string | null
           representative_name?: string | null
         }
@@ -265,6 +315,166 @@ export type Database = {
             foreignKeyName: "customers_representative_id_fkey"
             columns: ["representative_id"]
             isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_adjustments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          hours: number | null
+          id: string
+          kind: string
+          loan_id: string | null
+          owner_id: string
+          reason: string | null
+          tx_date: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          hours?: number | null
+          id?: string
+          kind: string
+          loan_id?: string | null
+          owner_id?: string
+          reason?: string | null
+          tx_date?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          hours?: number | null
+          id?: string
+          kind?: string
+          loan_id?: string | null
+          owner_id?: string
+          reason?: string | null
+          tx_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_adjustments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_adjustments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "employee_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_loans: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          id: string
+          loan_date: string
+          monthly_installment: number
+          notes: string | null
+          owner_id: string
+          remaining_amount: number
+          status: string
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          id?: string
+          loan_date?: string
+          monthly_installment: number
+          notes?: string | null
+          owner_id?: string
+          remaining_amount: number
+          status?: string
+          total_amount: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          id?: string
+          loan_date?: string
+          monthly_installment?: number
+          notes?: string | null
+          owner_id?: string
+          remaining_amount?: number
+          status?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_loans_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          base_salary: number
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          job_title: string
+          overtime_hourly_rate: number
+          owner_id: string
+          phone: string | null
+          rep_id: string | null
+          shift_end: string
+          shift_start: string
+        }
+        Insert: {
+          base_salary?: number
+          created_at?: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          job_title?: string
+          overtime_hourly_rate?: number
+          owner_id?: string
+          phone?: string | null
+          rep_id?: string | null
+          shift_end?: string
+          shift_start?: string
+        }
+        Update: {
+          base_salary?: number
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          job_title?: string
+          overtime_hourly_rate?: number
+          owner_id?: string
+          phone?: string | null
+          rep_id?: string | null
+          shift_end?: string
+          shift_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: true
             referencedRelation: "reps"
             referencedColumns: ["id"]
           },
@@ -299,6 +509,50 @@ export type Database = {
           owner_id?: string
         }
         Relationships: []
+      }
+      invoice_lines: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          invoice_type: string
+          line_total: number | null
+          owner_id: string
+          product_id: string
+          qty: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          invoice_type: string
+          line_total?: number | null
+          owner_id: string
+          product_id: string
+          qty: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          invoice_type?: string
+          line_total?: number | null
+          owner_id?: string
+          product_id?: string
+          qty?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -414,57 +668,6 @@ export type Database = {
           },
         ]
       }
-      products: {
-        Row: {
-          category: string | null
-          id: string
-          is_active: boolean
-          name_ar: string
-          name_en: string | null
-          owner_id: string
-          price: number
-          sku: string | null
-          sort_order: number
-          unit: string | null
-          updated_at: string
-          min_stock_alert: number
-          expiry_date: string | null
-          batch_number: string | null
-        }
-        Insert: {
-          category?: string | null
-          id?: string
-          is_active?: boolean
-          name_ar: string
-          name_en?: string | null
-          owner_id?: string
-          price: number
-          sku?: string | null
-          sort_order?: number
-          unit?: string | null
-          updated_at?: string
-          min_stock_alert?: number
-          expiry_date?: string | null
-          batch_number?: string | null
-        }
-        Update: {
-          category?: string | null
-          id?: string
-          is_active?: boolean
-          name_ar?: string
-          name_en?: string | null
-          owner_id?: string
-          price?: number
-          sku?: string | null
-          sort_order?: number
-          unit?: string | null
-          updated_at?: string
-          min_stock_alert?: number
-          expiry_date?: string | null
-          batch_number?: string | null
-        }
-        Relationships: []
-      }
       product_categories: {
         Row: {
           created_at: string
@@ -486,6 +689,57 @@ export type Database = {
           name?: string
           owner_id?: string
           sort_order?: number
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          batch_number: string | null
+          category: string | null
+          expiry_date: string | null
+          id: string
+          is_active: boolean
+          min_stock_alert: number
+          name_ar: string
+          name_en: string | null
+          owner_id: string
+          price: number
+          sku: string | null
+          sort_order: number
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          batch_number?: string | null
+          category?: string | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          min_stock_alert?: number
+          name_ar: string
+          name_en?: string | null
+          owner_id?: string
+          price: number
+          sku?: string | null
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          batch_number?: string | null
+          category?: string | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          min_stock_alert?: number
+          name_ar?: string
+          name_en?: string | null
+          owner_id?: string
+          price?: number
+          sku?: string | null
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -531,81 +785,179 @@ export type Database = {
         }
         Relationships: []
       }
-      sales_returns: {
-        Row: {
-          id: string
-          owner_id: string
-          customer_id: string
-          rep_id: string | null
-          invoice_type: 'cash' | 'credit' | 'direct' | null
-          invoice_id: string | null
-          return_date: string
-          refund_method: 'credit_balance' | 'cash_refund'
-          total_amount: number
-          notes: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          owner_id: string
-          customer_id: string
-          rep_id?: string | null
-          invoice_type?: 'cash' | 'credit' | 'direct' | null
-          invoice_id?: string | null
-          return_date?: string
-          refund_method: 'credit_balance' | 'cash_refund'
-          total_amount?: number
-          notes?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          owner_id?: string
-          customer_id?: string
-          rep_id?: string | null
-          invoice_type?: 'cash' | 'credit' | 'direct' | null
-          invoice_id?: string | null
-          return_date?: string
-          refund_method?: 'credit_balance' | 'cash_refund'
-          total_amount?: number
-          notes?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
       sales_return_lines: {
         Row: {
+          avg_cost_snapshot: number
+          condition: string
+          created_at: string
           id: string
-          return_id: string
+          line_total: number | null
           product_id: string
           qty: number
+          return_id: string
           unit_price: number
-          avg_cost_snapshot: number
-          condition: 'salable' | 'damaged'
-          line_total: number
-          created_at: string
         }
         Insert: {
+          avg_cost_snapshot?: number
+          condition: string
+          created_at?: string
           id?: string
-          return_id: string
+          line_total?: number | null
           product_id: string
           qty: number
+          return_id: string
           unit_price: number
-          avg_cost_snapshot?: number
-          condition: 'salable' | 'damaged'
-          created_at?: string
         }
         Update: {
+          avg_cost_snapshot?: number
+          condition?: string
+          created_at?: string
           id?: string
-          return_id?: string
+          line_total?: number | null
           product_id?: string
           qty?: number
+          return_id?: string
           unit_price?: number
-          avg_cost_snapshot?: number
-          condition?: 'salable' | 'damaged'
-          created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sales_return_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_return_lines_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "sales_returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_returns: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          invoice_id: string | null
+          invoice_type: string | null
+          notes: string | null
+          owner_id: string
+          refund_method: string
+          rep_id: string | null
+          return_date: string
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          invoice_id?: string | null
+          invoice_type?: string | null
+          notes?: string | null
+          owner_id: string
+          refund_method: string
+          rep_id?: string | null
+          return_date?: string
+          total_amount?: number
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          invoice_id?: string | null
+          invoice_type?: string | null
+          notes?: string | null
+          owner_id?: string
+          refund_method?: string
+          rep_id?: string | null
+          return_date?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_returns_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_returns_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_statement"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "sales_returns_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_movements: {
+        Row: {
+          avg_cost_snapshot: number | null
+          batch_number: string | null
+          created_at: string
+          created_by: string | null
+          expiry_date: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          owner_id: string
+          product_id: string
+          qty: number
+          reference_id: string | null
+          reference_type: string | null
+          unit_cost: number
+        }
+        Insert: {
+          avg_cost_snapshot?: number | null
+          batch_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          owner_id: string
+          product_id: string
+          qty: number
+          reference_id?: string | null
+          reference_type?: string | null
+          unit_cost?: number
+        }
+        Update: {
+          avg_cost_snapshot?: number | null
+          batch_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          owner_id?: string
+          product_id?: string
+          qty?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplier_payments: {
         Row: {
@@ -788,100 +1140,26 @@ export type Database = {
         }
         Relationships: []
       }
-      invoice_lines: {
+      user_roles: {
         Row: {
-          id: string
-          owner_id: string
-          invoice_type: string
-          invoice_id: string
-          product_id: string
-          qty: number
-          unit_price: number
-          line_total: number
           created_at: string
+          owner_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Insert: {
-          id?: string
-          owner_id?: string
-          invoice_type: string
-          invoice_id: string
-          product_id: string
-          qty: number
-          unit_price: number
           created_at?: string
-        }
-        Update: {
-          id?: string
-          owner_id?: string
-          invoice_type?: string
-          invoice_id?: string
-          product_id?: string
-          qty?: number
-          unit_price?: number
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoice_lines_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      stock_movements: {
-        Row: {
-          id: string
           owner_id: string
-          product_id: string
-          movement_type: string
-          qty: number
-          unit_cost: number
-          avg_cost_snapshot: number | null
-          reference_type: string | null
-          reference_id: string | null
-          notes: string | null
-          created_by: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          owner_id?: string
-          product_id: string
-          movement_type: string
-          qty: number
-          unit_cost?: number
-          avg_cost_snapshot?: number | null
-          reference_type?: string | null
-          reference_id?: string | null
-          notes?: string | null
-          created_by?: string | null
-          created_at?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Update: {
-          id?: string
-          owner_id?: string
-          product_id?: string
-          movement_type?: string
-          qty?: number
-          unit_cost?: number
-          avg_cost_snapshot?: number | null
-          reference_type?: string | null
-          reference_id?: string | null
-          notes?: string | null
-          created_by?: string | null
           created_at?: string
+          owner_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "stock_movements_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
     }
     Views: {
@@ -947,8 +1225,11 @@ export type Database = {
           customer_id: string | null
           description: string | null
           id: string | null
+          invoice_id: string | null
+          invoice_type: string | null
           kind: string | null
           owner_id: string | null
+          payment_id: string | null
           ref: string | null
           tx_date: string | null
         }
@@ -964,6 +1245,8 @@ export type Database = {
           owner_id: string | null
           payment_type: string | null
           ref: string | null
+          reference_id: string | null
+          reference_type: string | null
           supplier_id: string | null
           tx_date: string | null
         }
@@ -971,6 +1254,10 @@ export type Database = {
       }
     }
     Functions: {
+      adjust_stock: {
+        Args: { p_notes?: string; p_product_id: string; p_qty_delta: number }
+        Returns: string
+      }
       cashflow_series: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -979,6 +1266,11 @@ export type Database = {
           tx_date: string
         }[]
       }
+      current_owner_id: { Args: Record<PropertyKey, never>; Returns: string }
+      current_role_name: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       customer_statement: {
         Args: { p_customer_id: string; p_from?: string; p_to?: string }
         Returns: {
@@ -986,214 +1278,73 @@ export type Database = {
           credit: number
           debit: number
           description: string
-          ref: string | null
+          invoice_id: string
+          invoice_type: string
+          payment_id: string
+          ref: string
           row_no: number
           tx_date: string
           tx_type: string
-          invoice_id: string | null
-          invoice_type: string | null
-          payment_id: string | null
         }[]
       }
-      current_owner_id: { Args: never; Returns: string }
-      current_role_name: { Args: never; Returns: string }
-      get_current_rep_id: { Args: never; Returns: string }
-      get_current_rep_owner_id: { Args: never; Returns: string }
+      delete_cash_invoice: { Args: { p_id: string }; Returns: undefined }
+      delete_credit_invoice: { Args: { p_id: string }; Returns: undefined }
+      delete_sales_return: { Args: { p_id: string }; Returns: undefined }
+      delete_supplier_purchase: { Args: { p_id: string }; Returns: undefined }
+      get_current_rep_id: { Args: Record<PropertyKey, never>; Returns: string }
+      get_current_rep_owner_id: { Args: Record<PropertyKey, never>; Returns: string }
       get_email_by_phone: { Args: { p_phone: string }; Returns: Json }
-      get_manager_id: { Args: never; Returns: string }
+      get_manager_id: { Args: Record<PropertyKey, never>; Returns: string }
       get_operational_alerts: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           alert_key: string
           category: string
           count: number
           message: string
           severity: string
-          target_id: string | null
+          target_id: string
           target_tab: string
           title: string
         }[]
       }
-      is_manager: { Args: never; Returns: boolean }
-      is_rep_user: { Args: never; Returns: boolean }
+      is_manager: { Args: Record<PropertyKey, never>; Returns: boolean }
+      is_rep_user: { Args: Record<PropertyKey, never>; Returns: boolean }
+      is_sales_rep: { Args: Record<PropertyKey, never>; Returns: boolean }
       kpi_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       mark_notifications_read: { Args: { p_ids?: string[] }; Returns: number }
-      rep_can_write_for: { Args: { p_customer_id: string; p_rep_id: string }; Returns: boolean }
-      rep_has_permission: { Args: { p_key: string }; Returns: boolean }
-      receivables_aging: {
-        Args: { p_as_of?: string }
+      monthly_payroll_summary: {
+        Args: { p_month: number; p_year: number }
         Returns: {
-          amount: number
-          bucket: string
+          absent_days: number
+          active_loan_balance: number
+          base_salary: number
+          bonuses_total: number
+          deductions_total: number
+          employee_id: string
+          full_name: string
+          job_title: string
+          late_days: number
+          net_salary: number
+          overtime_total: number
+          phone: string
+          present_days: number
+          suggested_loan_deduction: number
+          total_late_minutes: number
+          total_overtime_hours: number
         }[]
       }
-      rep_directory: {
-        Args: never
-        Returns: {
-          cash_count: number
-          cash_total: number
-          collected_total: number
-          created_at: string
-          credit_count: number
-          credit_total: number
-          customers_count: number
-          email: string | null
-          is_active: boolean
-          is_linked: boolean
-          last_activity: string | null
-          month_collected: number
-          month_sales: number
-          monthly_target: number
-          name: string
-          notes: string | null
-          outstanding_total: number
-          overdue_count: number
-          phone: string | null
-          rep_id: string
-        }[]
-      }
-      supplier_statement: {
-        Args: { p_from?: string; p_supplier_id: string; p_to?: string }
-        Returns: {
-          balance: number
-          credit: number
-          debit: number
-          description: string
-          ref: string | null
-          row_no: number
-          tx_date: string
-          tx_type: string
-          reference_id: string | null
-          reference_type: string | null
-        }[]
-      }
-      unpaid_credit_invoices_list: {
-        Args: Record<string, never>
-        Returns: {
-          customer_id: string | null
-          customer_name: string | null
-          customer_phone: string | null
-          days_diff: number
-          due_date: string
-          invoice_date: string
-          invoice_id: string
-          invoice_no: string
-          is_overdue: boolean
-          paid_amount: number
-          remaining_amount: number
-          rep_id: string | null
-          rep_name: string | null
-          status: string
-          total_amount: number
-        }[]
-      }
-      product_stock_summary: {
-        Args: Record<string, never>
-        Returns: {
-          product_id: string
-          name_ar: string
-          name_en: string | null
-          sku: string | null
-          unit: string | null
-          category: string | null
-          price: number
-          on_hand: number
-          avg_cost: number
-          stock_value: number
-          is_active: boolean
-        }[]
-      }
-      product_stock_summary_v2: {
-        Args: Record<string, never>
-        Returns: {
-          product_id: string
-          name_ar: string
-          name_en: string | null
-          sku: string | null
-          unit: string | null
-          category: string | null
-          price: number
-          on_hand: number
-          avg_cost: number
-          stock_value: number
-          min_stock_alert: number
-          expiry_date: string | null
-          batch_number: string | null
-          days_to_expiry: number | null
-          alert_status: string
-          is_active: boolean
-        }[]
-      }
-      stock_movement_history: {
-        Args: {
-          p_product_id?: string | null
-          p_from?: string | null
-          p_to?: string | null
-        }
-        Returns: {
-          id: string
-          product_id: string
-          product_name: string
-          movement_type: string
-          qty: number
-          unit_cost: number
-          avg_cost_snapshot: number | null
-          reference_type: string | null
-          reference_id: string | null
-          notes: string | null
-          created_at: string
-        }[]
-      }
-      stock_valuation: {
-        Args: Record<string, never>
-        Returns: {
-          product_id: string
-          name_ar: string
-          unit: string | null
-          category: string | null
-          on_hand: number
-          avg_cost: number
-          stock_value: number
-        }[]
-      }
-      stock_alerts_summary: {
-        Args: Record<string, never>
-        Returns: Json
-      }
-      receive_stock: {
-        Args: {
-          p_product_id: string
-          p_qty: number
-          p_unit_cost: number
-          p_notes?: string | null
-          p_reference?: string | null
-          p_expiry_date?: string | null
-          p_batch_number?: string | null
-        }
+      process_sales_return: {
+        Args: { p_lines: Json; p_return: Json }
         Returns: string
       }
-      adjust_stock: {
-        Args: {
-          p_product_id: string
-          p_qty_delta: number
-          p_notes?: string | null
-        }
-        Returns: string
+      product_atp: {
+        Args: { p_owner_id: string; p_product_id: string }
+        Returns: number
       }
-      save_cash_invoice: {
-        Args: {
-          p_invoice: Json
-          p_lines: Json
-        }
-        Returns: string
-      }
-      save_credit_invoice: {
-        Args: {
-          p_invoice: Json
-          p_lines: Json
-          p_manager_override?: boolean
-        }
-        Returns: string
+      product_avg_cost: {
+        Args: { p_owner_id: string; p_product_id: string }
+        Returns: number
       }
       product_consumption_summary: {
         Args: { p_from: string; p_product_id: string; p_to: string }
@@ -1208,9 +1359,9 @@ export type Database = {
       product_customer_breakdown: {
         Args: { p_from: string; p_product_id: string; p_to: string }
         Returns: {
-          customer_id: string | null
+          customer_id: string
           customer_name: string
-          customer_phone: string | null
+          customer_phone: string
           last_purchase_date: string
           order_count: number
           rep_name: string
@@ -1219,10 +1370,18 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      product_on_hand: {
+        Args: { p_owner_id: string; p_product_id: string }
+        Returns: number
+      }
+      product_reserved_qty: {
+        Args: { p_owner_id: string; p_product_id: string }
+        Returns: number
+      }
       product_sales_history: {
         Args: { p_from: string; p_product_id: string; p_to: string }
         Returns: {
-          customer_id: string | null
+          customer_id: string
           customer_name: string
           invoice_id: string
           invoice_no: string
@@ -1234,80 +1393,226 @@ export type Database = {
           unit_price: number
         }[]
       }
-      product_stock_summary_v3: {
-        Args: Record<string, never>
+      product_stock_summary: {
+        Args: Record<PropertyKey, never>
         Returns: {
-          product_id: string
-          name_ar: string
-          name_en: string | null
-          sku: string | null
-          unit: string | null
-          category: string | null
-          price: number
-          on_hand: number
-          reserved_qty: number
-          available_qty: number
           avg_cost: number
-          stock_value: number
-          min_stock_alert: number
-          expiry_date: string | null
-          batch_number: string | null
-          days_to_expiry: number | null
-          alert_status: string
+          category: string
           is_active: boolean
+          name_ar: string
+          name_en: string
+          on_hand: number
+          price: number
+          product_id: string
+          sku: string
+          stock_value: number
+          unit: string
         }[]
       }
-      product_reserved_qty: {
-        Args: { p_owner_id: string; p_product_id: string }
-        Returns: number
+      product_stock_summary_v2: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          alert_status: string
+          avg_cost: number
+          batch_number: string
+          category: string
+          days_to_expiry: number
+          expiry_date: string
+          is_active: boolean
+          min_stock_alert: number
+          name_ar: string
+          name_en: string
+          on_hand: number
+          price: number
+          product_id: string
+          sku: string
+          stock_value: number
+          unit: string
+        }[]
       }
-      product_atp: {
-        Args: { p_owner_id: string; p_product_id: string }
-        Returns: number
+      product_stock_summary_v3: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          alert_status: string
+          available_qty: number
+          avg_cost: number
+          batch_number: string
+          category: string
+          days_to_expiry: number
+          expiry_date: string
+          is_active: boolean
+          min_stock_alert: number
+          name_ar: string
+          name_en: string
+          on_hand: number
+          price: number
+          product_id: string
+          reserved_qty: number
+          sku: string
+          stock_value: number
+          unit: string
+        }[]
       }
-      process_sales_return: {
-        Args: {
-          p_return: Json
-          p_lines: Json
-        }
+      provision_user_role: { Args: { p_user_id: string }; Returns: undefined }
+      receivables_aging: {
+        Args: { p_as_of?: string }
+        Returns: {
+          amount: number
+          bucket: string
+        }[]
+      }
+      receive_stock:
+        | {
+            Args: {
+              p_notes?: string
+              p_product_id: string
+              p_qty: number
+              p_reference?: string
+              p_unit_cost: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_batch_number?: string
+              p_expiry_date?: string
+              p_notes?: string
+              p_product_id: string
+              p_qty: number
+              p_reference?: string
+              p_unit_cost: number
+            }
+            Returns: string
+          }
+      rep_can_read_invoice: {
+        Args: { p_invoice_id: string; p_invoice_type: string }
+        Returns: boolean
+      }
+      rep_can_reference_credit_invoice: {
+        Args: { p_invoice_id: string }
+        Returns: boolean
+      }
+      rep_can_reference_customer: {
+        Args: { p_customer_id: string }
+        Returns: boolean
+      }
+      rep_can_write_for: {
+        Args: { p_customer_id: string; p_rep_id: string }
+        Returns: boolean
+      }
+      rep_directory: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          cash_count: number
+          cash_total: number
+          collected_total: number
+          created_at: string
+          credit_count: number
+          credit_total: number
+          customers_count: number
+          email: string
+          is_active: boolean
+          is_linked: boolean
+          last_activity: string
+          month_collected: number
+          month_sales: number
+          monthly_target: number
+          name: string
+          notes: string
+          outstanding_total: number
+          overdue_count: number
+          phone: string
+          rep_id: string
+        }[]
+      }
+      rep_has_permission: { Args: { p_key: string }; Returns: boolean }
+      save_cash_invoice: {
+        Args: { p_invoice: Json; p_lines: Json }
+        Returns: string
+      }
+      save_cash_invoice_v2: {
+        Args: { p_invoice: Json; p_lines: Json }
+        Returns: string
+      }
+      save_credit_invoice: {
+        Args: { p_invoice: Json; p_lines: Json; p_manager_override?: boolean }
         Returns: string
       }
       save_sales_return: {
-        Args: {
-          p_return: Json
-          p_lines: Json
-        }
+        Args: { p_lines: Json; p_return: Json }
         Returns: string
-      }
-      delete_sales_return: {
-        Args: {
-          p_id: string
-        }
-        Returns: undefined
       }
       save_supplier_purchase: {
-        Args: { p_purchase: Json; p_lines: Json }
+        Args: { p_lines: Json; p_purchase: Json }
         Returns: string
       }
-      delete_supplier_purchase: {
-        Args: { p_id: string }
-        Returns: undefined
+      stock_alerts_summary: { Args: Record<PropertyKey, never>; Returns: Json }
+      stock_movement_history: {
+        Args: { p_from?: string; p_product_id?: string; p_to?: string }
+        Returns: {
+          avg_cost_snapshot: number
+          created_at: string
+          id: string
+          movement_type: string
+          notes: string
+          product_id: string
+          product_name: string
+          qty: number
+          reference_id: string
+          reference_type: string
+          unit_cost: number
+        }[]
       }
-      delete_cash_invoice: {
-        Args: {
-          p_id: string
-        }
-        Returns: undefined
+      stock_valuation: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avg_cost: number
+          category: string
+          name_ar: string
+          on_hand: number
+          product_id: string
+          stock_value: number
+          unit: string
+        }[]
       }
-      delete_credit_invoice: {
-        Args: {
-          p_id: string
-        }
-        Returns: undefined
+      supplier_statement: {
+        Args: { p_from?: string; p_supplier_id: string; p_to?: string }
+        Returns: {
+          balance: number
+          credit: number
+          debit: number
+          description: string
+          ref: string
+          reference_id: string
+          reference_type: string
+          row_no: number
+          tx_date: string
+          tx_type: string
+        }[]
+      }
+      unpaid_credit_invoices_list: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          customer_id: string
+          customer_name: string
+          customer_phone: string
+          days_diff: number
+          due_date: string
+          invoice_date: string
+          invoice_id: string
+          invoice_no: string
+          is_overdue: boolean
+          paid_amount: number
+          remaining_amount: number
+          rep_id: string
+          rep_name: string
+          status: string
+          total_amount: number
+        }[]
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "manager" | "sales_rep"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1434,6 +1739,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["manager", "sales_rep"],
+    },
   },
 } as const
