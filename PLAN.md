@@ -369,5 +369,6 @@ rows per page with a smaller header, and add list/full/bulk printing for supplie
       locale nit fixed, and currency-less list totals kept intentionally to match the other
       tabular list prints
 - [x] Verification Gate re-run after reviewer fix: typecheck PASS; lint PASS; build PASS
-- [ ] Commit, push and Vercel READY
+- [x] Commit, push and Vercel READY (commit `696b8e7`, deployment `dpl_9E73w7NKRYLJESiDwHsPGzMaQgN5`,
+      aliased to https://tawreed-zeta.vercel.app)
 - [ ] Authenticated in-app print-preview QA (still blocked: no credentials supplied)

@@ -351,3 +351,7 @@
   as Supplier Payments) and LTR dates used `en-GB` in `fmtDate`; the latter was changed to `en-US`
   for consistency with the other generators. Verification Gate re-run after the fix: typecheck
   PASS; lint PASS (pre-existing warnings only); build PASS.
+- Commit `696b8e7` pushed to `main`. Vercel production deployment
+  `dpl_9E73w7NKRYLJESiDwHsPGzMaQgN5` reached READY for that SHA and is aliased to
+  https://tawreed-zeta.vercel.app, which responded successfully. This docs-only follow-up records
+  the deployment status; no application code changed after verification.
