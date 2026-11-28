@@ -227,3 +227,106 @@ wired `SupplierReturnsTab` into `Sheet.tsx` without committing that component. W
 `85af098` committed the supplier-return components/hook, regenerated types and the additive
 `0039`/`0040` migrations (source only — not applied), after which the production deployment
 reported READY.
+
+---
+
+# A5 print/PDF pipeline + printable documents
+
+## Goal
+Default every generated PDF and browser printout to compact A5 portrait (RTL-safe), keep A4
+available explicitly, and add dedicated payment/salary documents plus print buttons across the
+remaining key record views.
+
+## Scope & decisions
+- `WORKFLOW.md` is still absent; `docs/workflows/TRACKS.md` governed both tracks. Phase 2 plan
+  checkpoint confirmed by the user before any A5 edits; printable-documents plan already approved.
+- No schema/RLS changes. `refactor` (A5 defaults) followed by `feature` (printable documents).
+- `PaperSize = 'a4' | 'a5'`; `generatePdfFromHtml(html, dir = 'rtl', paperSize = 'a5')` uses
+  559px/794px container and `html2canvas.windowWidth`, `jsPDF('p','mm',paperSize)`.
+- `printHtml(html, title, dir, paperSize)` emits `@page { size: A5 portrait; margin: 8mm; }`
+  (A4 → `A4 portrait; 12mm`) and sets the print window direction. A5 print CSS makes `.pdf-root`
+  fluid so the fixed 559px canvas does not exceed the printable width; explicit A4 restores the
+  original 794px geometry and typography via central overrides in `pdfShare.ts`.
+- `UNIFIED_REPORT_CSS` in `pdfGenerators.ts` is the actual constant (the brief called it
+  `UNIFIED_STYLES`); it now uses the requested compact A5 values. Low-stock, stock-count,
+  statement, invoice, analytics and overdue tables have A5-specific compaction.
+- New `src/features/reporting/printableDocuments.ts`: customer/supplier payment receipts,
+  expense voucher, monthly payroll register and generic tabular list documents, all built on
+  `buildUnifiedReportTemplate` and `printHtml`.
+- Print buttons added to Payments, Supplier Payments, Expenses (header list + per-row document)
+  and PayrollSection (per-slip + full monthly register), gated by `can('export_print')`.
+- All new code uses `@/` imports, Arabic RTL logical utilities, no `any`, no money floats;
+  generated templates use logical CSS properties (`border-inline-start`, `text-align: start/end`).
+
+## Acceptance criteria
+- [x] A5 default PDFs/prints in both `rtl` and `ltr`; explicit `a4` restores 794px/A4 output
+- [x] 559px root / 523px content, compact typography values exactly as requested
+- [x] Browser print rule A5 portrait/8mm; print-window `dir` follows report direction
+- [x] No horizontal clipping in unified, stock, low-stock, invoice, salary, analytics, overdue,
+      receipt, payroll and generic documents (RTL + LTR QA)
+- [x] Payment/salary/expense/payroll documents + print buttons implemented and permission-gated
+- [x] Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only); build PASS
+- [ ] Reviewer re-pass on final diff
+- [ ] PLAN/LOG committed, pushed, Vercel READY
+- [ ] Authenticated in-app print-preview QA (no credentials supplied; static print CSS/PDF QA done)
+
+---
+
+# Bulk selection with actions (invoices/documents)
+
+## Goal
+Let managers select multiple invoice/document rows with checkboxes and apply one bulk action
+(print or delete) with confirmation.
+
+## Scope & decisions
+- Plan checkpoint presented and approved by the user. Added
+  `src/shared/hooks/useRowSelection.ts` (id-set, current-page toggle, stale-id safe) and
+  `src/shared/ui/BulkActionBar.tsx` (sticky RTL toolbar).
+- Wired into six views: Cash, Credit, Overdue invoices; customer Payments, Expenses and
+  Supplier Payments. Checkbox column on desktop tables and checkbox on mobile cards; the
+  header checkbox selects/clears the current page only.
+- No schema/RLS changes; existing delete mutations and `buildGenericDocumentHtml`/`printHtml`
+  are reused. One consolidated A5 document per bulk print; sequential deletes with aggregated
+  success/failure toast and selection cleared only afterwards.
+- Permission gating mirrors existing row actions: bulk print requires `can('export_print')`;
+  bulk delete follows each view's existing `isReadOnly` gate. Logical Tailwind utilities only.
+
+## Acceptance criteria
+- [x] Plan confirmed by user
+- [x] Shared selection UI/hook + bulk print/delete wired into agreed list views
+- [x] Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only); build PASS
+- [x] A4/A5 browser print re-verified fluid at printable width (703px/499px) after reviewer fix
+- [x] Reviewer pass on combined diff (PASS WITH NOTES); all six notes fixed
+- [x] Verification Gate re-run after fixes: typecheck PASS; lint PASS; build PASS
+- [x] Reviewer re-pass blocker (stale selection restored when revisiting a page) fixed by
+      resetting the keyed selection during render
+- [ ] Push and Vercel READY
+
+---
+
+# Bulk invoice print — full details, one invoice per A5 page
+
+## Goal
+Replace the tabular bulk print on invoice lists with the exact single-invoice document for each
+checked invoice, one invoice per A5 page in a single print job.
+
+## Scope & decisions
+- Approved feature plan (checkpoint confirmed by the user). Scope is the three invoice views
+  (Cash, Credit, Overdue); payments/expenses/supplier payments keep their tabular bulk print.
+- `fetchInvoiceDetails()` extracted from `useInvoiceDetails()` so batch and single print use the
+  same RLS-scoped queries. `buildInvoicePdfInput()` shared by the details modal, post-save prompt
+  and batch printer so documents stay identical.
+- `printInvoicesBatch()` fetches details in parallel, skips/counts unreadable invoices, builds
+  each `buildInvoicePdfHtml()` document inside a `.pdf-print-page` section with `break-after: page`,
+  and calls `printHtml()` once (A5). `BulkActionBar` gains a `busy` guard to disable actions while
+  details are loading.
+- No schema/RLS/permission changes; print remains gated by `export_print`. No new `any`, logical
+  Tailwind utilities only.
+
+## Acceptance criteria
+- [x] Plan approved; full invoice detail documents printed one per A5 page in one print job
+- [x] Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only); build PASS
+- [x] Static print QA: A5 `@page`, two sections/two roots at fluid 499px, 0 overflow, page-break rules
+- [x] Reviewer PASS WITH NOTES; failure-state handling fixed in all three handlers and gate re-run
+- [x] Final reviewer confirmation: PASS
+- [ ] Commit, push and Vercel READY

@@ -257,7 +257,7 @@
   body {
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 11pt !important;
+    font-size: 9.5pt !important;
   }
 
   header, nav, .print-hidden, .no-print, button:not(.print-include) {
@@ -281,8 +281,8 @@
   }
 
   @page {
-    size: A4;
-    margin: 12mm;
+    size: A5 portrait;
+    margin: 8mm;
   }
 }
 

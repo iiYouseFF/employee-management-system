@@ -42,7 +42,31 @@ function esc(value: unknown): string {
 
 const MAX_HISTORY_ROWS = 100
 
-/** Unified A4 template used for both the WhatsApp PDF and the modal preview. */
+/** Compact A5 overrides for the wide eight-column analytics tables. */
+const ANALYTICS_A5_CSS = `
+  .analytics-table { table-layout: fixed; }
+  .analytics-table th, .analytics-table td { padding: 4px 4px; font-size: 10.5px; white-space: normal; overflow-wrap: anywhere; }
+  .analytics-table .num { font-size: 10.5px; white-space: nowrap; }
+  .analytics-table td[dir="ltr"] { font-size: 10px; }
+  .analytics-customer th:nth-child(1) { width: 17%; }
+  .analytics-customer th:nth-child(2) { width: 12%; }
+  .analytics-customer th:nth-child(3) { width: 12%; }
+  .analytics-customer th:nth-child(4) { width: 9%; }
+  .analytics-customer th:nth-child(5) { width: 9%; }
+  .analytics-customer th:nth-child(6) { width: 9%; }
+  .analytics-customer th:nth-child(7) { width: 17%; }
+  .analytics-customer th:nth-child(8) { width: 15%; }
+  .analytics-history th:nth-child(1) { width: 13%; }
+  .analytics-history th:nth-child(2) { width: 12%; }
+  .analytics-history th:nth-child(3) { width: 10%; }
+  .analytics-history th:nth-child(4) { width: 18%; }
+  .analytics-history th:nth-child(5) { width: 14%; }
+  .analytics-history th:nth-child(6) { width: 9%; }
+  .analytics-history th:nth-child(7) { width: 12%; }
+  .analytics-history th:nth-child(8) { width: 12%; }
+`
+
+/** Unified A5 template used for the WhatsApp PDF export. */
 export function buildProductConsumptionReportHtml(input: ProductAnalyticsReportInput): string {
   const { lang, product, from, to, summary, breakdown, history } = input
   const num = (value: number | string | null | undefined, digits = 2) => esc(formatLocalNumber(value, lang, digits))
@@ -116,13 +140,14 @@ export function buildProductConsumptionReportHtml(input: ProductAnalyticsReportI
       { label: t(lang, 'سعر البيع الحالي', 'Current price'), value: num(product.price) },
     ],
     bodyHtml: `
+      <style>${ANALYTICS_A5_CSS}</style>
       <section class="pdf-section">
         <h3 class="pdf-section-title">${t(lang, 'ملخص المؤشرات', 'KPI summary')}</h3>
         <div class="pdf-table-wrap"><table class="pdf-table"><tbody>${kpiRows}</tbody></table></div>
       </section>
       <section class="pdf-section">
         <h3 class="pdf-section-title">${t(lang, 'تحليل العملاء الأكثر شراءً', 'Top buying customers')}</h3>
-        <div class="pdf-table-wrap"><table class="pdf-table">
+        <div class="pdf-table-wrap"><table class="pdf-table analytics-table analytics-customer">
           <thead><tr>
             <th>${t(lang, 'العميل', 'Customer')}</th>
             <th>${t(lang, 'الهاتف', 'Phone')}</th>
@@ -138,7 +163,7 @@ export function buildProductConsumptionReportHtml(input: ProductAnalyticsReportI
       </section>
       <section class="pdf-section">
         <h3 class="pdf-section-title">${t(lang, 'سجل الفواتير التفصيلي', 'Detailed invoice lines')}</h3>
-        <div class="pdf-table-wrap"><table class="pdf-table">
+        <div class="pdf-table-wrap"><table class="pdf-table analytics-table analytics-history">
           <thead><tr>
             <th>${t(lang, 'التاريخ', 'Date')}</th>
             <th>${t(lang, 'رقم الفاتورة', 'Invoice no.')}</th>
@@ -158,7 +183,7 @@ export function buildProductConsumptionReportHtml(input: ProductAnalyticsReportI
 
 export async function shareProductConsumptionReportWhatsApp(input: ProductAnalyticsReportInput): Promise<void> {
   const html = buildProductConsumptionReportHtml(input)
-  const blob = await generatePdfFromHtml(html)
+  const blob = await generatePdfFromHtml(html, input.lang === 'ar' ? 'rtl' : 'ltr')
   const filename = `product-analytics-${(input.product.sku || input.product.name_ar || 'product').replace(/[^\p{L}\p{N}_-]+/gu, '_')}.pdf`
   await sharePdfBlobViaWhatsApp({
     blob,

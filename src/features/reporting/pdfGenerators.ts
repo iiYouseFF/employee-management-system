@@ -33,19 +33,21 @@ export interface UnifiedReportTemplateInput {
   dir?: 'rtl' | 'ltr'
 }
 
+/** A5-optimized unified sheet: 559px wide at 96 DPI, 523px of content after padding. */
 const UNIFIED_REPORT_CSS = `
   .pdf-root, .pdf-root * { box-sizing: border-box; }
   .pdf-root {
-    width: 794px;
+    width: 559px;
     margin: 0;
-    padding: 0 0 24px;
+    padding: 16px 18px;
     background: #ffffff;
     color: #0f172a;
     font-family: 'Tajawal', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.5;
   }
   .pdf-top-bar {
-    height: 8px;
+    height: 6px;
     background: #1a4971;
     width: 100%;
   }
@@ -53,81 +55,81 @@ const UNIFIED_REPORT_CSS = `
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 24px;
-    padding: 24px 32px 20px;
+    gap: 12px;
+    padding: 0 0 12px;
   }
   .pdf-header-start {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
     align-items: flex-start;
     min-width: 0;
   }
   .pdf-company {
     margin: 0;
-    font-size: 24px;
+    font-size: 19px;
     font-weight: 800;
     color: #1a4971;
-    line-height: 1.35;
+    line-height: 1.3;
   }
   .pdf-doc-badge {
     display: inline-flex;
     align-items: center;
-    padding: 6px 14px;
-    font-size: 16px;
+    padding: 4px 10px;
+    font-size: 13.5px;
     font-weight: 800;
     color: #103352;
     background: #e0eefb;
     border: 1.5px solid #1a4971;
-    border-radius: 8px;
+    border-radius: 6px;
     line-height: 1.4;
   }
   .pdf-meta-grid {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-width: 240px;
+    gap: 3px;
+    min-width: 180px;
     text-align: end;
   }
   .pdf-meta-item {
-    font-size: 14px;
+    font-size: 12px;
     color: #334155;
-    line-height: 1.6;
+    line-height: 1.5;
   }
   .pdf-meta-label { font-weight: 600; color: #475569; }
   .pdf-meta-value { font-weight: 700; color: #0f172a; }
   .pdf-entity-banner {
-    margin: 0 32px 20px;
-    padding: 12px 16px;
+    margin: 0 0 12px;
+    padding: 8px 10px;
     background: #f0f6fc;
-    border-inline-start: 5px solid #1a4971;
-    border-radius: 10px;
+    border-inline-start: 4px solid #1a4971;
+    border-radius: 8px;
   }
   .pdf-entity-title {
     margin: 0;
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 800;
     color: #0f172a;
     line-height: 1.5;
   }
   .pdf-entity-subtitle {
-    margin-top: 4px;
-    font-size: 14px;
+    margin-top: 2px;
+    font-size: 12px;
     font-weight: 600;
     color: #334155;
-    line-height: 1.6;
+    line-height: 1.5;
   }
-  .pdf-body { padding: 0 32px; }
-  .pdf-section { margin-bottom: 20px; }
+  .pdf-body { padding: 0; }
+  .pdf-section { margin-bottom: 14px; }
   .pdf-section-title {
-    margin: 0 0 10px;
-    padding: 8px 12px;
-    font-size: 15px;
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    font-size: 12.5px;
     font-weight: 800;
     color: #103352;
     background: #e0eefb;
-    border-inline-start: 4px solid #1a4971;
-    border-radius: 6px;
+    border-inline-start: 3px solid #1a4971;
+    border-radius: 5px;
   }
   .pdf-table-wrap { width: 100%; overflow: hidden; }
   .pdf-table {
@@ -136,24 +138,24 @@ const UNIFIED_REPORT_CSS = `
     table-layout: auto;
   }
   .pdf-table th {
-    padding: 12px;
-    font-size: 15px;
+    padding: 8px;
+    font-size: 13px;
     font-weight: 800;
     color: #ffffff;
     background: #1a4971;
     text-align: start;
     border: 1px solid #1a4971;
-    line-height: 1.5;
+    line-height: 1.4;
     vertical-align: middle;
   }
   .pdf-table td {
-    padding: 11px 12px;
-    font-size: 14.5px;
+    padding: 7px 8px;
+    font-size: 12.5px;
     font-weight: 600;
     color: #0f172a;
     text-align: start;
-    border-block-end: 1.5px solid #cbd5e1;
-    line-height: 1.6;
+    border-block-end: 1px solid #cbd5e1;
+    line-height: 1.5;
     vertical-align: middle;
     background: #ffffff;
   }
@@ -162,7 +164,7 @@ const UNIFIED_REPORT_CSS = `
   .pdf-table thead { display: table-header-group; }
   .pdf-table tfoot { display: table-footer-group; }
   .pdf-table .num {
-    font-size: 14.5px;
+    font-size: 12.5px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     text-align: end;
@@ -170,43 +172,43 @@ const UNIFIED_REPORT_CSS = `
   }
   .pdf-table th.num { text-align: end; }
   .pdf-table tr.row-total td {
-    font-size: 15.5px;
+    font-size: 13.5px;
     font-weight: 800;
     color: #103352;
     background: #e0eefb !important;
-    border-block-start: 2.5px solid #1a4971;
-    border-block-end: 2.5px solid #1a4971;
+    border-block-start: 2px solid #1a4971;
+    border-block-end: 2px solid #1a4971;
   }
   .pdf-notes {
-    margin: 18px 32px 0;
-    padding: 12px 14px;
-    font-size: 14px;
+    margin: 12px 0 0;
+    padding: 8px 10px;
+    font-size: 12px;
     font-weight: 700;
     color: #334155;
     background: #f8fafc;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    border-radius: 6px;
   }
   .pdf-footer {
-    margin: 20px 32px 0;
-    padding-top: 12px;
-    border-block-start: 1.5px solid #94a3b8;
+    margin: 14px 0 0;
+    padding-top: 8px;
+    border-block-start: 1px solid #94a3b8;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
-    font-size: 13px;
+    gap: 8px;
+    font-size: 11px;
     font-weight: 700;
     color: #334155;
   }
   .pdf-empty {
-    padding: 16px;
-    font-size: 14px;
+    padding: 10px;
+    font-size: 12px;
     font-weight: 600;
     color: #64748b;
     text-align: center;
     border: 1px dashed #cbd5e1;
-    border-radius: 8px;
+    border-radius: 6px;
     background: #f8fafc;
   }
 `
@@ -385,13 +387,13 @@ export function buildCustomerStatementHtml({
       <table class="pdf-table">
         <thead>
           <tr>
-            <th class="num" style="width:56px;">#</th>
-            <th style="width:110px;">التاريخ</th>
+            <th class="num" style="width:32px;">#</th>
+            <th style="width:72px;">التاريخ</th>
             <th>البيان والتفاصيل</th>
-            <th style="width:120px;">المرجع</th>
-            <th class="num" style="width:110px;">مدين (+)</th>
-            <th class="num" style="width:110px;">دائن (-)</th>
-            <th class="num" style="width:140px;">الرصيد التراكمي</th>
+            <th style="width:80px;">المرجع</th>
+            <th class="num" style="width:72px;">مدين (+)</th>
+            <th class="num" style="width:72px;">دائن (-)</th>
+            <th class="num" style="width:96px;">الرصيد التراكمي</th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
@@ -479,13 +481,13 @@ export function buildSupplierStatementHtml({
       <table class="pdf-table">
         <thead>
           <tr>
-            <th class="num" style="width:56px;">#</th>
-            <th style="width:110px;">التاريخ</th>
+            <th class="num" style="width:32px;">#</th>
+            <th style="width:72px;">التاريخ</th>
             <th>البيان والتفاصيل</th>
-            <th style="width:120px;">المرجع</th>
-            <th class="num" style="width:110px;">مدين (+) سداد</th>
-            <th class="num" style="width:110px;">دائن (-) شراء</th>
-            <th class="num" style="width:140px;">المستحق للمورد</th>
+            <th style="width:80px;">المرجع</th>
+            <th class="num" style="width:72px;">مدين (+) سداد</th>
+            <th class="num" style="width:72px;">دائن (-) شراء</th>
+            <th class="num" style="width:96px;">المستحق للمورد</th>
           </tr>
         </thead>
         <tbody>${rowsHtml}</tbody>
@@ -582,21 +584,21 @@ export function buildProductCatalogHtml({
           const items = grouped.get(category) ?? []
           return `
     <div style="margin-bottom:18px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; background:#eef5fc; color:#103352; border:1px solid #cbd5e1; border-bottom:none; padding:8px 12px; font-weight:800; font-size:14px; border-radius:6px 6px 0 0; break-after:avoid-page; page-break-after:avoid;">
+      <div style="display:flex; align-items:center; justify-content:space-between; background:#eef5fc; color:#103352; border:1px solid #cbd5e1; border-bottom:none; padding:6px 8px; font-weight:800; font-size:12px; border-radius:5px 5px 0 0; break-after:avoid-page; page-break-after:avoid;">
         <span>${esc(category)}</span>
-        <span style="font-size:12px; color:#475569;">${items.length} صنف</span>
+        <span style="font-size:10px; color:#475569;">${items.length} صنف</span>
       </div>
       <div class="pdf-table-wrap" style="margin-top:0;">
         <table class="pdf-table">
           <thead>
             <tr>
-              <th class="num" style="width:48px;">#</th>
+              <th class="num" style="width:32px;">#</th>
               <th>اسم الصنف</th>
-              <th style="width:130px;">English Name</th>
-              <th style="width:110px;">الكود (SKU)</th>
-              <th style="width:110px;">التصنيف</th>
-              <th style="width:80px;">الوحدة</th>
-              <th class="num" style="width:120px;">السعر المعتمد</th>
+              <th style="width:92px;">English Name</th>
+              <th style="width:78px;">الكود (SKU)</th>
+              <th style="width:78px;">التصنيف</th>
+              <th style="width:56px;">الوحدة</th>
+              <th class="num" style="width:88px;">السعر المعتمد</th>
             </tr>
           </thead>
           <tbody>${buildRows(items)}</tbody>
@@ -688,18 +690,18 @@ export interface LowStockReportPdfInput {
 }
 
 const LOW_STOCK_REPORT_CSS = `
-  .lowstock-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .lowstock-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
   .lowstock-table th, .lowstock-table td {
-    border: 1px solid #cbd5e1; padding: 8px 10px; text-align: center; vertical-align: middle;
+    border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; vertical-align: middle;
   }
   .lowstock-table th {
-    background: #e0eefb !important; color: #103352; font-weight: 800;
+    background: #e0eefb !important; color: #103352; font-weight: 800; font-size: 12px;
   }
   .lowstock-table td.lowstock-name { text-align: start; font-weight: 700; }
-  .lowstock-meta { font-size: 11px; color: #64748b; font-weight: 500; }
+  .lowstock-meta { font-size: 10px; color: #64748b; font-weight: 500; }
   .lowstock-order-box {
-    display: inline-block; min-width: 90px; height: 22px;
-    border: 1px solid #94a3b8; border-radius: 4px; background: #ffffff;
+    display: inline-block; min-width: 62px; height: 18px;
+    border: 1px solid #94a3b8; border-radius: 3px; background: #ffffff;
   }
   .lowstock-out { color: #be123c; font-weight: 800; }
 `
@@ -913,11 +915,11 @@ export function buildInvoicePdfHtml({
           <table class="pdf-table">
             <thead>
               <tr>
-                <th class="num" style="width:52px;">#</th>
-                <th style="width:130px;">التاريخ</th>
+                <th class="num" style="width:32px;">#</th>
+                <th style="width:72px;">التاريخ</th>
                 <th>البيان</th>
                 <th>المرجع</th>
-                <th class="num" style="width:140px;">المبلغ</th>
+                <th class="num" style="width:88px;">المبلغ</th>
               </tr>
             </thead>
             <tbody>${paymentRowsHtml}</tbody>
@@ -947,12 +949,12 @@ export function buildInvoicePdfHtml({
         <table class="pdf-table">
           <thead>
             <tr>
-              <th class="num" style="width:52px;">#</th>
+              <th class="num" style="width:32px;">#</th>
               <th>المنتج</th>
-              <th style="width:90px;">الوحدة</th>
-              <th class="num" style="width:100px;">الكمية</th>
-              <th class="num" style="width:120px;">سعر الوحدة</th>
-              <th class="num" style="width:140px;">إجمالي السطر</th>
+              <th style="width:56px;">الوحدة</th>
+              <th class="num" style="width:64px;">الكمية</th>
+              <th class="num" style="width:80px;">سعر الوحدة</th>
+              <th class="num" style="width:96px;">إجمالي السطر</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
@@ -986,7 +988,7 @@ export function buildInvoicePdfHtml({
 
 export async function shareInvoiceWhatsApp(input: InvoicePdfInput) {
   const html = buildInvoicePdfHtml(input)
-  const blob = await generatePdfFromHtml(html)
+  const blob = await generatePdfFromHtml(html, input.dir ?? 'rtl')
   const safeInvoiceNo = input.invoice_no.replace(/[^\w\u0600-\u06FF-]+/g, '_') || 'invoice'
   const filename = `فاتورة_${safeInvoiceNo}_${new Date().toISOString().slice(0, 10)}.pdf`
   const message = `فاتورة رقم #${input.invoice_no} بقيمة ${formatNumber(input.amount)} ج.م`
@@ -999,7 +1001,7 @@ export async function shareInvoiceWhatsApp(input: InvoicePdfInput) {
 }
 
 export async function printInvoice(input: InvoicePdfInput) {
-  return printHtml(buildInvoicePdfHtml(input), `فاتورة ${input.invoice_no}`)
+  return printHtml(buildInvoicePdfHtml(input), `فاتورة ${input.invoice_no}`, input.dir ?? 'rtl')
 }
 
 export interface DailyReportRepRow {
@@ -1137,12 +1139,12 @@ export function buildDailyReportHtml(input: DailyReportInput): string {
 }
 
 export async function printDailyReport(input: DailyReportInput) {
-  return printHtml(buildDailyReportHtml(input), `التقرير اليومي - ${input.date}`)
+  return printHtml(buildDailyReportHtml(input), `التقرير اليومي - ${input.date}`, input.dir ?? 'rtl')
 }
 
 export async function shareDailyReportWhatsApp(input: DailyReportInput) {
   const html = buildDailyReportHtml(input)
-  const blob = await generatePdfFromHtml(html)
+  const blob = await generatePdfFromHtml(html, input.dir ?? 'rtl')
   const filename = `التقرير_اليومي_${input.date}.pdf`
   const message =
     `التقرير اليومي (${input.date}):\n` +
@@ -1269,12 +1271,16 @@ export function buildSalarySlipHtml(input: SalarySlipPdfInput): string {
 }
 
 export async function printSalarySlip(input: SalarySlipPdfInput) {
-  return printHtml(buildSalarySlipHtml(input), `قسيمة راتب - ${input.employeeName} (${input.month}/${input.year})`)
+  return printHtml(
+    buildSalarySlipHtml(input),
+    `قسيمة راتب - ${input.employeeName} (${input.month}/${input.year})`,
+    input.dir ?? 'rtl'
+  )
 }
 
 export async function shareSalarySlipWhatsApp(input: SalarySlipPdfInput) {
   const html = buildSalarySlipHtml(input)
-  const blob = await generatePdfFromHtml(html)
+  const blob = await generatePdfFromHtml(html, input.dir ?? 'rtl')
   const safeName = input.employeeName.replace(/[^\w\u0600-\u06FF-]+/g, '_') || 'employee'
   const filename = `قسيمة_راتب_${safeName}_${input.year}_${input.month}.pdf`
   const message = `قسيمة راتب ${input.employeeName} لشهر ${input.month}/${input.year} — صافي المستحق: ${formatNumber(input.netSalary)} ج.م`
@@ -1306,43 +1312,43 @@ export interface StockCountReportInput {
 }
 
 const STOCK_COUNT_REPORT_CSS = `
-  .stock-count-sub { font-size: 12px; font-weight: 700; color: #475569; line-height: 1.4; }
+  .stock-count-sub { font-size: 10.5px; font-weight: 700; color: #475569; line-height: 1.4; }
   .pdf-table .stock-count-index, .pdf-table .stock-count-box-cell { text-align: center; }
   .stock-count-index { font-weight: 700; }
   .stock-count-num {
-    font-size: 15px; font-weight: 800;
+    font-size: 12px; font-weight: 800;
     font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap;
   }
   .stock-count-box {
     display: inline-block;
     width: 100%;
-    min-width: 115px;
-    height: 30px;
+    min-width: 78px;
+    height: 24px;
     border: 1.5px solid #64748b;
     background: #ffffff;
-    border-radius: 4px;
+    border-radius: 3px;
   }
-  .stock-count-box-diff { min-width: 90px; border-color: #94a3b8; }
+  .stock-count-box-diff { min-width: 62px; border-color: #94a3b8; }
   .stock-count-category td {
     background: #eef5fc !important; color: #103352;
-    font-size: 13px; font-weight: 800; padding: 8px 12px;
+    font-size: 11.5px; font-weight: 800; padding: 6px 8px;
     border: 1px solid #cbd5e1;
   }
   .stock-count-category { break-after: avoid; page-break-after: avoid; }
   .stock-count-signoff {
     display: flex;
     justify-content: space-between;
-    gap: 24px;
-    margin-top: 28px;
+    gap: 12px;
+    margin-top: 18px;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 11px;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 `
 
 /**
- * Blank physical count sheet built on the unified A4 report template.
+ * Blank physical count sheet built on the unified A5 report template.
  * Rows are grouped by category then shelf sort order then Arabic name, so the
  * warehouse team can count shelves in order and write counts/differences by hand.
  */
@@ -1409,7 +1415,7 @@ export function buildStockCountReportHtml({
     t(lang, 'الفرق (+/-)', 'Difference (+/-)'),
   ]
     .map((label, i) => {
-      const width = ['36px', '92px', '', '52px', '88px', '150px', '118px'][i]
+      const width = ['30px', '72px', '', '42px', '68px', '82px', '70px'][i]
       const cls =
         i === 0
           ? 'stock-count-index'
@@ -1458,12 +1464,13 @@ export function buildStockCountReportHtml({
 export async function printStockCountReport(input: StockCountReportInput) {
   return printHtml(
     buildStockCountReportHtml(input),
-    input.dir === 'ltr' ? 'Physical Stock Count Sheet' : 'كشف جرد المخزن الفعلي'
+    input.dir === 'ltr' ? 'Physical Stock Count Sheet' : 'كشف جرد المخزن الفعلي',
+    input.dir ?? 'rtl'
   )
 }
 
 export async function shareStockCountWhatsApp(input: StockCountReportInput) {
-  const blob = await generatePdfFromHtml(buildStockCountReportHtml(input))
+  const blob = await generatePdfFromHtml(buildStockCountReportHtml(input), input.dir ?? 'rtl')
   const filename = `stock-count_${new Date().toISOString().slice(0, 10)}.pdf`
   const message =
     input.dir === 'ltr'

@@ -205,3 +205,106 @@
   hook, regenerated types and migrations `0039`/`0040` as source only (not applied). Vercel
   production deployment `dpl_J85HwWTP8sCGJxe6cCUCcdawb7Uu` then reported READY for `85af098`,
   which includes the stock count sheet.
+
+## 2026-11-28 - A5 print/PDF default + printable documents
+
+- Tracks: `refactor` (A5 defaults, approved Phase 2 checkpoint) then `feature` (printable
+  documents, approved plan). `docs/workflows/TRACKS.md` governed both; `WORKFLOW.md` is absent.
+- No schema/RLS changes; no applied migration edited. All work is additive frontend code.
+- `pdfShare.ts`: added `PaperSize = 'a4' | 'a5'`; default `a5` with 559px html2canvas width,
+  `jsPDF('p','mm','a5')`; A4 still 794px/`a4`. `printHtml` now emits A5
+  `size: A5 portrait; margin: 8mm` (A4 → `A4 portrait; 12mm`), sets the print window `dir`,
+  makes `.pdf-root` fluid for print, and injects central A4 geometry overrides so explicit
+  A4 exports keep their original 794px layout and typography.
+- `pdfGenerators.ts` / `productAnalyticsReport.ts`: compact A5 `UNIFIED_REPORT_CSS` (the brief's
+  `UNIFIED_STYLES`), low-stock/stock-count CSS, statement/catalog/invoice widths and the
+  8-column analytics table rebuilt with fixed percentage widths; direction propagated through
+  print and WhatsApp helpers.
+- `OverdueInvoicesTab.tsx`: 10-column overdue table given an A5 fixed layout with wrapped
+  numeric cells; direction derived from UI language. Labels still advertising A4 were
+  corrected in `ProductsTab.tsx` and `InvoiceDetailsModal.tsx`.
+- New `src/features/reporting/printableDocuments.ts`: customer/supplier payment receipts,
+  expense voucher, monthly payroll register and generic tabular list builders + `printHtml`
+  wrappers on the unified A5 template.
+- Print buttons wired into `PaymentsTab`, `SupplierPaymentsTab`, `ExpensesTab` (header list +
+  per-row receipt) and `PayrollSection` (per-slip + full monthly register), all gated by
+  `can('export_print')`.
+- First reviewer pass FAILED on three blockers: explicit A4 did not restore A4 geometry,
+  fixed 559px root conflicted with 8mm print margins, and wide tables could clip. Fixed centrally
+  in `pdfShare.ts` (`A4_OVERRIDE_CSS`, `A5_PRINT_CSS`) plus the compact overdue table; stale A4
+  labels/comments corrected. Re-verification: A5 MediaBox 419.53×595.28 in RTL and LTR for
+  unified/stock/low-stock/invoice/salary/analytics/overdue/receipt/payroll/generic, root 559px
+  with 523px tables and no scroll overflow; A4 override renders 794px at 15px and MediaBox
+  595.28×841.89. Authenticated in-app print preview remains unverified (no credentials).
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only); build PASS
+  (pre-existing chunk-size warning only). Final reviewer re-pass pending.
+- Final reviewer returned FAIL on one major and two minor findings; all were fixed: A4 browser
+  print now uses `A4_PRINT_CSS` (A4 typography with a fluid root) so a 794px canvas cannot exceed
+  the 12mm page margins; salary-slip print/WhatsApp actions are gated by `export_print`; and
+  `catch (err: unknown)` replaces `any` in `pdfShare.ts`. Re-verified in an iframe sized to the
+  printable area: A4 renders 703px/15px with `size: A4 portrait; margin: 12mm;`, A5 renders
+  499px/13px with `size: A5 portrait; margin: 8mm;`.
+- Commit, push, Vercel READY and bulk-selection feature still pending at this point.
+
+## 2026-11-28 - Bulk checkbox selection with print/delete
+
+- Track: `feature`; plan checkpoint presented and approved by the user before edits.
+- Added `src/shared/hooks/useRowSelection.ts`: id-set selection, `toggle`, `toggleCurrentPage`,
+  `isSelected`, `clear`; `selectedRows` is derived only from currently visible rows, so a filter
+  or page change cannot cause stale records to be printed or deleted.
+- Added `src/shared/ui/BulkActionBar.tsx`: sticky RTL toolbar with selected count, print/delete
+  (rendered only when the corresponding action is permitted) and clear-selection button.
+- Wired checkboxes into CashTab, CreditTab, OverdueInvoicesTab, PaymentsTab, ExpensesTab and
+  SupplierPaymentsTab for both desktop tables and mobile cards. Clicking a checkbox stops row
+  propagation so details modals do not open; overdue mobile cards changed from `<button>` to a
+  keyboard-accessible `div` (no nested interactive ARIA role) to avoid nested interactive elements.
+- Bulk print calls `printGenericDocument` once for the checked rows (one A5 document, not one
+  print dialog per row). Bulk delete uses each view's existing mutation sequentially with a
+  native confirmation, aggregates failures into one toast and clears selection at the end.
+- Print is gated by `can('export_print')`; delete keeps each view's existing `isReadOnly` rule.
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only, no new warnings from
+  new files); build PASS (pre-existing chunk-size warning only).
+- Combined-diff reviewer returned PASS WITH NOTES. All six notes fixed: CashTab footer colSpan
+  corrected (`canSelect ? 8 : 7`); overdue mobile card keyboard handler scoped to the card itself
+  and its invalid `role="button"` removed; new `any` removed from Payments/Expenses selection code
+  via `Record<string, unknown>`; `useRowSelection` now keys selection to the visible row-id set so
+  page/filter changes cannot restore stale selections (without a lint-new setState-in-effect);
+  supplier-payment dates formatted consistently with `ar-EG`; selection is cleared only when bulk
+  print succeeds. Final re-review pending.
+- Verification Gate re-run after fixes: typecheck PASS; lint PASS (pre-existing warnings only);
+  build PASS (pre-existing chunk-size warning only).
+- Reviewer re-pass returned FAIL on one remaining blocker: revisiting a previously seen page/filter
+  key restored ids stored for that key. Fixed by resetting the keyed selection during render when
+  `viewKey` changes (React's supported derived-state adjustment), so leaving a page discards the
+  selection immediately. Lint remains clean of new warnings.
+
+## 2026-11-28 - Bulk invoice print: full details, one invoice per A5 page
+
+- Track: `feature`; Phase 2 plan checkpoint presented and approved by the user before edits.
+- User reported that bulk print emitted only a summary table. Cash, Credit and Overdue invoice
+  views now call the new `printInvoicesBatch()` instead of `printGenericDocument()`.
+- `src/features/sales/useInvoices.ts`: extracted the query body into exported
+  `fetchInvoiceDetails(id, type)`; `useInvoiceDetails()` keeps the same query key/cache and reuses
+  it. RLS scope and totals logic are unchanged.
+- New `src/features/sales/invoicePdfInput.ts`: one `buildInvoicePdfInput()` mapper shared by
+  `InvoiceDetailsModal`, `PostSaveInvoicePrintPrompt` and the batch printer, so bulk pages exactly
+  match the existing single-invoice print.
+- New `src/features/reporting/bulkInvoicePrint.ts`: loads all selected invoices in parallel with
+  per-invoice error isolation, builds each `buildInvoicePdfHtml()` document inside a
+  `.pdf-print-page` section, appends print-only `break-after: page` CSS (last page resets to auto),
+  and calls `printHtml(..., 'a5')` once. Returns printed/loaded/failed counts; partial failures
+  show one toast, all failures or a blocked popup show the appropriate message, and selection is
+  cleared only after a successful print.
+- `BulkActionBar` gained an optional `busy` prop; the three invoice views disable print/delete/
+  clear while details are being fetched.
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only); build PASS
+  (pre-existing chunk-size warning only).
+- Static print QA of a two-invoice combined document: `@page size: A5 portrait; margin: 8mm;`,
+  2 sections/2 `.pdf-root` elements at fluid 499px with 0 overflow, and both page-break rules
+  present.
+- Reviewer returned PASS WITH NOTES on failure-state handling; fixed in all three handlers:
+  selection is cleared only when printing succeeds with zero failed loads, the popup-blocked toast
+  is always shown on failure, partial failures keep the selection for retry, and all-failure cases
+  no longer claim anything was printed (Overdue messages are bilingual). Gate re-run after the fix:
+  typecheck PASS; lint PASS (pre-existing warnings only); build PASS (pre-existing chunk warning).
+  Final reviewer verdict: PASS.

@@ -27,6 +27,10 @@ import {
   type InvoiceLine,
 } from '@/features/inventory/useInventory'
 import { useAuth } from '@/features/auth/useAuth'
+import { useRowSelection } from '@/shared/hooks/useRowSelection'
+import { BulkActionBar } from '@/shared/ui/BulkActionBar'
+import { printInvoicesBatch } from '@/features/reporting/bulkInvoicePrint'
+import { useSettings } from '@/features/settings/useSettings'
 
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString('ar-EG') : '-'
@@ -346,6 +350,7 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
   const deleteInvoice = useDeleteCreditInvoiceWithStock()
   const { can } = useAuth()
   const canExportPrint = can('export_print')
+  const { data: settings } = useSettings()
 
   const stockMap: Record<string, number> = {}
   for (const r of stockRows) stockMap[r.product_id] = Number(r.on_hand)
@@ -457,6 +462,53 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
     setCurrentPage(1)
   }
 
+  // ── Bulk selection (print/delete the checked rows on this page) ─────────────
+  const canSelect = canExportPrint || !isReadOnly
+  const [bulkPrinting, setBulkPrinting] = useState(false)
+  const selection = useRowSelection(
+    paginatedInvoices as Record<string, unknown>[],
+    (invoice) => String(invoice.id)
+  )
+
+  const handleBulkPrint = async () => {
+    if (bulkPrinting) return
+    setBulkPrinting(true)
+    try {
+      const result = await printInvoicesBatch({
+        invoices: selection.selectedRows.map((invoice) => ({
+          id: String(invoice.id),
+          type: 'credit' as const,
+        })),
+        companyName: settings?.title || 'المؤسسة المصرية لتوزيع المواد الغذائية',
+        dir: document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl',
+        title: 'فواتير البيع الآجل المحددة',
+      })
+      if (result.printed && result.failed === 0) selection.clear()
+      if (!result.printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+      if (result.failed) {
+        showToast(result.printed
+          ? `تعذّر تحميل ${result.failed} فاتورة؛ تمت طباعة الباقي. لم يتم إلغاء التحديد`
+          : `تعذّر تحميل ${result.failed} فاتورة؛ لم تتم الطباعة`)
+      }
+    } finally {
+      setBulkPrinting(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`هل أنت متأكد من حذف ${selection.count} فاتورة؟ سيُعكس تأثيرها على المخزون.`)) return
+    let failed = 0
+    for (const invoice of selection.selectedRows) {
+      try {
+        await deleteInvoice.mutateAsync(String(invoice.id))
+      } catch {
+        failed += 1
+      }
+    }
+    showToast(failed ? `تم حذف ${selection.count - failed} فاتورة وفشل ${failed}` : `تم حذف ${selection.count} فاتورة`)
+    selection.clear()
+  }
+
   return (
     <div className="app-page space-y-5">
       <PageHeader
@@ -494,6 +546,18 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
         hasActiveFilters={hasActiveFilters}
       />
 
+      {canSelect && (
+        <BulkActionBar
+          count={selection.count}
+          onPrint={canExportPrint ? () => void handleBulkPrint() : undefined}
+          onDelete={!isReadOnly ? () => void handleBulkDelete() : undefined}
+          onClear={selection.clear}
+          printLabel="طباعة الفواتير المحددة"
+          deleteLabel="حذف الفواتير المحددة"
+          busy={bulkPrinting}
+        />
+      )}
+
       <ResponsiveDataView
         loading={invoicesLoading}
         error={invoicesError ? 'تعذّر تحميل الفواتير الآجلة. أعد المحاولة لاحقاً.' : undefined}
@@ -506,6 +570,17 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
         <table className="app-table">
           <thead>
             <tr>
+              {canSelect && (
+                <th className="w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selection.allCurrentPageSelected}
+                    onChange={selection.toggleCurrentPage}
+                    aria-label="تحديد كل فواتير الصفحة"
+                    className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                  />
+                </th>
+              )}
               <th className="w-12 text-center">#</th>
               <th className="text-center w-28">التاريخ</th>
               <th className="text-center w-32">رقم الفاتورة</th>
@@ -527,6 +602,17 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
                 className="cursor-pointer hover:bg-slate-50/80"
                 onClick={() => openDetails(invoice)}
               >
+                {canSelect && (
+                  <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selection.isSelected(String(invoice.id))}
+                      onChange={() => selection.toggle(String(invoice.id))}
+                      aria-label={`تحديد الفاتورة ${String(invoice.invoice_no || '')}`}
+                      className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                    />
+                  </td>
+                )}
                 <td className="text-center text-xs text-slate-400 font-mono">
                   {invoices.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
@@ -603,7 +689,7 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
           {filteredInvoices.length > 0 && (
             <tfoot>
               <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-200">
-                <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={6}>
+                <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={canSelect ? 7 : 6}>
                   {hasActiveFilters ? 'إجمالي نتائج البحث' : 'الإجمالي'}
                 </td>
                 <td className="px-3.5 py-3 text-center text-slate-950 font-num text-sm font-extrabold whitespace-nowrap tabular-nums" dir="ltr">
@@ -634,6 +720,16 @@ export default function CreditTab({ repFilter, reps, showToast, isReadOnly = fal
             onClick={() => openDetails(invoice)}
           >
             <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              {canSelect && (
+                <input
+                  type="checkbox"
+                  checked={selection.isSelected(String(invoice.id))}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => selection.toggle(String(invoice.id))}
+                  aria-label={`تحديد الفاتورة ${String(invoice.invoice_no || '')}`}
+                  className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)] cursor-pointer"
+                />
+              )}
               <div>
                 <span className="font-extrabold text-slate-800 text-sm block">
                   {customerName(invoice.customer_id)}

@@ -5,6 +5,11 @@ import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import { useDatePreset } from '@/shared/hooks/useDatePreset'
+import { useRowSelection } from '@/shared/hooks/useRowSelection'
+import { BulkActionBar } from '@/shared/ui/BulkActionBar'
+import { useAuth } from '@/features/auth/useAuth'
+import { useSettings } from '@/features/settings/useSettings'
+import { printGenericDocument, printSupplierPaymentReceipt } from '@/features/reporting/printableDocuments'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import { formatMoney, getTodayISO } from '@/shared/lib/format'
 import { SUPPLIER_PAYMENT_METHODS, paymentMethodBadgeClass, paymentMethodLabel } from '@/shared/lib/paymentMethods'
@@ -40,6 +45,10 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
   const addPayment = useAddSupplierPayment()
   const updatePayment = useUpdateSupplierPayment()
   const deletePayment = useDeleteSupplierPayment()
+  const { data: settings } = useSettings()
+  const { can } = useAuth()
+  const canPrint = can('export_print')
+  const companyName = settings?.title || 'المؤسسة المصرية لتوزيع المواد الغذائية'
   const [paymentForm, setPaymentForm] = useState<Record<string, unknown> | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
@@ -83,6 +92,48 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
         .some((value) => String(value || '').toLowerCase().includes(term))
     })
   }, [payments, suppliers, searchTerm, from, to])
+
+  const notifyPrintBlocked = (printed: boolean) => {
+    if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+  }
+
+  const handlePrintReceipt = (payment: (typeof payments)[number]) => {
+    void printSupplierPaymentReceipt({
+      companyName,
+      date: payment.payment_date || '',
+      supplierName: supplierName(payment.supplier_id),
+      amount: Number(payment.amount || 0),
+      method: paymentMethodLabel(payment.method),
+      reference: payment.reference,
+      notes: payment.notes,
+    }).then(notifyPrintBlocked)
+  }
+
+  const handlePrintList = () => {
+    void printGenericDocument({
+      companyName,
+      title: 'سجل مدفوعات الموردين',
+      subtitle: from || to ? `من ${from || 'البداية'} إلى ${to || 'اليوم'}` : undefined,
+      columns: [
+        { label: '#', numeric: true },
+        { label: 'التاريخ' },
+        { label: 'المورد' },
+        { label: 'المبلغ', numeric: true },
+        { label: 'الطريقة' },
+        { label: 'المرجع' },
+        { label: 'ملاحظات' },
+      ],
+      rows: filteredPayments.map((payment, index) => [
+        filteredPayments.length - index,
+        new Date(payment.payment_date).toLocaleDateString('ar-EG'),
+        supplierName(payment.supplier_id),
+        formatMoney(Number(payment.amount || 0), { withCurrency: false }),
+        paymentMethodLabel(payment.method),
+        payment.reference || '-',
+        payment.notes || '-',
+      ]),
+    }).then(notifyPrintBlocked)
+  }
 
   const hasActiveFilters = !!searchTerm.trim() || !!from || !!to
   const resetFilters = () => {
@@ -132,6 +183,50 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
     }
   }
 
+  // ── Bulk selection (print/delete the checked rows on this page) ─────────────
+  const selection = useRowSelection(paginated, (payment) => String(payment.id))
+
+  const handleBulkPrint = async () => {
+    const printed = await printGenericDocument({
+      companyName,
+      title: 'مدفوعات الموردين المحددة',
+      columns: [
+        { label: '#', numeric: true },
+        { label: 'التاريخ' },
+        { label: 'المورد' },
+        { label: 'المبلغ', numeric: true },
+        { label: 'الطريقة' },
+        { label: 'المرجع' },
+        { label: 'ملاحظات' },
+      ],
+      rows: selection.selectedRows.map((payment, index) => [
+        String(selection.selectedRows.length - index),
+        new Date(payment.payment_date).toLocaleDateString('ar-EG'),
+        supplierName(payment.supplier_id),
+        formatMoney(Number(payment.amount || 0), { withCurrency: false }),
+        paymentMethodLabel(payment.method),
+        payment.reference || '-',
+        payment.notes || '-',
+      ]),
+    })
+    if (printed) selection.clear()
+    else notifyPrintBlocked(printed)
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`هل أنت متأكد من حذف ${selection.count} دفعة مورد؟`)) return
+    let failed = 0
+    for (const payment of selection.selectedRows) {
+      try {
+        await deletePayment.mutateAsync(payment.id)
+      } catch {
+        failed += 1
+      }
+    }
+    showToast(failed ? `تم حذف ${selection.count - failed} دفعة وفشل ${failed}` : `تم حذف ${selection.count} دفعة`)
+    selection.clear()
+  }
+
   const handleDelete = async (payment: (typeof payments)[number]) => {
     if (!confirm('هل أنت متأكد من حذف دفعة المورد هذه؟')) return
     try {
@@ -147,7 +242,16 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
       <PageHeader
         title="مدفوعات الموردين"
         count={`${filteredPayments.length} دفعة`}
-        actions={<button type="button" onClick={() => setPaymentForm(emptyPayment())} className="app-btn app-btn-primary py-2 text-xs sm:text-sm">+ تسجيل دفعة مورد</button>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canPrint && (
+              <button type="button" onClick={handlePrintList} className="app-btn app-btn-secondary py-2 text-xs sm:text-sm">
+                طباعة القائمة
+              </button>
+            )}
+            <button type="button" onClick={() => setPaymentForm(emptyPayment())} className="app-btn app-btn-primary py-2 text-xs sm:text-sm">+ تسجيل دفعة مورد</button>
+          </div>
+        }
       />
 
       <FilterToolbar
@@ -162,6 +266,15 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
         onToChange={(v) => { setTo(v); setCurrentPage(1) }}
         onReset={resetFilters}
         hasActiveFilters={hasActiveFilters}
+      />
+
+      <BulkActionBar
+        count={selection.count}
+        onPrint={canPrint ? () => void handleBulkPrint() : undefined}
+        onDelete={() => void handleBulkDelete()}
+        onClear={selection.clear}
+        printLabel="طباعة المدفوعات المحددة"
+        deleteLabel="حذف المدفوعات المحددة"
       />
 
       <ResponsiveDataView
@@ -186,6 +299,15 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
             <table className="app-table">
               <thead>
                 <tr>
+                  <th className="w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selection.allCurrentPageSelected}
+                      onChange={selection.toggleCurrentPage}
+                      aria-label="تحديد كل مدفوعات الصفحة"
+                      className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                    />
+                  </th>
                   <th className="w-12 text-center">#</th>
                   <th className="text-center">التاريخ</th>
                   <th>المورد</th>
@@ -199,6 +321,15 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
               <tbody>
                 {paginated.map((p, idx) => (
                   <tr key={p.id}>
+                    <td className="text-center">
+                      <input
+                        type="checkbox"
+                        checked={selection.isSelected(String(p.id))}
+                        onChange={() => selection.toggle(String(p.id))}
+                        aria-label="تحديد دفعة المورد"
+                        className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                      />
+                    </td>
                     <td className="text-center text-xs text-slate-400 font-mono">{filteredPayments.length - ((safePage - 1) * pageSize + idx)}</td>
                     <td className="text-center text-xs font-mono text-slate-600">{new Date(p.payment_date).toLocaleDateString('ar-EG')}</td>
                     <td className="font-semibold text-slate-800">{supplierName(p.supplier_id)}</td>
@@ -208,6 +339,9 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
                     <td className="text-xs text-slate-500">{p.notes || '-'}</td>
                     <td>
                       <div className="flex gap-1.5 justify-center">
+                        {canPrint && (
+                          <button type="button" onClick={() => handlePrintReceipt(p)} className="app-btn app-btn-sm app-btn-ghost text-xs">إيصال</button>
+                        )}
                         <button type="button" onClick={() => openEdit(p)} className="app-btn app-btn-sm app-btn-ghost text-xs">تعديل</button>
                         <button type="button" onClick={() => handleDelete(p)} disabled={deletePayment.isPending} className="app-btn app-btn-sm app-btn-danger text-xs">حذف</button>
                       </div>
@@ -221,6 +355,13 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
         cards={paginated.map((p) => (
           <div key={p.id} className="app-card p-3.5 space-y-2">
             <div className="flex items-start justify-between gap-2">
+              <input
+                type="checkbox"
+                checked={selection.isSelected(String(p.id))}
+                onChange={() => selection.toggle(String(p.id))}
+                aria-label="تحديد دفعة المورد"
+                className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)] cursor-pointer"
+              />
               <div>
                 <div className="font-bold text-slate-800 text-sm">{supplierName(p.supplier_id)}</div>
                 <div className="text-[11px] text-slate-400 font-mono">{new Date(p.payment_date).toLocaleDateString('ar-EG')}</div>
@@ -233,6 +374,9 @@ export default function SupplierPaymentsTab({ showToast }: Props) {
             {p.reference && <div className="text-xs text-slate-500">المرجع: <span className="font-mono" dir="ltr">{p.reference}</span></div>}
             {p.notes && <div className="text-xs text-slate-500">{p.notes}</div>}
             <div className="flex gap-2 pt-2 border-t border-slate-100">
+              {canPrint && (
+                <button type="button" onClick={() => handlePrintReceipt(p)} className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs">إيصال</button>
+              )}
               <button type="button" onClick={() => openEdit(p)} className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs">تعديل</button>
               <button type="button" onClick={() => handleDelete(p)} disabled={deletePayment.isPending} className="app-btn app-btn-danger app-btn-sm flex-1 py-1.5 text-xs">حذف</button>
             </div>

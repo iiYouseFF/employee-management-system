@@ -4,6 +4,8 @@ import WhatsAppShareButton from '@/shared/ui/WhatsAppShareButton'
 import { formatNumber, getTodayISO, toPiastres, fromPiastres } from '@/shared/lib/format'
 import { useSettings } from '@/features/settings/useSettings'
 import { printSalarySlip, shareSalarySlipWhatsApp } from '@/features/reporting/pdfGenerators'
+import { printPayrollRegister } from '@/features/reporting/printableDocuments'
+import { useAuth } from '@/features/auth/useAuth'
 import type { MonthlyPayrollRow } from './hr.types'
 import { useEmployeeLoans, useMonthlyPayroll, useSettlePayroll } from './useHr'
 
@@ -25,6 +27,8 @@ export default function PayrollSection({ showToast }: PayrollSectionProps) {
   const { data: rows = [], isLoading, isError, refetch } = useMonthlyPayroll(year, month)
   const { data: loans = [] } = useEmployeeLoans()
   const { data: settings } = useSettings()
+  const { can } = useAuth()
+  const canPrint = can('export_print')
   const settlePayroll = useSettlePayroll()
 
   const companyName = settings?.title || 'المؤسسة المصرية لتوزيع المواد الغذائية'
@@ -87,6 +91,30 @@ export default function PayrollSection({ showToast }: PayrollSectionProps) {
     }
   }
 
+  const handlePrintRegister = () => {
+    void printPayrollRegister({
+      companyName,
+      year,
+      month,
+      rows: rows.map((row) => ({
+        employeeName: row.full_name,
+        jobTitle: row.job_title,
+        presentDays: Number(row.present_days || 0),
+        absentDays: Number(row.absent_days || 0),
+        lateDays: Number(row.late_days || 0),
+        overtimeHours: Number(row.total_overtime_hours || 0),
+        baseSalary: Number(row.base_salary || 0),
+        overtimeTotal: Number(row.overtime_total || 0),
+        bonusesTotal: Number(row.bonuses_total || 0),
+        deductionsTotal: Number(row.deductions_total || 0),
+        loanDeduction: Number(row.suggested_loan_deduction || 0),
+        netSalary: Number(row.net_salary || 0),
+      })),
+    }).then((printed) => {
+      if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+    })
+  }
+
   const handleSettle = async () => {
     try {
       await settlePayroll.mutateAsync({
@@ -129,6 +157,16 @@ export default function PayrollSection({ showToast }: PayrollSectionProps) {
           <button type="button" onClick={() => void refetch()} className="app-btn app-btn-sm border border-slate-200 bg-white">
             تحديث
           </button>
+          {canPrint && (
+            <button
+              type="button"
+              onClick={handlePrintRegister}
+              disabled={!rows.length}
+              className="app-btn app-btn-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            >
+              طباعة المسير
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -215,20 +253,22 @@ export default function PayrollSection({ showToast }: PayrollSectionProps) {
                     <MoneyText amount={row.net_salary} />
                   </td>
                   <td>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => void handlePrintSlip(row)}
-                        className="app-btn app-btn-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      >
-                        طباعة
-                      </button>
-                      <WhatsAppShareButton
-                        loading={sharingId === row.employee_id}
-                        onClick={() => void handleShareSlip(row)}
-                        label="واتساب"
-                      />
-                    </div>
+                    {canPrint && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => void handlePrintSlip(row)}
+                          className="app-btn app-btn-sm border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        >
+                          طباعة
+                        </button>
+                        <WhatsAppShareButton
+                          loading={sharingId === row.employee_id}
+                          onClick={() => void handleShareSlip(row)}
+                          label="واتساب"
+                        />
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

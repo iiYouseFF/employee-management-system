@@ -27,21 +27,74 @@ export function openWhatsAppChat(phone: string | null | undefined, message: stri
   window.open(url, '_blank')
 }
 
+/** Paper sizes supported by the PDF and browser-print pipelines. */
+export type PaperSize = 'a4' | 'a5'
+
+type PrintDirection = 'rtl' | 'ltr'
+
+/** A5 is the default: 148mm at 96 DPI ≈ 559px; A4 remains 794px. */
+const PAPER_WIDTH_PX: Record<PaperSize, number> = {
+  a5: 559,
+  a4: 794,
+}
+
 /**
- * Converts an HTML string or element into a pixel-perfect A4 PDF using HTML5 canvas.
+ * The unified report template is authored for A5. Explicit A4 exports still need
+ * the original geometry, so it is restored here for every builder at once.
+ */
+const A4_OVERRIDE_CSS = `
+  .pdf-root { width: 794px !important; padding: 24px 32px 20px !important; font-size: 15px !important; }
+  .pdf-company { font-size: 24px !important; }
+  .pdf-doc-badge { font-size: 16px !important; padding: 6px 14px !important; }
+  .pdf-meta-grid { min-width: 240px !important; }
+  .pdf-meta-item, .pdf-entity-subtitle, .pdf-section-title { font-size: 14px !important; }
+  .pdf-entity-title { font-size: 18px !important; }
+  .pdf-table th { font-size: 15px !important; padding: 12px !important; }
+  .pdf-table td { font-size: 14.5px !important; padding: 11px 12px !important; }
+  .pdf-table .num { font-size: 14.5px !important; }
+  .pdf-table tr.row-total td { font-size: 15.5px !important; }
+  .analytics-table { table-layout: auto !important; }
+  .analytics-table th, .analytics-table td { padding: 10px !important; font-size: 13px !important; }
+  .overdue-table { table-layout: auto !important; }
+  .overdue-table th, .overdue-table td { padding: 8px !important; font-size: 12px !important; }
+  .pdf-signatures { font-size: 14px !important; margin-top: 28px !important; }
+`
+
+/** In-browser printing has page margins, so the fixed canvas width must become fluid. */
+const FLUID_PRINT_CSS = `
+  .pdf-root { width: auto !important; max-width: 100% !important; padding: 0 !important; }
+  .pdf-table-wrap { overflow: visible !important; }
+`
+const A5_PRINT_CSS = FLUID_PRINT_CSS
+const A4_PRINT_CSS = `${A4_OVERRIDE_CSS}
+  ${FLUID_PRINT_CSS}
+`
+
+/**
+ * Converts an HTML string or element into a pixel-perfect PDF using HTML5 canvas.
  * This completely eliminates Arabic reversed text or detached letter issues, because
  * the browser's own native typography & shaping engine (Tajawal font) renders the layout!
  */
-export async function generatePdfFromHtml(htmlContent: string): Promise<Blob> {
+export async function generatePdfFromHtml(
+  htmlContent: string,
+  dir: PrintDirection = 'rtl',
+  paperSize: PaperSize = 'a5'
+): Promise<Blob> {
+  const widthPx = PAPER_WIDTH_PX[paperSize]
   const container = document.createElement('div')
   container.style.position = 'fixed'
   container.style.left = '-9999px'
   container.style.top = '0'
-  container.style.width = '794px' // Standard A4 width at 96 DPI (210mm)
+  container.style.width = `${widthPx}px`
   container.style.backgroundColor = '#ffffff'
   container.style.zIndex = '-9999'
-  container.setAttribute('dir', 'rtl')
+  container.setAttribute('dir', dir)
   container.innerHTML = htmlContent
+  if (paperSize === 'a4') {
+    const override = document.createElement('style')
+    override.textContent = A4_OVERRIDE_CSS
+    container.appendChild(override)
+  }
 
   document.body.appendChild(container)
 
@@ -60,11 +113,11 @@ export async function generatePdfFromHtml(htmlContent: string): Promise<Blob> {
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: 794,
+      windowWidth: widthPx,
     })
 
     const imgData = canvas.toDataURL('image/jpeg', 0.95)
-    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pdf = new jsPDF('p', 'mm', paperSize)
     const pdfWidth = pdf.internal.pageSize.getWidth()
     const pdfHeight = pdf.internal.pageSize.getHeight()
 
@@ -118,8 +171,8 @@ export async function sharePdfBlobViaWhatsApp({
         text: message,
       })
       return { sharedViaNative: true }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         return { sharedViaNative: false }
       }
       console.warn('Native share failed, using fallback:', err)
@@ -145,7 +198,12 @@ export async function sharePdfBlobViaWhatsApp({
  * Print HTML content using the browser print dialog.
  * Uses an isolated print window so on-screen app layout is not affected.
  */
-export async function printHtml(htmlContent: string, title = 'تقرير'): Promise<boolean> {
+export async function printHtml(
+  htmlContent: string,
+  title = 'تقرير',
+  dir: PrintDirection = 'rtl',
+  paperSize: PaperSize = 'a5'
+): Promise<boolean> {
   const win = window.open('', '_blank', 'width=1100,height=800')
   if (!win) return false
 
@@ -154,9 +212,12 @@ export async function printHtml(htmlContent: string, title = 'تقرير'): Prom
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+  const pageRule = paperSize === 'a4' ? 'size: A4 portrait; margin: 12mm;' : 'size: A5 portrait; margin: 8mm;'
+  const contentRule = paperSize === 'a5' ? A5_PRINT_CSS : A4_PRINT_CSS
+  const lang = dir === 'ltr' ? 'en' : 'ar'
 
   const html = `<!doctype html>
-<html dir="rtl" lang="ar">
+<html dir="${dir}" lang="${lang}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -165,9 +226,10 @@ export async function printHtml(htmlContent: string, title = 'تقرير'): Prom
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    @page { size: A4; margin: 12mm; }
+    @page { ${pageRule} }
     html, body { margin: 0; padding: 0; background: #ffffff; }
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    ${contentRule}
   </style>
 </head>
 <body>${htmlContent}</body>

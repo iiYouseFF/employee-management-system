@@ -4,11 +4,8 @@ import { formatNumber } from '@/shared/lib/format'
 import { resolveProductUnit } from '@/shared/lib/productUnits'
 import { useInvoiceDetails, type InvoiceDetails, type InvoiceType } from '@/hooks/useInvoices'
 import { useSettings } from '@/features/settings/useSettings'
-import {
-  printInvoice,
-  shareInvoiceWhatsApp,
-  type InvoicePdfInput,
-} from '@/features/reporting/pdfGenerators'
+import { printInvoice, shareInvoiceWhatsApp } from '@/features/reporting/pdfGenerators'
+import { buildInvoicePdfInput } from '@/features/sales/invoicePdfInput'
 import { exportCSV } from '@/features/reporting/csv'
 import { useAuth } from '@/features/auth/useAuth'
 
@@ -59,30 +56,6 @@ function paymentStatus(details: InvoiceDetails): { label: string; className: str
   return { label: 'غير مدفوع', className: 'bg-rose-100 text-rose-800 border-rose-300' }
 }
 
-function buildPdfInput(details: InvoiceDetails, companyName: string, dir: 'rtl' | 'ltr'): InvoicePdfInput {
-  return {
-    invoiceType: details.invoiceType,
-    invoice_no: details.invoice_no,
-    date: details.date,
-    due_date: details.due_date,
-    customer_name: details.customer_name,
-    customer_phone: details.customer_phone,
-    rep_name: details.rep_name,
-    amount: details.amount,
-    down_payment: details.down_payment,
-    recorded_payments: details.recorded_payments,
-    pooled_payments: details.pooled_payments,
-    total_paid: details.total_paid,
-    remaining: details.remaining,
-    notes: details.notes,
-    item: details.item,
-    lines: details.lines,
-    payments: details.payments,
-    companyName,
-    dir,
-  }
-}
-
 export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }: InvoiceDetailsModalProps) {
   const { data: details, isLoading, error } = useInvoiceDetails(invoiceId, invoiceType)
   const { data: settings } = useSettings()
@@ -94,7 +67,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
   const companyName = settings?.title || 'شركة توريد'
   const dir: 'rtl' | 'ltr' = typeof document !== 'undefined' && document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl'
   const pdfInput = useMemo(
-    () => (details ? buildPdfInput(details, companyName, dir) : null),
+    () => (details ? buildInvoicePdfInput(details, companyName, dir) : null),
     [details, companyName, dir]
   )
 
@@ -201,7 +174,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
               >
                 <span className="inline-flex items-center gap-1.5">
                   <PrintIcon />
-                  {busy === 'print' ? 'جاري الطباعة...' : 'طباعة A4'}
+                  {busy === 'print' ? 'جاري الطباعة...' : 'طباعة A5'}
                 </span>
               </button>
               <button

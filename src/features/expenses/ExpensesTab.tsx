@@ -12,6 +12,11 @@ import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import { useDatePreset } from '@/shared/hooks/useDatePreset'
+import { useAuth } from '@/features/auth/useAuth'
+import { useSettings } from '@/features/settings/useSettings'
+import { printExpenseVoucher, printGenericDocument } from '@/features/reporting/printableDocuments'
+import { useRowSelection } from '@/shared/hooks/useRowSelection'
+import { BulkActionBar } from '@/shared/ui/BulkActionBar'
 
 const categories = [
   'إيجار',
@@ -28,6 +33,10 @@ export default function ExpensesTab({ showToast }: any) {
   const addExpense = useAddExpense()
   const updateExpense = useUpdateExpense()
   const deleteExpense = useDeleteExpense()
+  const { data: settings } = useSettings()
+  const { can } = useAuth()
+  const canPrint = can('export_print')
+  const companyName = settings?.title || 'المؤسسة المصرية لتوزيع المواد الغذائية'
   const [searchTerm, setSearchTerm] = useState('')
   const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
   const [editing, setEditing] = useState<any | null>(null)
@@ -61,11 +70,90 @@ export default function ExpensesTab({ showToast }: any) {
     return filteredExpenses.slice(start, start + pageSize)
   }, [filteredExpenses, currentPage, pageSize])
 
+  const notifyPrintBlocked = (printed: boolean) => {
+    if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+  }
+
+  const handlePrintVoucher = (expense: any) => {
+    void printExpenseVoucher({
+      companyName,
+      date: expense.date || '',
+      category: expense.category || '-',
+      amount: Number(expense.amount || 0),
+      description: expense.description,
+    }).then(notifyPrintBlocked)
+  }
+
+  const handlePrintList = () => {
+    void printGenericDocument({
+      companyName,
+      title: 'سجل المصاريف التشغيلية',
+      subtitle: from || to ? `من ${from || 'البداية'} إلى ${to || 'اليوم'}` : undefined,
+      columns: [
+        { label: '#', numeric: true },
+        { label: 'التاريخ' },
+        { label: 'النوع' },
+        { label: 'المبلغ', numeric: true },
+        { label: 'الوصف' },
+      ],
+      rows: filteredExpenses.map((expense: any, index: number) => [
+        filteredExpenses.length - index,
+        expense.date || '-',
+        expense.category || '-',
+        formatMoney(Number(expense.amount || 0), { withCurrency: false }),
+        expense.description || '-',
+      ]),
+    }).then(notifyPrintBlocked)
+  }
+
   const hasActiveFilters = !!searchTerm.trim() || !!from || !!to
   const resetFilters = () => {
     setSearchTerm('')
     reset()
     setCurrentPage(1)
+  }
+
+  // ── Bulk selection (print/delete the checked rows on this page) ─────────────
+  const selection = useRowSelection(
+    paginatedExpenses as Record<string, unknown>[],
+    (expense) => String(expense.id)
+  )
+
+  const handleBulkPrint = async () => {
+    const printed = await printGenericDocument({
+      companyName,
+      title: 'المصاريف المحددة',
+      columns: [
+        { label: '#', numeric: true },
+        { label: 'التاريخ' },
+        { label: 'النوع' },
+        { label: 'المبلغ', numeric: true },
+        { label: 'الوصف' },
+      ],
+      rows: selection.selectedRows.map((expense, index) => [
+        String(selection.selectedRows.length - index),
+        String(expense.date || '-'),
+        String(expense.category || '-'),
+        formatMoney(Number(expense.amount || 0), { withCurrency: false }),
+        String(expense.description || '-'),
+      ]),
+    })
+    if (printed) selection.clear()
+    else notifyPrintBlocked(printed)
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`هل أنت متأكد من حذف ${selection.count} مصروف؟`)) return
+    let failed = 0
+    for (const expense of selection.selectedRows) {
+      try {
+        await deleteExpense.mutateAsync(String(expense.id))
+      } catch {
+        failed += 1
+      }
+    }
+    showToast(failed ? `تم حذف ${selection.count - failed} مصروف وفشل ${failed}` : `تم حذف ${selection.count} مصروف`)
+    selection.clear()
   }
 
   const openNew = () => {
@@ -126,6 +214,14 @@ export default function ExpensesTab({ showToast }: any) {
             <span className="badge badge-danger">
               إجمالي: <span className="font-num font-extrabold" dir="ltr">{formatMoney(total)}</span>
             </span>
+            {canPrint && (
+              <button
+                onClick={handlePrintList}
+                className="app-btn app-btn-secondary py-2 text-xs sm:text-sm"
+              >
+                طباعة القائمة
+              </button>
+            )}
             <button
               onClick={openNew}
               className="app-btn app-btn-primary py-2 text-xs sm:text-sm"
@@ -151,6 +247,15 @@ export default function ExpensesTab({ showToast }: any) {
         hasActiveFilters={hasActiveFilters}
       />
 
+      <BulkActionBar
+        count={selection.count}
+        onPrint={canPrint ? () => void handleBulkPrint() : undefined}
+        onDelete={() => void handleBulkDelete()}
+        onClear={selection.clear}
+        printLabel="طباعة المصروفات المحددة"
+        deleteLabel="حذف المصروفات المحددة"
+      />
+
       <ResponsiveDataView
         loading={isLoading}
         error={error ? 'تعذّر تحميل المصروفات. أعد المحاولة لاحقاً.' : undefined}
@@ -174,6 +279,15 @@ export default function ExpensesTab({ showToast }: any) {
         <table className="app-table">
           <thead>
             <tr>
+              <th className="w-10 text-center">
+                <input
+                  type="checkbox"
+                  checked={selection.allCurrentPageSelected}
+                  onChange={selection.toggleCurrentPage}
+                  aria-label="تحديد كل مصروفات الصفحة"
+                  className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                />
+              </th>
               <th className="w-12 text-center">#</th>
               <th className="w-32 text-center">التاريخ</th>
               <th className="w-44">النوع</th>
@@ -185,6 +299,15 @@ export default function ExpensesTab({ showToast }: any) {
           <tbody>
             {paginatedExpenses.map((expense: any, idx: number) => (
               <tr key={expense.id}>
+                <td className="text-center">
+                  <input
+                    type="checkbox"
+                    checked={selection.isSelected(String(expense.id))}
+                    onChange={() => selection.toggle(String(expense.id))}
+                    aria-label="تحديد المصروف"
+                    className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                  />
+                </td>
                 <td className="text-center text-xs text-slate-400 font-mono">
                   {filteredExpenses.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
@@ -204,6 +327,15 @@ export default function ExpensesTab({ showToast }: any) {
                 </td>
                 <td>
                   <div className="flex gap-1.5 justify-center">
+                    {canPrint && (
+                      <button
+                        onClick={() => handlePrintVoucher(expense)}
+                        className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
+                        title="طباعة قسيمة المصروف"
+                      >
+                        إيصال
+                      </button>
+                    )}
                     <button
                       onClick={() => openEdit(expense)}
                       className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
@@ -229,6 +361,13 @@ export default function ExpensesTab({ showToast }: any) {
         {paginatedExpenses.map((expense: any) => (
           <div key={expense.id} className="app-card p-3.5 shadow-sm space-y-2.5">
             <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              <input
+                type="checkbox"
+                checked={selection.isSelected(String(expense.id))}
+                onChange={() => selection.toggle(String(expense.id))}
+                aria-label="تحديد المصروف"
+                className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)] cursor-pointer"
+              />
               <div>
                 <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
                   {expense.category}
@@ -251,6 +390,14 @@ export default function ExpensesTab({ showToast }: any) {
             )}
 
             <div className="flex gap-2 pt-1 border-t border-slate-100">
+              {canPrint && (
+                <button
+                  onClick={() => handlePrintVoucher(expense)}
+                  className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
+                >
+                  طباعة الإيصال
+                </button>
+              )}
               <button
                 onClick={() => openEdit(expense)}
                 className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200"

@@ -1,5 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { getTodayISO, formatMoney } from '@/shared/lib/format'
+import { useAuth } from '@/features/auth/useAuth'
+import { useSettings } from '@/features/settings/useSettings'
+import {
+  printCustomerPaymentReceipt,
+  printGenericDocument,
+} from '@/features/reporting/printableDocuments'
 import { CUSTOMER_PAYMENT_METHODS, paymentMethodBadgeClass, paymentMethodLabel } from '@/shared/lib/paymentMethods'
 import FormModal from '@/shared/ui/FormModal'
 import Pagination from '@/shared/ui/Pagination'
@@ -7,6 +13,8 @@ import PageHeader from '@/shared/ui/PageHeader'
 import FilterToolbar from '@/shared/ui/FilterToolbar'
 import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import { useDatePreset } from '@/shared/hooks/useDatePreset'
+import { useRowSelection } from '@/shared/hooks/useRowSelection'
+import { BulkActionBar } from '@/shared/ui/BulkActionBar'
 import {
   useAddPayment,
   useUpdatePayment,
@@ -26,6 +34,10 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
   const updatePayment = useUpdatePayment()
   const deletePayment = useDeletePayment()
   const { data: customers = [] } = useCustomers()
+  const { data: settings } = useSettings()
+  const { can } = useAuth()
+  const canPrint = can('export_print')
+  const companyName = settings?.title || 'المؤسسة المصرية لتوزيع المواد الغذائية'
   const [editing, setEditing] = useState<any | null>(null)
 
   useEffect(() => { if (createSignal) { openNew(); onSignalHandled?.() } }, [createSignal]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -135,6 +147,48 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
     0
   )
 
+  const handlePrintReceipt = (payment: any) => {
+    void printCustomerPaymentReceipt({
+      companyName,
+      date: payment.date || '',
+      customerName: customerName(payment.customer_id),
+      repName: repName(payment.rep_id),
+      invoiceNo: invoiceNo(payment.credit_invoice_id),
+      amount: Number(payment.amount || 0),
+      method: payment.method || 'نقدي',
+    }).then((printed) => {
+      if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+    })
+  }
+
+  const handlePrintList = () => {
+    void printGenericDocument({
+      companyName,
+      title: 'سجل دفعات وتحصيلات العملاء',
+      subtitle: from || to ? `من ${from || 'البداية'} إلى ${to || 'اليوم'}` : undefined,
+      columns: [
+        { label: '#', numeric: true },
+        { label: 'التاريخ' },
+        { label: 'العميل' },
+        { label: 'المندوب' },
+        { label: 'الفاتورة' },
+        { label: 'المبلغ', numeric: true },
+        { label: 'الطريقة' },
+      ],
+      rows: filteredPayments.map((payment: any, index: number) => [
+        filteredPayments.length - index,
+        formatDate(payment.date),
+        customerName(payment.customer_id),
+        repName(payment.rep_id),
+        invoiceNo(payment.credit_invoice_id),
+        formatMoney(payment.amount || 0, { withCurrency: false }),
+        payment.method || '-',
+      ]),
+    }).then((printed) => {
+      if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+    })
+  }
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(15)
@@ -150,6 +204,54 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
     setSearchTerm('')
     reset()
     setCurrentPage(1)
+  }
+
+  // ── Bulk selection (print/delete the checked rows on this page) ─────────────
+  const canSelect = canPrint || !isReadOnly
+  const selection = useRowSelection(
+    paginatedPayments as Record<string, unknown>[],
+    (payment) => String(payment.id)
+  )
+
+  const handleBulkPrint = async () => {
+    const printed = await printGenericDocument({
+      companyName,
+      title: 'الدفعات المحددة',
+      columns: [
+        { label: '#', numeric: true },
+        { label: 'التاريخ' },
+        { label: 'العميل' },
+        { label: 'المندوب' },
+        { label: 'الفاتورة' },
+        { label: 'المبلغ', numeric: true },
+        { label: 'الطريقة' },
+      ],
+      rows: selection.selectedRows.map((payment, index) => [
+        String(selection.selectedRows.length - index),
+        formatDate(String(payment.date || '')),
+        customerName(String(payment.customer_id || '')),
+        repName(String(payment.rep_id || '')),
+        invoiceNo(String(payment.credit_invoice_id || '')),
+        formatMoney(Number(payment.amount || 0), { withCurrency: false }),
+        String(payment.method || '-'),
+      ]),
+    })
+    if (printed) selection.clear()
+    else showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`هل أنت متأكد من حذف ${selection.count} دفعة؟`)) return
+    let failed = 0
+    for (const payment of selection.selectedRows) {
+      try {
+        await deletePayment.mutateAsync(String(payment.id))
+      } catch {
+        failed += 1
+      }
+    }
+    showToast(failed ? `تم حذف ${selection.count - failed} دفعة وفشل ${failed}` : `تم حذف ${selection.count} دفعة`)
+    selection.clear()
   }
 
   const getMethodBadge = (method?: string) => {
@@ -168,6 +270,11 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
               <span>إجمالي التحصيلات:</span>
               <span className="num font-extrabold text-sm">{formatMoney(filteredTotal)}</span>
             </div>
+            {canPrint && (
+              <button type="button" onClick={handlePrintList} className="app-btn app-btn-secondary">
+                طباعة القائمة
+              </button>
+            )}
             {!isReadOnly && (
               <button type="button" onClick={openNew} className="app-btn app-btn-primary">+ تسجيل دفعة جديدة</button>
             )}
@@ -189,6 +296,17 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
         hasActiveFilters={hasActiveFilters}
       />
 
+      {canSelect && (
+        <BulkActionBar
+          count={selection.count}
+          onPrint={canPrint ? () => void handleBulkPrint() : undefined}
+          onDelete={!isReadOnly ? () => void handleBulkDelete() : undefined}
+          onClear={selection.clear}
+          printLabel="طباعة الدفعات المحددة"
+          deleteLabel="حذف الدفعات المحددة"
+        />
+      )}
+
       <ResponsiveDataView
         loading={paymentsLoading}
         error={paymentsError ? 'تعذّر تحميل الدفعات. أعد المحاولة لاحقاً.' : undefined}
@@ -201,6 +319,17 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
         <table className="app-table">
           <thead>
             <tr>
+              {canSelect && (
+                <th className="w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selection.allCurrentPageSelected}
+                    onChange={selection.toggleCurrentPage}
+                    aria-label="تحديد كل دفعات الصفحة"
+                    className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                  />
+                </th>
+              )}
               <th className="w-12 text-center">#</th>
               <th className="text-center w-28">تاريخ الدفع</th>
               <th>العميل</th>
@@ -208,12 +337,23 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
               <th className="text-center w-32">الفاتورة المربوطة</th>
               <th className="text-center w-36 font-bold">المبلغ المحصل (ج.م)</th>
               <th className="text-center w-32">طريقة الدفع</th>
-              {!isReadOnly && <th className="text-center w-28">الإجراءات</th>}
+              {(!isReadOnly || canPrint) && <th className="text-center w-36">الإجراءات</th>}
             </tr>
           </thead>
           <tbody>
             {(paginatedPayments as any[]).map((payment: any, idx: number) => (
               <tr key={payment.id}>
+                {canSelect && (
+                  <td className="text-center">
+                    <input
+                      type="checkbox"
+                      checked={selection.isSelected(String(payment.id))}
+                      onChange={() => selection.toggle(String(payment.id))}
+                      aria-label="تحديد الدفعة"
+                      className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                    />
+                  </td>
+                )}
                 <td className="text-center text-xs text-slate-400 font-mono">
                   {filteredPayments.length - ((currentPage - 1) * pageSize + idx)}
                 </td>
@@ -241,23 +381,36 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
                   {formatMoney(payment.amount || 0, { withCurrency: false })}
                 </td>
                 <td className="text-center whitespace-nowrap">{getMethodBadge(payment.method)}</td>
-                {!isReadOnly && (
+                {(!isReadOnly || canPrint) && (
                   <td>
                     <div className="flex gap-1 justify-center">
-                      <button
-                        onClick={() => openEdit(payment)}
-                        className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
-                        title="تعديل الدفعة"
-                      >
-                        تعديل
-                      </button>
-                      <button
-                        onClick={() => handleDelete(payment)}
-                        className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
-                        title="حذف الدفعة"
-                      >
-                        حذف
-                      </button>
+                      {canPrint && (
+                        <button
+                          onClick={() => handlePrintReceipt(payment)}
+                          className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
+                          title="طباعة إيصال التحصيل"
+                        >
+                          إيصال
+                        </button>
+                      )}
+                      {!isReadOnly && (
+                        <>
+                        <button
+                          onClick={() => openEdit(payment)}
+                          className="app-btn app-btn-sm app-btn-ghost text-xs hover:border-blue-400 hover:text-blue-700"
+                          title="تعديل الدفعة"
+                        >
+                          تعديل
+                        </button>
+                        <button
+                          onClick={() => handleDelete(payment)}
+                          className="app-btn app-btn-sm app-btn-ghost text-xs text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+                          title="حذف الدفعة"
+                        >
+                          حذف
+                        </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 )}
@@ -267,13 +420,13 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
           {filteredPayments.length > 0 && (
             <tfoot>
               <tr className="bg-slate-100/90 font-bold border-t-2 border-slate-200">
-                <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={5}>
+                <td className="px-3.5 py-3 text-center text-slate-700 font-extrabold" colSpan={canSelect ? 6 : 5}>
                   إجمالي المبالغ المحصلة
                 </td>
                 <td className="px-3.5 py-3 text-center text-emerald-800 font-num text-base font-extrabold whitespace-nowrap" dir="ltr">
                   {formatMoney(filteredTotal)}
                 </td>
-                <td colSpan={!isReadOnly ? 2 : 1}></td>
+                <td colSpan={!isReadOnly || canPrint ? 2 : 1}></td>
               </tr>
             </tfoot>
           )}
@@ -285,6 +438,15 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
         {(paginatedPayments as any[]).map((payment: any) => (
           <div key={payment.id} className="app-card p-3.5 shadow-sm space-y-2.5">
             <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              {canSelect && (
+                <input
+                  type="checkbox"
+                  checked={selection.isSelected(String(payment.id))}
+                  onChange={() => selection.toggle(String(payment.id))}
+                  aria-label="تحديد الدفعة"
+                  className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)] cursor-pointer"
+                />
+              )}
               <div>
                 <span className="font-extrabold text-slate-800 text-sm block">
                   {customerName(payment.customer_id)}
@@ -319,20 +481,32 @@ export default function PaymentsTab({ repFilter, reps, showToast, isReadOnly = f
               </div>
             )}
 
-            {!isReadOnly && (
+            {(!isReadOnly || canPrint) && (
               <div className="flex gap-2 pt-1 border-t border-slate-100">
-                <button
-                  onClick={() => openEdit(payment)}
-                  className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
-                >
-                  تعديل الدفعة
-                </button>
-                <button
-                  onClick={() => handleDelete(payment)}
-                  className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
-                >
-                  حذف
-                </button>
+                {canPrint && (
+                  <button
+                    onClick={() => handlePrintReceipt(payment)}
+                    className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
+                  >
+                    طباعة الإيصال
+                  </button>
+                )}
+                {!isReadOnly && (
+                  <>
+                    <button
+                      onClick={() => openEdit(payment)}
+                      className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs font-semibold text-blue-700 border-blue-200 hover:bg-blue-50"
+                    >
+                      تعديل الدفعة
+                    </button>
+                    <button
+                      onClick={() => handleDelete(payment)}
+                      className="app-btn app-btn-ghost app-btn-sm px-3 py-1.5 text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+                    >
+                      حذف
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>

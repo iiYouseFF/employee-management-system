@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import Modal from '@/shared/ui/Modal'
 import { useInvoiceDetails, type InvoiceType } from '@/hooks/useInvoices'
 import { useSettings } from '@/features/settings/useSettings'
-import { printInvoice, type InvoicePdfInput } from '@/features/reporting/pdfGenerators'
+import { printInvoice } from '@/features/reporting/pdfGenerators'
+import { buildInvoicePdfInput } from '@/features/sales/invoicePdfInput'
 import { useAuth } from '@/features/auth/useAuth'
 
 interface PostSaveInvoicePrintPromptProps {
@@ -10,34 +11,6 @@ interface PostSaveInvoicePrintPromptProps {
   invoiceType: InvoiceType
   invoiceNo?: string
   onClose: () => void
-}
-
-function buildPdfInput(
-  details: NonNullable<ReturnType<typeof useInvoiceDetails>['data']>,
-  companyName: string,
-  dir: 'rtl' | 'ltr'
-): InvoicePdfInput {
-  return {
-    invoiceType: details.invoiceType,
-    invoice_no: details.invoice_no,
-    date: details.date,
-    due_date: details.due_date,
-    customer_name: details.customer_name,
-    customer_phone: details.customer_phone,
-    rep_name: details.rep_name,
-    amount: details.amount,
-    down_payment: details.down_payment,
-    recorded_payments: details.recorded_payments,
-    pooled_payments: details.pooled_payments,
-    total_paid: details.total_paid,
-    remaining: details.remaining,
-    notes: details.notes,
-    item: details.item,
-    lines: details.lines,
-    payments: details.payments,
-    companyName,
-    dir,
-  }
 }
 
 export default function PostSaveInvoicePrintPrompt({
@@ -64,7 +37,7 @@ export default function PostSaveInvoicePrintPrompt({
     setPrinting(true)
     setPrintError('')
     try {
-      const printed = await printInvoice(buildPdfInput(details, companyName, dir))
+      const printed = await printInvoice(buildInvoicePdfInput(details, companyName, dir))
       if (!printed) throw new Error('تعذر فتح نافذة الطباعة. تحقق من السماح بالنوافذ المنبثقة.')
       onClose()
     } catch (e) {

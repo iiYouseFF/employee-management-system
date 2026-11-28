@@ -21,6 +21,10 @@ import { exportCSV } from '@/features/reporting/csv'
 import { buildUnifiedReportTemplate } from '@/features/reporting/pdfGenerators'
 import { generatePdfFromHtml, sharePdfBlobViaWhatsApp } from '@/shared/lib/pdfShare'
 import { useAuth } from '@/features/auth/useAuth'
+import { useRowSelection } from '@/shared/hooks/useRowSelection'
+import { BulkActionBar } from '@/shared/ui/BulkActionBar'
+import { printInvoicesBatch } from '@/features/reporting/bulkInvoicePrint'
+import { useDeleteCreditInvoiceWithStock } from '@/features/inventory/useInventory'
 
 type StatusFilter = 'all' | 'overdue' | 'within'
 
@@ -87,9 +91,24 @@ function buildReportHtml(
       { label: t(lang, 'عدد الفواتير غير المسددة', 'Unpaid invoice count'), value: num(totals.count, 0) },
     ],
     bodyHtml: `
+      <style>
+        .overdue-table { table-layout: fixed; }
+        .overdue-table th, .overdue-table td { padding: 3px 3px; font-size: 9.5px; line-height: 1.35; overflow-wrap: anywhere; }
+        .overdue-table .num { font-size: 9.5px; white-space: normal; }
+        .overdue-table th:nth-child(1) { width: 12%; }
+        .overdue-table th:nth-child(2) { width: 16%; }
+        .overdue-table th:nth-child(3) { width: 12%; }
+        .overdue-table th:nth-child(4) { width: 10%; }
+        .overdue-table th:nth-child(5) { width: 8%; }
+        .overdue-table th:nth-child(6) { width: 8%; }
+        .overdue-table th:nth-child(7) { width: 10%; }
+        .overdue-table th:nth-child(8) { width: 9%; }
+        .overdue-table th:nth-child(9) { width: 7%; }
+        .overdue-table th:nth-child(10) { width: 8%; }
+      </style>
       <section class="pdf-section">
         <h3 class="pdf-section-title">${t(lang, 'تفاصيل الفواتير', 'Invoice details')}</h3>
-        <div class="pdf-table-wrap"><table class="pdf-table">
+        <div class="pdf-table-wrap"><table class="pdf-table overdue-table">
           <thead><tr>
             <th>${t(lang, 'رقم الفاتورة', 'Invoice no.')}</th>
             <th>${t(lang, 'العميل', 'Customer')}</th>
@@ -122,8 +141,9 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
   const [sharing, setSharing] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(15)
-  const { can } = useAuth()
+  const { can, isReadOnly } = useAuth()
   const canExportPrint = can('export_print')
+  const deleteInvoice = useDeleteCreditInvoiceWithStock()
 
   const scopedRows = useMemo(
     () => (repFilter !== 'all' ? rows.filter((r) => r.rep_id === repFilter) : rows),
@@ -204,7 +224,7 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
     setSharing(true)
     try {
       const html = buildReportHtml(filteredRows, lang, settings?.title || t(lang, 'نظام المبيعات', 'Sales system'), totals)
-      const blob = await generatePdfFromHtml(html)
+      const blob = await generatePdfFromHtml(html, lang === 'ar' ? 'rtl' : 'ltr')
       await sharePdfBlobViaWhatsApp({
         blob,
         filename: `unpaid-overdue-${getTodayISO()}.pdf`,
@@ -215,6 +235,54 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
     } finally {
       setSharing(false)
     }
+  }
+
+  // ── Bulk selection (print/delete the checked rows on this page) ─────────────
+  const canSelect = canExportPrint || !isReadOnly
+  const [bulkPrinting, setBulkPrinting] = useState(false)
+  const selection = useRowSelection(visibleRows, (row) => row.invoice_id)
+
+  const handleBulkPrint = async () => {
+    if (bulkPrinting) return
+    setBulkPrinting(true)
+    try {
+      const result = await printInvoicesBatch({
+        invoices: selection.selectedRows.map((row) => ({
+          id: row.invoice_id,
+          type: 'credit' as const,
+        })),
+        companyName: settings?.title || t(lang, 'نظام المبيعات', 'Sales system'),
+        dir: lang === 'ar' ? 'rtl' : 'ltr',
+        title: t(lang, 'الفواتير غير المسددة المحددة', 'Selected unpaid invoices'),
+      })
+      if (result.printed && result.failed === 0) selection.clear()
+      if (!result.printed) {
+        showToast(t(lang, 'يرجى السماح بالنوافذ المنبثقة للطباعة', 'Allow pop-ups to print'))
+      }
+      if (result.failed) {
+        showToast(result.printed
+          ? t(lang, `تعذّر تحميل ${result.failed} فاتورة؛ تمت طباعة الباقي. لم يتم إلغاء التحديد`, `Could not load ${result.failed} invoices; printed the rest. Selection kept`)
+          : t(lang, `تعذّر تحميل ${result.failed} فاتورة؛ لم تتم الطباعة`, `Could not load ${result.failed} invoices; nothing was printed`))
+      }
+    } finally {
+      setBulkPrinting(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(t(lang, `هل أنت متأكد من حذف ${selection.count} فاتورة؟`, `Delete ${selection.count} invoices?`))) return
+    let failed = 0
+    for (const row of selection.selectedRows) {
+      try {
+        await deleteInvoice.mutateAsync(row.invoice_id)
+      } catch {
+        failed += 1
+      }
+    }
+    showToast(failed
+      ? t(lang, `تم حذف ${selection.count - failed} فاتورة وفشل ${failed}`, `Deleted ${selection.count - failed} invoices; ${failed} failed`)
+      : t(lang, `تم حذف ${selection.count} فاتورة`, `Deleted ${selection.count} invoices`))
+    selection.clear()
   }
 
   const delayBadge = (row: UnpaidCreditInvoice) => (
@@ -296,6 +364,18 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
         </select>
       </FilterToolbar>
 
+      {canSelect && (
+        <BulkActionBar
+          count={selection.count}
+          onPrint={canExportPrint ? () => void handleBulkPrint() : undefined}
+          onDelete={!isReadOnly ? () => void handleBulkDelete() : undefined}
+          onClear={selection.clear}
+          printLabel={t(lang, 'طباعة المحدد', 'Print selected')}
+          deleteLabel={t(lang, 'حذف المحدد', 'Delete selected')}
+          busy={bulkPrinting}
+        />
+      )}
+
       <ResponsiveDataView
         loading={isLoading}
         error={error ? t(lang, 'تعذّر تحميل الفواتير غير المسددة. أعد المحاولة لاحقاً.', 'Could not load unpaid invoices. Please try again.') : undefined}
@@ -306,6 +386,17 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
             <table className="app-table">
               <thead>
                 <tr>
+                  {canSelect && (
+                    <th className="w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selection.allCurrentPageSelected}
+                        onChange={selection.toggleCurrentPage}
+                        aria-label={t(lang, 'تحديد كل فواتير الصفحة', 'Select all invoices on this page')}
+                        className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th className="text-start">{t(lang, 'رقم الفاتورة', 'Invoice no.')}</th>
                   <th className="text-start">{t(lang, 'العميل', 'Customer')}</th>
                   <th className="text-start">{t(lang, 'المندوب', 'Sales rep')}</th>
@@ -320,6 +411,17 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
               <tbody>
                 {visibleRows.map((row) => (
                   <tr key={row.invoice_id} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedId(row.invoice_id)}>
+                    {canSelect && (
+                      <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selection.isSelected(row.invoice_id)}
+                          onChange={() => selection.toggle(row.invoice_id)}
+                          aria-label={`${t(lang, 'تحديد الفاتورة', 'Select invoice')} ${row.invoice_no}`}
+                          className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td>
                       <button
                         type="button"
@@ -358,13 +460,28 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
         cards={(
           <div className="space-y-3">
             {visibleRows.map((row) => (
-              <button
+              <div
                 key={row.invoice_id}
-                type="button"
+                tabIndex={0}
                 onClick={() => setSelectedId(row.invoice_id)}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                    setSelectedId(row.invoice_id)
+                  }
+                }}
                 className="w-full text-start app-card p-3.5 space-y-2.5 hover:border-[var(--primary)] transition"
               >
                 <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+                  {canSelect && (
+                    <input
+                      type="checkbox"
+                      checked={selection.isSelected(row.invoice_id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => selection.toggle(row.invoice_id)}
+                      aria-label={`${t(lang, 'تحديد الفاتورة', 'Select invoice')} ${row.invoice_no}`}
+                      className="mt-1 h-4 w-4 shrink-0 accent-[var(--primary)] cursor-pointer"
+                    />
+                  )}
                   <div className="min-w-0">
                     <span className="text-[var(--primary)] font-bold hover:underline font-mono text-sm block" dir="ltr">
                       {row.invoice_no}
@@ -389,7 +506,7 @@ export default function OverdueInvoicesTab({ repFilter, reps, showToast }: Overd
                     {t(lang, 'الاستحقاق', 'Due')}: {formatLocalDate(row.due_date, lang)}
                   </span>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
