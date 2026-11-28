@@ -4,6 +4,7 @@ import type { StatementRow } from '@/features/statements/useStatements'
 import type { Product } from '@/features/products/useProducts'
 import type { Report, Cell } from '@/features/reporting/report'
 import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
+import { t, type UiLang } from '@/shared/lib/bilingual'
 
 function esc(val: unknown): string {
   if (val === null || val === undefined) return ''
@@ -1246,4 +1247,190 @@ export async function shareSalarySlipWhatsApp(input: SalarySlipPdfInput) {
     recipientPhone: input.phone || undefined,
     message,
   })
+}
+
+// ─── Warehouse physical stock count sheet ─────────────────────────────────────
+export interface StockCountRow {
+  name_ar: string
+  name_en?: string | null
+  sku?: string | null
+  category?: string | null
+  unit?: string | null
+  current_stock: number
+  /** Shelf order from the products table; used to walk the warehouse systematically. */
+  sort_order?: number | null
+}
+
+export interface StockCountReportInput {
+  rows: StockCountRow[]
+  categoryFilter?: string
+  companyName?: string
+  dir?: 'rtl' | 'ltr'
+}
+
+const STOCK_COUNT_REPORT_CSS = `
+  .stock-count-sub { font-size: 12px; font-weight: 700; color: #475569; line-height: 1.4; }
+  .pdf-table .stock-count-index, .pdf-table .stock-count-box-cell { text-align: center; }
+  .stock-count-index { font-weight: 700; }
+  .stock-count-num {
+    font-size: 15px; font-weight: 800;
+    font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap;
+  }
+  .stock-count-box {
+    display: inline-block;
+    width: 100%;
+    min-width: 115px;
+    height: 30px;
+    border: 1.5px solid #64748b;
+    background: #ffffff;
+    border-radius: 4px;
+  }
+  .stock-count-box-diff { min-width: 90px; border-color: #94a3b8; }
+  .stock-count-category td {
+    background: #eef5fc !important; color: #103352;
+    font-size: 13px; font-weight: 800; padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+  }
+  .stock-count-category { break-after: avoid; page-break-after: avoid; }
+  .stock-count-signoff {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 28px;
+    font-weight: 700;
+    font-size: 14px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+`
+
+/**
+ * Blank physical count sheet built on the unified A4 report template.
+ * Rows are grouped by category then shelf sort order then Arabic name, so the
+ * warehouse team can count shelves in order and write counts/differences by hand.
+ */
+export function buildStockCountReportHtml({
+  rows,
+  categoryFilter = 'all',
+  companyName = 'شركة توريد',
+  dir = 'rtl',
+}: StockCountReportInput): string {
+  const lang: UiLang = dir === 'ltr' ? 'en' : 'ar'
+  const uncategorized = t(lang, 'بدون تصنيف', 'Uncategorized')
+  const allLabel = t(lang, 'الكل', 'All')
+  const categoryLabel = !categoryFilter || categoryFilter === 'all' ? allLabel : categoryFilter
+
+  const sortedRows = rows.slice().sort((a, b) => {
+    const catA = a.category?.trim() || uncategorized
+    const catB = b.category?.trim() || uncategorized
+    if (catA === uncategorized && catB !== uncategorized) return 1
+    if (catB === uncategorized && catA !== uncategorized) return -1
+    const byCategory = catA.localeCompare(catB, lang === 'ar' ? 'ar' : 'en')
+    if (byCategory !== 0) return byCategory
+    const orderA = a.sort_order ?? Number.MAX_SAFE_INTEGER
+    const orderB = b.sort_order ?? Number.MAX_SAFE_INTEGER
+    if (orderA !== orderB) return orderA - orderB
+    return (a.name_ar || '').localeCompare(b.name_ar || '', 'ar')
+  })
+
+  let lastCategory = ''
+  const rowsHtml = sortedRows
+    .map((row, index) => {
+      const category = row.category?.trim() || uncategorized
+      const categoryBand =
+        category === lastCategory
+          ? ''
+          : `<tr class="stock-count-category"><td colspan="7">${esc(category)}</td></tr>`
+      lastCategory = category
+      const englishName = row.name_en
+        ? `<div class="stock-count-sub" dir="ltr">${esc(row.name_en)}</div>`
+        : ''
+      return `${categoryBand}
+        <tr>
+          <td class="stock-count-index">${esc(index + 1)}</td>
+          <td dir="ltr">${esc(row.sku || '—')}</td>
+          <td><strong>${esc(row.name_ar || row.name_en || '—')}</strong>${englishName}</td>
+          <td>${esc(row.unit || '—')}</td>
+          <td class="num stock-count-num">${esc(formatNumber(Number(row.current_stock) || 0))}</td>
+          <td class="stock-count-box-cell"><span class="stock-count-box" aria-hidden="true"></span></td>
+          <td class="stock-count-box-cell"><span class="stock-count-box stock-count-box-diff" aria-hidden="true"></span></td>
+        </tr>`
+    })
+    .join('')
+
+  const emptyRow = `<tr><td colspan="7"><div class="pdf-empty">${esc(
+    t(lang, 'لا توجد أصناف نشطة مطابقة', 'No active products match the selected filters')
+  )}</div></td></tr>`
+
+  const headHtml = [
+    '#',
+    t(lang, 'كود الصنف', 'SKU'),
+    t(lang, 'اسم الصنف', 'Product name'),
+    t(lang, 'الوحدة', 'Unit'),
+    t(lang, 'رصيد النظام', 'System stock'),
+    t(lang, 'الجرد الفعلي', 'Physical count'),
+    t(lang, 'الفرق (+/-)', 'Difference (+/-)'),
+  ]
+    .map((label, i) => {
+      const width = ['36px', '92px', '', '52px', '88px', '150px', '118px'][i]
+      const cls =
+        i === 0
+          ? 'stock-count-index'
+          : i === 4
+            ? 'num stock-count-num'
+            : i === 5 || i === 6
+              ? 'stock-count-box-cell'
+              : ''
+      return `<th class="${cls}"${width ? ` style="width:${width};"` : ''}>${esc(label)}</th>`
+    })
+    .join('')
+
+  const bodyHtml = `
+    <style>${STOCK_COUNT_REPORT_CSS}</style>
+    <div class="pdf-table-wrap">
+      <table class="pdf-table">
+        <thead><tr>${headHtml}</tr></thead>
+        <tbody>${rowsHtml || emptyRow}</tbody>
+      </table>
+    </div>
+    <div class="stock-count-signoff">
+      <span>${esc(t(lang, 'القائم بالجرد: ..............................', 'Counted by: ..............................'))}</span>
+      <span>${esc(t(lang, 'اعتماد أمين المخزن / المدير: ..............................', 'Warehouse manager / director approval: ..............................'))}</span>
+    </div>
+  `
+
+  return buildUnifiedReportTemplate({
+    companyName,
+    docBadge: t(lang, 'كشف جرد المخزن الفعلي', 'Physical Stock Count Sheet'),
+    meta: [
+      { label: t(lang, 'التصنيف', 'Category'), value: categoryLabel },
+      { label: t(lang, 'عدد الأصناف النشطة', 'Active products'), value: formatNumber(rows.length) },
+      {
+        label: t(lang, 'تاريخ الإصدار', 'Issued on'),
+        value: new Date().toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US'),
+      },
+    ],
+    entityTitle: `${t(lang, 'التصنيف', 'Category')}: ${categoryLabel}`,
+    entitySubtitle: `${t(lang, 'إجمالي الأصناف النشطة', 'Total active products')}: ${formatNumber(rows.length)}`,
+    bodyHtml,
+    footerStamp: t(lang, 'كشف جرد صادر من النظام', 'Stock count sheet issued by the system'),
+    dir,
+  })
+}
+
+export async function printStockCountReport(input: StockCountReportInput) {
+  return printHtml(
+    buildStockCountReportHtml(input),
+    input.dir === 'ltr' ? 'Physical Stock Count Sheet' : 'كشف جرد المخزن الفعلي'
+  )
+}
+
+export async function shareStockCountWhatsApp(input: StockCountReportInput) {
+  const blob = await generatePdfFromHtml(buildStockCountReportHtml(input))
+  const filename = `stock-count_${new Date().toISOString().slice(0, 10)}.pdf`
+  const message =
+    input.dir === 'ltr'
+      ? `Attached is the physical stock count sheet (${input.rows.length} products) for recording actual counts.`
+      : `السلام عليكم ورحمة الله،\nمرفق كشف الجرد الفعلي للمخزن (${input.rows.length} صنف) لتسجيل الأعداد الفعلية والفروق.`
+  return sharePdfBlobViaWhatsApp({ blob, filename, message })
 }

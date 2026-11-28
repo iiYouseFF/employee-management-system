@@ -172,3 +172,30 @@
 - Feature commit `3d6f486` was pushed to `main`; Vercel production deployment
   `dpl_4Gp1U8xP4GdRK88rKA3EnNUsSzRv` reported READY for that SHA. This docs-only follow-up
   records the deployment status; no application code changed after verification.
+
+## 2026-11-28 - Physical stock count sheet (print + WhatsApp)
+
+- `WORKFLOW.md` is absent; `docs/workflows/TRACKS.md` governed the `feature` track. The Phase 2
+  plan checkpoint was presented and confirmed before implementation.
+- Appended `StockCountRow`/`StockCountReportInput`, `STOCK_COUNT_REPORT_CSS`,
+  `buildStockCountReportHtml`, `printStockCountReport` and `shareStockCountWhatsApp` to
+  `src/features/reporting/pdfGenerators.ts` using `buildUnifiedReportTemplate`, `printHtml`
+  (A4/12mm) and `generatePdfFromHtml` + `sharePdfBlobViaWhatsApp`. `report.ts` was inspected but
+  unchanged.
+- `InventoryTab.tsx` gained `طباعة جرد` and `مشاركة كشف الجرد واتساب` buttons plus an
+  all-active/filtered scope toggle, gated by `canExportPrint && can('view_inventory')`. Rows are
+  sorted by category → product `sort_order` → Arabic name, with the products-query error surfaced.
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only, none new); build PASS
+  (pre-existing chunk-size warning only).
+- Reviewer returned PASS WITH NOTES; all notes were fixed (centered index/write-in cells via
+  higher-specificity selectors, bold English product name, and `productsError` wired into the
+  data view). Re-verified: computed styles show centered cells, 700-weight English name,
+  `text-align: end` + tabular numerals for system stock.
+- Static A4 QA in both `rtl` and `ltr`: blank boxes measured 126×30px and 94×30px, `thead`
+  computed `table-header-group`, rows `break-inside: avoid`, sign-off flex/space-between with
+  28px top margin at 14px/700, and no SKU repeated across generated PDF pages. Arabic PDF text
+  extraction is unreliable with Persian-form shaping, so header repetition was confirmed on the
+  LTR PDF and via computed styles for RTL; authenticated in-app preview remains unverified.
+- Commit scope: only `pdfGenerators.ts`, `InventoryTab.tsx`, `PLAN.md` and `LOG.md`. Pre-existing
+  uncommitted catalog-grouping work in `pdfGenerators.ts` plus all docs/supplier-return/`tmp_*`
+  work was left untouched.

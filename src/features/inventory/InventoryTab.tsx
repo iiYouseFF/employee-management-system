@@ -20,8 +20,16 @@ import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import BulkProductMatrixModal from '@/features/sales/BulkProductMatrixModal'
 import ProductConsumptionModal from '@/features/products/ProductConsumptionModal'
-import { printLowStockReport, shareLowStockWhatsApp, type LowStockReportRow } from '@/features/reporting/pdfGenerators'
+import {
+  printLowStockReport,
+  shareLowStockWhatsApp,
+  printStockCountReport,
+  shareStockCountWhatsApp,
+  type LowStockReportRow,
+} from '@/features/reporting/pdfGenerators'
 import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
+import { useAuth } from '@/features/auth/useAuth'
+import { getUiLang } from '@/shared/lib/bilingual'
 
 // ─── Stock-in form modal ──────────────────────────────────────────────────────
 function StockInModal({
@@ -286,7 +294,7 @@ export default function InventoryTab({
   initialAlertFilter = 'all',
   canExportPrint = true,
 }: InventoryTabProps) {
-  const { data: products = [], isLoading: loadingProducts } = useProducts()
+  const { data: products = [], isLoading: loadingProducts, error: productsError } = useProducts()
   const { data: stock = [], isLoading: loadingStock, error: stockError } = useProductStock()
   const receiveStockMutation = useReceiveStock()
   const [activeSection, setActiveSection] = useState<'onhand' | 'movements' | 'valuation' | 'alerts'>(
@@ -304,6 +312,11 @@ export default function InventoryTab({
     initialAlertFilter === 'alerts' ? 'all' : initialAlertFilter
   )
   const [sharingLowStock, setSharingLowStock] = useState(false)
+  const [sharingStockCount, setSharingStockCount] = useState(false)
+  const [stockCountScope, setStockCountScope] = useState<'all' | 'filtered'>('all')
+  const { can } = useAuth()
+  // Managers always pass `can`; reps need both inventory view and print/export rights.
+  const canPrintStockCount = canExportPrint && can('view_inventory')
 
   // Movement filter
   const [movFilter, setMovFilter] = useState({ productId: '' })
@@ -336,6 +349,29 @@ export default function InventoryTab({
       return matchSearch && matchCat
     })
   }, [stock, search, filterCategory])
+
+  const productSortOrderById = useMemo(() => {
+    const orderById = new Map<string, number | null>()
+    products.forEach((product) => orderById.set(product.id, product.sort_order ?? null))
+    return orderById
+  }, [products])
+
+  const stockCountRows = useMemo(
+    () =>
+      (stockCountScope === 'filtered' ? filteredStock : stock)
+        .filter((row: ProductStockRow) => row.is_active !== false)
+        .map((row: ProductStockRow) => ({
+          name_ar: row.name_ar,
+          name_en: row.name_en,
+          sku: row.sku,
+          category: row.category,
+          unit: row.unit,
+          current_stock: Number(row.on_hand) || 0,
+          sort_order: productSortOrderById.get(row.product_id) ?? null,
+        })),
+    [stockCountScope, stock, filteredStock, productSortOrderById]
+  )
+  const stockCountCategory = stockCountScope === 'filtered' ? filterCategory : 'all'
 
   const totalStockValue = useMemo(
     () => (valuation as ProductStockRow[]).reduce((s, r) => s + (Number(r.stock_value) || 0), 0),
@@ -428,6 +464,39 @@ export default function InventoryTab({
     }
   }
 
+  const stockCountInput = {
+    rows: stockCountRows,
+    categoryFilter: stockCountCategory,
+    companyName,
+    dir: getUiLang() === 'en' ? ('ltr' as const) : ('rtl' as const),
+  }
+
+  const handlePrintStockCount = async () => {
+    if (!stockCountRows.length) {
+      showToast('لا توجد أصناف نشطة لطباعة كشف الجرد')
+      return false
+    }
+    const printed = await printStockCountReport(stockCountInput)
+    if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+    return printed
+  }
+
+  const handleShareStockCount = async () => {
+    if (!stockCountRows.length) {
+      showToast('لا توجد أصناف نشطة لمشاركة كشف الجرد')
+      return
+    }
+    setSharingStockCount(true)
+    try {
+      await shareStockCountWhatsApp(stockCountInput)
+      showToast('تم تجهيز كشف الجرد للمشاركة عبر واتساب')
+    } catch {
+      showToast('تعذر مشاركة كشف الجرد. حاول مرة أخرى.')
+    } finally {
+      setSharingStockCount(false)
+    }
+  }
+
   useEffect(() => {
     if (!canExportPrint) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -485,6 +554,24 @@ export default function InventoryTab({
             </button>
             {canExportPrint && (
               <>
+                {canPrintStockCount && (
+                  <>
+                    <button
+                      onClick={() => void handlePrintStockCount()}
+                      className="app-btn app-btn-ghost text-xs py-2 border-primary-300 text-primary-800 hover:bg-primary-50"
+                      title="طباعة كشف جرد فارغ لتسجيل الأعداد الفعلية"
+                    >
+                      طباعة جرد
+                    </button>
+                    <button
+                      onClick={() => void handleShareStockCount()}
+                      disabled={sharingStockCount}
+                      className="app-btn app-btn-ghost text-xs py-2 border-emerald-300 text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
+                    >
+                      {sharingStockCount ? 'جاري المشاركة...' : 'مشاركة كشف الجرد واتساب'}
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => void handlePrintLowStock()}
                   className="app-btn app-btn-ghost text-xs py-2 border-orange-300 text-orange-800 hover:bg-orange-50"
@@ -597,11 +684,39 @@ export default function InventoryTab({
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
+            {canPrintStockCount && (
+              <div
+                className="flex items-center gap-1 bg-slate-100 rounded-xl p-1"
+                role="group"
+                aria-label="نطاق كشف الجرد"
+              >
+                {(
+                  [
+                    ['all', 'كل الأصناف النشطة'],
+                    ['filtered', 'العرض المفلتر'],
+                  ] as const
+                ).map(([scope, label]) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    aria-pressed={stockCountScope === scope}
+                    onClick={() => setStockCountScope(scope)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                      stockCountScope === scope
+                        ? 'bg-white text-primary-800 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </FilterToolbar>
 
           <ResponsiveDataView
             loading={loadingStock}
-            error={stockError ? 'تعذّر تحميل بيانات المخزون.' : undefined}
+            error={stockError || productsError ? 'تعذّر تحميل بيانات المخزون.' : undefined}
             hasData={filteredStock.length > 0}
             empty="لا توجد منتجات مطابقة للبحث"
             table={(

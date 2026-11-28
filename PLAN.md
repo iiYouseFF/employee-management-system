@@ -180,3 +180,42 @@ threshold.
 - [x] PLAN/LOG/known-issues/docs snapshot updated
 - [x] Push and Vercel production READY (`3d6f486`, deployment `dpl_4Gp1U8xP4GdRK88rKA3EnNUsSzRv`)
 - [ ] Authenticated RTL/LTR 375px/1440px visual QA (skipped by user)
+
+---
+
+# Physical stock count sheet — printable Arabic/RTL warehouse count with WhatsApp sharing
+
+## Goal
+Give managers a blank, sign-off-ready A4 stock count sheet that warehouse staff can fill in by
+hand (system stock vs. actual count vs. difference), print or share as a PDF via WhatsApp, with
+a scope toggle for all active products vs. the current filtered view.
+
+## Scope & decisions
+- No schema change: reuse `product_stock_summary_v3()` rows from `useInventory()` and the
+  `sort_order` fields already fetched by `useProducts()`.
+- `WORKFLOW.md` does not exist; `docs/workflows/TRACKS.md` governed this `feature` track and its
+  Phase 2 plan checkpoint was confirmed by the user before any code was written.
+- New helpers appended to `src/features/reporting/pdfGenerators.ts`:
+  `buildStockCountReportHtml`, `printStockCountReport`, `shareStockCountWhatsApp`, built on
+  `buildUnifiedReportTemplate` (company name from `app_settings.title`), `printHtml` (A4, 12mm)
+  and `generatePdfFromHtml` + `sharePdfBlobViaWhatsApp`. `report.ts` needs no change.
+- Sorting is category → `sort_order` → `name_ar`, with uncategorized products last; category
+  bands repeat as group rows. Blank cells use the exact requested box styles, rows use
+  `break-inside: avoid`, `<thead>` repeats, and a two-party sign-off row sits under the table.
+- Buttons are gated by `canExportPrint && can('view_inventory')`: managers always pass `can()`;
+  reps need both permissions. New UI uses only CSS logical utilities (no `ml-*`/`mr-*`/
+  `left-*`/`right-*`), and the generated PDF CSS uses `text-align: start/end`.
+- Default count scope is **كل الأصناف النشطة**; **العرض المفلتر** respects the active search and
+  category filters. Inactive products are excluded from both.
+
+## Acceptance criteria
+- [x] Printable A4 RTL/LTR sheet with bilingual badge, category + active count meta, and company header
+- [x] 7 columns with blank write-in boxes (115px actual / 90px difference, 30px tall), tabular system stock aligned end
+- [x] Category/sort/name ordering, repeating thead, non-splitting rows, sign-off row
+- [x] WhatsApp PDF share with a localized message
+- [x] Role/permission gating and filter/all-active scope toggle
+- [x] Verification Gate: typecheck PASS, lint PASS (pre-existing warnings only, none new), build PASS
+- [x] Reviewer PASS WITH NOTES; all in-scope notes (CSS specificity, bold English name, product-query error state) fixed
+- [x] Static A4 PDF/HTML QA in `rtl` and `ltr`: box metrics, repeated headers, no SKU repeated across pages
+- [ ] Authenticated in-app RTL/LTR visual QA (no credentials supplied)
+- [ ] PLAN/LOG committed and pushed; Vercel production READY
