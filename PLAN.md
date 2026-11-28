@@ -372,3 +372,33 @@ rows per page with a smaller header, and add list/full/bulk printing for supplie
 - [x] Commit, push and Vercel READY (commit `696b8e7`, deployment `dpl_9E73w7NKRYLJESiDwHsPGzMaQgN5`,
       aliased to https://tawreed-zeta.vercel.app)
 - [ ] Authenticated in-app print-preview QA (still blocked: no credentials supplied)
+
+---
+
+# Clickable supplier-purchase invoices with details and print
+
+## Goal
+Open a read-only invoice-details view by clicking a supplier-purchase row/card, and print the
+same invoice from that view.
+
+## Scope & decisions
+- Plan checkpoint approved. Whole desktop rows and mobile cards are clickable; an explicit
+  «تفاصيل» action was added for discoverability/keyboards. Checkbox cells and the action group
+  stop propagation so select/edit/delete/print keep their existing behavior.
+- New `SupplierPurchaseDetailsModal.tsx` is read-only: header (supplier, date, invoice no.,
+  payment type, notes, total) plus every item line (product, SKU, batch, expiry, qty, unit cost,
+  line total). Loading, empty and error/retry states included.
+- Data comes from the existing RLS-scoped `useSupplierPurchaseLines()`; printing reuses
+  `printSupplierPurchase()`, so the global A4/A5 preference applies with no extra UI.
+- `export_print` gates only the modal print button; viewing details is available to every role
+  that can see the tab. No schema/RLS changes, no new `any`, logical Tailwind utilities only.
+
+## Acceptance criteria
+- [x] Plan approved; row/card click and explicit details button open the read-only modal
+- [x] Modal shows header, all item lines, total, and permission-gated print action
+- [x] Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only); build PASS
+- [x] Reviewer verdict: PASS WITH NOTES (no blockers/majors); keyboard access is covered by the
+      explicit «تفاصيل» buttons, and zero-line printing intentionally matches the existing tab
+      print behavior
+- [ ] Commit, push and Vercel READY
+- [ ] Authenticated in-app QA (still blocked: no credentials supplied)

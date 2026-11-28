@@ -313,6 +313,29 @@
   aliased to https://tawreed-zeta.vercel.app, which responded successfully. This docs-only
   follow-up records the deployment status; no application code changed after verification.
 
+## 2026-11-28 - Clickable supplier-purchase invoices with details and print
+
+- Track: `feature`; plan checkpoint presented and approved by the user before edits.
+- New `src/features/suppliers/SupplierPurchaseDetailsModal.tsx`: read-only RTL modal built on
+  `Modal`, showing supplier, date, invoice no., payment type, notes, total, and every item line
+  (product, SKU, batch, expiry, qty, unit cost, line total). Uses the RLS-scoped
+  `useSupplierPurchaseLines()` hook with loading/empty/error+retry states and never mutates data.
+- The modal's print button calls `printSupplierPurchase()` with the already-loaded lines, so the
+  global A4/A5 preference and the compact document template are reused. It is shown only when
+  `can('export_print')`; a popup-blocked or failed print is reported in the modal footer.
+- `SupplierPurchasesTab.tsx`: desktop rows and mobile cards now open the details modal; checkbox
+  cells and the action group call `stopPropagation`, and an explicit «تفاصيل» button was added
+  to both views. The actions column was widened to fit four buttons. Edit/delete/bulk-print flows
+  and their guards are unchanged.
+- No schema, migration or RLS changes; no service-role access, no new `any`, money via
+  `formatMoney`/`formatNumber`, logical Tailwind utilities only.
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only, no new warnings from
+  the new file); build PASS (pre-existing chunk-size warning only).
+- Reviewer verdict: PASS WITH NOTES — no blockers or majors. Both nits were accepted as-is: the
+  whole row/card is a mouse convenience while keyboard users have the explicit «تفاصيل» buttons,
+  and printing a zero-line purchase matches the existing tab print behavior (the document shows
+  «لا توجد أصناف مسجلة»). No code changes were needed after the review.
+
 ## 2026-11-28 - Global paper size, compact print layout, supplier-purchase printing
 
 - Track: `feature`; plan checkpoint approved (global header selector, all printable documents).

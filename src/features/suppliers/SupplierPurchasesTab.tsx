@@ -6,6 +6,7 @@ import ResponsiveDataView from '@/shared/ui/ResponsiveDataView'
 import { useDatePreset } from '@/shared/hooks/useDatePreset'
 import { formatMoney } from '@/shared/lib/format'
 import SupplierPurchaseModal from '@/features/suppliers/SupplierPurchaseModal'
+import SupplierPurchaseDetailsModal from '@/features/suppliers/SupplierPurchaseDetailsModal'
 import { useProducts } from '@/features/products/useProducts'
 import { useAuth } from '@/features/auth/useAuth'
 import { useSettings } from '@/features/settings/useSettings'
@@ -41,6 +42,7 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
 
   const [isModalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [detailsPurchase, setDetailsPurchase] = useState<SupplierPurchase | null>(null)
   const linesQuery = useSupplierPurchaseLines(editingId)
   const [searchTerm, setSearchTerm] = useState('')
   const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
@@ -274,14 +276,18 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
                   <th className="text-center">النوع</th>
                   <th className="text-center">الإجمالي</th>
                   <th>ملاحظات</th>
-                  <th className="text-center w-36">الإجراءات</th>
+                  <th className="text-center w-56">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.map((p, idx) => (
-                  <tr key={p.id}>
+                  <tr
+                    key={p.id}
+                    className="cursor-pointer hover:bg-slate-50/80"
+                    onClick={() => setDetailsPurchase(p)}
+                  >
                     {canPrint && (
-                      <td className="text-center">
+                      <td className="text-center" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selection.isSelected(p.id)}
@@ -303,7 +309,14 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
                     <td className="text-center font-num font-extrabold tabular-nums" dir="ltr">{formatMoney(Number(p.total_amount || 0))}</td>
                     <td className="text-xs text-slate-500">{p.notes || '-'}</td>
                     <td>
-                      <div className="flex gap-1.5 justify-center">
+                      <div className="flex gap-1.5 justify-center" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => setDetailsPurchase(p)}
+                          className="app-btn app-btn-sm app-btn-ghost text-xs"
+                        >
+                          تفاصيل
+                        </button>
                         {canPrint && (
                           <button
                             type="button"
@@ -332,7 +345,13 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
           </div>
         }
         cards={paginated.map((p) => (
-          <div key={p.id} className="app-card p-3.5 space-y-2">
+          <div
+            key={p.id}
+            className="app-card cursor-pointer p-3.5 space-y-2 hover:border-[var(--primary)]/40"
+            role="group"
+            aria-label={`تفاصيل فاتورة المشتريات ${p.invoice_no || p.id}`}
+            onClick={() => setDetailsPurchase(p)}
+          >
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="font-bold text-slate-800 text-sm">{supplierName(p.supplier_id)}</div>
@@ -345,7 +364,14 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
             </div>
             {p.invoice_no && <div className="text-xs text-slate-500">رقم الفاتورة: <span className="font-mono" dir="ltr">{p.invoice_no}</span></div>}
             {p.notes && <div className="text-xs text-slate-500">{p.notes}</div>}
-            <div className="flex gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setDetailsPurchase(p)}
+                className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs"
+              >
+                تفاصيل
+              </button>
               {canPrint && (
                 <button
                   type="button"
@@ -394,6 +420,14 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
           products={products.map((p) => ({ id: p.id, name_ar: p.name_ar, sku: p.sku, unit: p.unit }))}
           onClose={() => setModalOpen(false)}
           onSaved={showToast}
+        />
+      )}
+
+      {detailsPurchase && (
+        <SupplierPurchaseDetailsModal
+          purchase={detailsPurchase}
+          supplierName={supplierName(detailsPurchase.supplier_id)}
+          onClose={() => setDetailsPurchase(null)}
         />
       )}
     </div>
