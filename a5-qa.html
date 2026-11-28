@@ -1,0 +1,176 @@
+<!doctype html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <title>A5 print QA</title>
+  <style>html, body { margin: 0; padding: 0; background: #fff; }</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+import {
+  buildUnifiedReportTemplate,
+  buildStockCountReportHtml,
+  buildLowStockReportHtml,
+  buildInvoicePdfHtml,
+  buildSalarySlipHtml,
+} from '/src/features/reporting/pdfGenerators.ts'
+import { buildProductConsumptionReportHtml } from '/src/features/reporting/productAnalyticsReport.ts'
+import { buildPayrollRegisterHtml, buildGenericDocumentHtml, buildCustomerPaymentReceiptHtml } from '/src/features/reporting/printableDocuments.ts'
+import { generatePdfFromHtml, printHtml } from '/src/shared/lib/pdfShare.ts'
+
+const params = new URLSearchParams(location.search)
+const doc = params.get('doc') || 'unified'
+const dir = params.get('dir') === 'ltr' ? 'ltr' : 'rtl'
+const paper = params.get('paper') === 'a4' ? 'a4' : 'a5'
+document.documentElement.dir = dir
+document.documentElement.lang = dir === 'ltr' ? 'en' : 'ar'
+
+const tableHtml = `
+  <section class="pdf-section">
+    <h3 class="pdf-section-title">Multi-column QA table</h3>
+    <div class="pdf-table-wrap"><table class="pdf-table">
+      <thead><tr><th>#</th><th>Name / البيان</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th><th>Date</th><th>Ref</th><th class="num">Balance</th></tr></thead>
+      <tbody>${Array.from({ length: 12 }, (_, i) => `<tr><td class="num">${i + 1}</td><td>Industrial sample product name ${i + 1}</td><td class="num">1,250.00</td><td class="num">18.50</td><td class="num">23,125.00</td><td>28/11/2026</td><td dir="ltr">INV-2026-${1000 + i}</td><td class="num">45,600.00</td></tr>`).join('')}</tbody>
+      <tfoot><tr class="row-total"><td colspan="4">Grand total</td><td class="num">277,500.00</td><td colspan="2">Issued</td><td class="num">45,600.00</td></tr></tfoot>
+    </table></div>
+  </section>`
+
+const stockRows = Array.from({ length: 14 }, (_, i) => ({
+  name_ar: `صنف تجريبي طويل الاسم رقم ${i + 1} للاختبار`,
+  name_en: `Long English sample product name ${i + 1}`,
+  sku: `SKU-${2000 + i}`,
+  category: i % 2 ? 'مواد غذائية' : 'منظفات',
+  unit: 'علبة',
+  current_stock: 1200 + i,
+  sort_order: i,
+}))
+const lowStockRows = Array.from({ length: 10 }, (_, i) => ({
+  name_ar: `صنف ناقص رقم ${i + 1}`,
+  sku: `SKU-${3000 + i}`,
+  category: 'مواد غذائية',
+  unit: 'كيس',
+  available_qty: i,
+  min_stock_alert: 10,
+}))
+const invoiceInput = {
+  invoiceType: 'credit',
+  invoice_no: 'CR-2026-1001',
+  date: '2026-11-28',
+  due_date: '2026-12-13',
+  customer_name: 'مؤسسة الاختبار للتجارة والتوزيع',
+  customer_phone: '01012345678',
+  rep_name: 'أحمد محمد',
+  amount: 23125,
+  recorded_payments: 5000,
+  pooled_payments: 1000,
+  total_paid: 6000,
+  remaining: 17125,
+  lines: Array.from({ length: 5 }, (_, i) => ({
+    qty: i + 2, unit_price: 18.5, line_total: (i + 2) * 18.5,
+    unit: 'علبة', product: { name_ar: `منتج ${i + 1}`, name_en: `Product ${i + 1}`, sku: `SKU-${4000 + i}`, unit: 'علبة' },
+  })),
+  payments: Array.from({ length: 3 }, (_, i) => ({ date: '2026-11-28', amount: 2000, method: 'نقدي', reference: `R-${i}` })),
+  companyName: 'شركة توريد التجريبية',
+  dir,
+}
+const salaryInput = {
+  companyName: 'شركة توريد التجريبية', year: 2026, month: 11,
+  employeeName: 'محمد أحمد السيد', jobTitle: 'أمين مخزن', phone: '01012345678',
+  presentDays: 26, absentDays: 1, lateDays: 2, totalOvertimeHours: 12,
+  baseSalary: 5000, overtimeTotal: 600, bonusesTotal: 300, deductionsTotal: 120,
+  suggestedLoanDeduction: 250, activeLoanBalance: 1200, netSalary: 5530, dir,
+}
+const analyticsInput = {
+  lang: dir === 'ltr' ? 'en' : 'ar',
+  companyName: 'شركة توريد التجريبية',
+  product: { name_ar: 'منتج تحليل طويل الاسم', name_en: 'Long analytics product name', sku: 'SKU-9001', unit: 'علبة', price: 18.5 },
+  from: '2026-11-01', to: '2026-11-28',
+  summary: { total_qty: 12500, total_revenue: 231250, unique_customers: 42, invoice_count: 88, avg_unit_price: 18.5 },
+  breakdown: Array.from({ length: 8 }, (_, i) => ({ customer_name: `عميل ${i + 1}`, customer_phone: `0101234567${i}`, rep_name: `مندوب ${i + 1}`, order_count: 12, total_qty: 500, share_pct: 12.5, total_revenue: 9250, last_purchase_date: '2026-11-28' })),
+  history: Array.from({ length: 10 }, (_, i) => ({ tx_date: '2026-11-28', invoice_no: `INV-${100 + i}`, invoice_type: i % 2 ? 'cash' : 'credit', customer_name: `عميل ${i + 1}`, rep_name: `مندوب ${i + 1}`, qty: 12, unit_price: 18.5, line_total: 222 })),
+}
+
+const payrollRows = Array.from({ length: 8 }, (_, i) => ({
+  employeeName: `محمد أحمد السيد ${i + 1}`, jobTitle: 'أمين مخزن',
+  presentDays: 26, absentDays: 1, lateDays: 2, overtimeHours: 12,
+  baseSalary: 5000, overtimeTotal: 600, bonusesTotal: 300, deductionsTotal: 120,
+  loanDeduction: 250, netSalary: 5530,
+}))
+
+const htmlByDoc = {
+  receipt: buildCustomerPaymentReceiptHtml({
+    companyName: 'شركة توريد التجريبية', date: '2026-11-28',
+    customerName: 'مؤسسة الاختبار للتجارة والتوزيع', repName: 'أحمد محمد',
+    invoiceNo: 'CR-2026-1001', amount: 123456.78, method: 'نقدي', dir,
+  }),
+  payroll: buildPayrollRegisterHtml({
+    companyName: 'شركة توريد التجريبية', year: 2026, month: 11, rows: payrollRows, dir,
+  }),
+  generic: buildGenericDocumentHtml({
+    companyName: 'شركة توريد التجريبية', title: 'سجل الدفعات', dir,
+    columns: [{ label: '#' }, { label: 'التاريخ' }, { label: 'العميل' }, { label: 'المبلغ', numeric: true }, { label: 'الطريقة' }],
+    rows: Array.from({ length: 12 }, (_, i) => [String(i + 1), '28/11/2026', `عميل تجريبي طويل الاسم رقم ${i + 1}`, '1,234,567.89', 'نقدي']),
+  }),
+  overdue: buildUnifiedReportTemplate({
+    companyName: 'شركة توريد التجريبية', docBadge: 'تقرير المتأخرات',
+    entityTitle: 'الفواتير غير المسددة', entitySubtitle: 'عشرة أعمدة',
+    dir,
+    bodyHtml: `
+      <style>
+        .overdue-table { table-layout: fixed; }
+        .overdue-table th, .overdue-table td { padding: 3px 3px; font-size: 9.5px; line-height: 1.35; overflow-wrap: anywhere; }
+        .overdue-table .num { font-size: 9.5px; white-space: normal; }
+      </style>
+      <div class="pdf-table-wrap"><table class="pdf-table overdue-table">
+        <thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>الهاتف</th><th>المندوب</th><th>تاريخ الفاتورة</th><th>تاريخ الاستحقاق</th><th>حالة التأخير</th><th class="num">الإجمالي</th><th class="num">المسدد</th><th class="num">المتبقي</th></tr></thead>
+        <tbody>${Array.from({ length: 8 }, (_, i) => `<tr><td dir="ltr">INV-2026-${1000 + i}</td><td>مؤسسة عميل طويلة الاسم للتجارة والتوزيع</td><td dir="ltr">01012345678</td><td>محمد أحمد السيد</td><td class="num">28/11/2026</td><td class="num">13/12/2026</td><td>متأخرة 45 يوم</td><td class="num">1,234,567.89</td><td class="num">123,456.78</td><td class="num">1,111,111.11</td></tr>`).join('')}</tbody>
+      </table></div>`,
+  }),
+  unified: buildUnifiedReportTemplate({
+    companyName: 'شركة توريد التجريبية', docBadge: 'مستند اختبار A5',
+    entityTitle: 'جدول متعدد الأعمدة', entitySubtitle: 'فحص القص الأفقي في RTL و LTR',
+    meta: [{ label: 'التاريخ', value: '28/11/2026' }], bodyHtml: tableHtml, dir,
+  }),
+  stock: buildStockCountReportHtml({ rows: stockRows, companyName: invoiceInput.companyName, dir }),
+  lowstock: buildLowStockReportHtml({ rows: lowStockRows, companyName: invoiceInput.companyName }),
+  invoice: buildInvoicePdfHtml(invoiceInput),
+  salary: buildSalarySlipHtml(salaryInput),
+  analytics: buildProductConsumptionReportHtml(analyticsInput),
+}
+
+const html = htmlByDoc[doc] || htmlByDoc.unified
+document.getElementById('out').innerHTML = html
+window.__qa = {
+  html,
+  async makePdf() {
+    const blob = await generatePdfFromHtml(html, dir, paper)
+    return await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve({ size: blob.size, head: String(reader.result).slice(0, 4000) })
+      reader.readAsBinaryString(blob)
+    })
+  },
+  async makePrint() {
+    const original = window.open
+    let captured = ''
+    const fake = {
+      document: { open() {}, write(value) { captured = value }, close() {}, fonts: { ready: Promise.resolve() } },
+      addEventListener() {},
+      focus() {},
+      print() {},
+      close() {},
+    }
+    window.open = () => fake
+    try {
+      await printHtml(html, 'A5 QA', dir, paper)
+    } finally {
+      window.open = original
+    }
+    return captured
+  },
+}
+window.__qaReady = true
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+- generic [ref=f91e3]:
+  - banner [ref=f91e5]:
+    - generic [ref=f91e6]:
+      - heading "شركة توريد التجريبية" [level=1] [ref=f91e7]
+      - generic [ref=f91e8]: إيصال تحصيل
+    - generic [ref=f91e9]: "التاريخ: 2026-11-28"
+  - generic [ref=f91e11]:
+    - 'heading "استلام من: مؤسسة الاختبار للتجارة والتوزيع" [level=2] [ref=f91e12]'
+    - generic [ref=f91e13]: "مرتبط بالفاتورة: CR-2026-1001"
+  - main [ref=f91e14]:
+    - generic [ref=f91e15]:
+      - heading "بيانات المستند" [level=3] [ref=f91e16]
+      - table [ref=f91e18]:
+        - rowgroup [ref=f91e19]:
+          - row [ref=f91e20]:
+            - cell "العميل" [ref=f91e21]
+            - cell "مؤسسة الاختبار للتجارة والتوزيع" [ref=f91e22]
+          - row [ref=f91e23]:
+            - cell "المندوب" [ref=f91e24]
+            - cell "أحمد محمد" [ref=f91e25]
+          - row [ref=f91e26]:
+            - cell "رقم الفاتورة" [ref=f91e27]
+            - cell "CR-2026-1001" [ref=f91e28]
+          - row [ref=f91e29]:
+            - cell "طريقة الدفع" [ref=f91e30]
+            - cell "نقدي" [ref=f91e31]
+          - row [ref=f91e32]:
+            - cell "المبلغ المحصل" [ref=f91e33]
+            - cell "123,456.78 ج.م" [ref=f91e34]
+    - generic [ref=f91e35]:
+      - generic [ref=f91e36]: "استلام: ................................"
+      - generic [ref=f91e37]: "اعتماد: ................................"
+  - contentinfo [ref=f91e38]:
+    - generic [ref=f91e39]: شركة توريد التجريبية
+    - generic [ref=f91e40]: إيصال تحصيل صادر من النظام — ٢٨‏/١١‏/٢٠٢٦

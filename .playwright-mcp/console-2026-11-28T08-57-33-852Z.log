@@ -1,0 +1,8 @@
+[    2099ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5178/node_modules/.vite/deps/react-dom_client.js?v=55c343f4:15803
+[    2225ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://127.0.0.1:5178/login:1
+[    2351ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:5178/login:1
+[  104409ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5178/@vite/client:1090
+[  179804ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5178/node_modules/.vite/deps/react-dom_client.js?v=b0c6e42c:15803
+[  180061ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://127.0.0.1:5178/:1
+[  180260ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:5178/login:1
+[  190185ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5178/@vite/client:1090

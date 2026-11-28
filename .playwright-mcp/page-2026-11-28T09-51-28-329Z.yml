@@ -1,0 +1,57 @@
+- generic [ref=f21e3]:
+  - banner [ref=f21e5]:
+    - generic [ref=f21e6]:
+      - heading "شركة توريد التجريبية" [level=1] [ref=f21e7]
+      - generic [ref=f21e8]: قسيمة راتب شهرية
+    - generic [ref=f21e9]:
+      - generic [ref=f21e10]: "الفترة: 11/2026"
+      - generic [ref=f21e11]: "تاريخ الإصدار: ٢٨‏/١١‏/٢٠٢٦"
+  - generic [ref=f21e12]:
+    - 'heading "الموظف: محمد أحمد السيد — هاتف: 01012345678" [level=2] [ref=f21e13]'
+    - generic [ref=f21e14]: "المسمى الوظيفي: أمين مخزن"
+  - main [ref=f21e15]:
+    - generic [ref=f21e16]:
+      - heading "ملخص الحضور الشهري" [level=3] [ref=f21e17]
+      - table [ref=f21e19]:
+        - rowgroup [ref=f21e20]:
+          - row [ref=f21e21]:
+            - columnheader "أيام الحضور" [ref=f21e22]
+            - columnheader "أيام الغياب" [ref=f21e23]
+            - columnheader "مرات التأخير" [ref=f21e24]
+            - columnheader "ساعات الإضافي" [ref=f21e25]
+        - rowgroup [ref=f21e26]:
+          - row [ref=f21e27]:
+            - cell "26" [ref=f21e28]
+            - cell "1" [ref=f21e29]
+            - cell "2" [ref=f21e30]
+            - cell "12 س" [ref=f21e31]
+    - generic [ref=f21e32]:
+      - heading "تفاصيل المستحقات والاستقطاعات" [level=3] [ref=f21e33]
+      - table [ref=f21e35]:
+        - rowgroup [ref=f21e36]:
+          - row [ref=f21e37]:
+            - columnheader "البند" [ref=f21e38]
+            - columnheader "المبلغ" [ref=f21e39]
+        - rowgroup [ref=f21e40]:
+          - row [ref=f21e41]:
+            - cell "الراتب الأساسي" [ref=f21e42]
+            - cell "5,000 ج.م" [ref=f21e43]
+          - row [ref=f21e44]:
+            - cell "بدل ساعات إضافية" [ref=f21e45]
+            - cell "+ 600 ج.م" [ref=f21e46]
+          - row [ref=f21e47]:
+            - cell "المكافآت" [ref=f21e48]
+            - cell "+ 300 ج.م" [ref=f21e49]
+          - row [ref=f21e50]:
+            - cell "الخصومات" [ref=f21e51]
+            - cell "- 120 ج.م" [ref=f21e52]
+          - row [ref=f21e53]:
+            - 'cell "قسط السُلفة (الرصيد المتبقي: 1,200 ج.م)" [ref=f21e54]'
+            - cell "- 250 ج.م" [ref=f21e55]
+        - rowgroup [ref=f21e56]:
+          - row [ref=f21e57]:
+            - cell "صافي الراتب المستحق" [ref=f21e58]
+            - cell "5,530 ج.م" [ref=f21e59]
+  - contentinfo [ref=f21e60]:
+    - generic [ref=f21e61]: شركة توريد التجريبية
+    - generic [ref=f21e62]: قسيمة راتب صادرة من النظام — ٢٨‏/١١‏/٢٠٢٦

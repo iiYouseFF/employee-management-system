@@ -1,0 +1,128 @@
+- generic [ref=f15e3]:
+  - banner [ref=f15e5]:
+    - generic [ref=f15e6]:
+      - heading "شركة توريد التجريبية" [level=1] [ref=f15e7]
+      - generic [ref=f15e8]: قائمة نواقص المخزون (للطلب من الموردين)
+    - generic [ref=f15e9]:
+      - generic [ref=f15e10]: "تاريخ الإصدار: ٢٨‏/١١‏/٢٠٢٦"
+      - generic [ref=f15e11]: "عدد الأصناف: 10"
+  - generic [ref=f15e12]:
+    - heading "قائمة نواقص المخزون" [level=2] [ref=f15e13]
+    - generic [ref=f15e14]: الأصناف التي وصل رصيدها المتاح إلى 10 أو أقل — تُستخدم لطلب الموردين.
+  - main [ref=f15e15]:
+    - generic [ref=f15e16]:
+      - heading "الأصناف النواقص (رصيد متاح ≤ 10)" [level=3] [ref=f15e17]
+      - table [ref=f15e18]:
+        - rowgroup [ref=f15e19]:
+          - row [ref=f15e20]:
+            - columnheader "م" [ref=f15e21]
+            - columnheader "الصنف" [ref=f15e22]
+            - columnheader "الكود (SKU)" [ref=f15e23]
+            - columnheader "الفئة" [ref=f15e24]
+            - columnheader "الرصيد المتاح" [ref=f15e25]
+            - columnheader "حد الأمان" [ref=f15e26]
+            - columnheader "الكمية المطلوبة (Order Qty)" [ref=f15e27]
+        - rowgroup [ref=f15e28]:
+          - row [ref=f15e29]:
+            - cell "1" [ref=f15e30]
+            - 'cell "صنف ناقص رقم 1 الوحدة: كيس" [ref=f15e31]':
+              - text: صنف ناقص رقم 1
+              - generic [ref=f15e32]: "الوحدة: كيس"
+            - cell "SKU-3000" [ref=f15e33]
+            - cell "مواد غذائية" [ref=f15e34]
+            - cell "0" [ref=f15e35]
+            - cell "10" [ref=f15e36]
+            - cell [ref=f15e37]
+          - row [ref=f15e39]:
+            - cell "2" [ref=f15e40]
+            - 'cell "صنف ناقص رقم 2 الوحدة: كيس" [ref=f15e41]':
+              - text: صنف ناقص رقم 2
+              - generic [ref=f15e42]: "الوحدة: كيس"
+            - cell "SKU-3001" [ref=f15e43]
+            - cell "مواد غذائية" [ref=f15e44]
+            - cell "1" [ref=f15e45]
+            - cell "10" [ref=f15e46]
+            - cell [ref=f15e47]
+          - row [ref=f15e49]:
+            - cell "3" [ref=f15e50]
+            - 'cell "صنف ناقص رقم 3 الوحدة: كيس" [ref=f15e51]':
+              - text: صنف ناقص رقم 3
+              - generic [ref=f15e52]: "الوحدة: كيس"
+            - cell "SKU-3002" [ref=f15e53]
+            - cell "مواد غذائية" [ref=f15e54]
+            - cell "2" [ref=f15e55]
+            - cell "10" [ref=f15e56]
+            - cell [ref=f15e57]
+          - row [ref=f15e59]:
+            - cell "4" [ref=f15e60]
+            - 'cell "صنف ناقص رقم 4 الوحدة: كيس" [ref=f15e61]':
+              - text: صنف ناقص رقم 4
+              - generic [ref=f15e62]: "الوحدة: كيس"
+            - cell "SKU-3003" [ref=f15e63]
+            - cell "مواد غذائية" [ref=f15e64]
+            - cell "3" [ref=f15e65]
+            - cell "10" [ref=f15e66]
+            - cell [ref=f15e67]
+          - row [ref=f15e69]:
+            - cell "5" [ref=f15e70]
+            - 'cell "صنف ناقص رقم 5 الوحدة: كيس" [ref=f15e71]':
+              - text: صنف ناقص رقم 5
+              - generic [ref=f15e72]: "الوحدة: كيس"
+            - cell "SKU-3004" [ref=f15e73]
+            - cell "مواد غذائية" [ref=f15e74]
+            - cell "4" [ref=f15e75]
+            - cell "10" [ref=f15e76]
+            - cell [ref=f15e77]
+          - row [ref=f15e79]:
+            - cell "6" [ref=f15e80]
+            - 'cell "صنف ناقص رقم 6 الوحدة: كيس" [ref=f15e81]':
+              - text: صنف ناقص رقم 6
+              - generic [ref=f15e82]: "الوحدة: كيس"
+            - cell "SKU-3005" [ref=f15e83]
+            - cell "مواد غذائية" [ref=f15e84]
+            - cell "5" [ref=f15e85]
+            - cell "10" [ref=f15e86]
+            - cell [ref=f15e87]
+          - row [ref=f15e89]:
+            - cell "7" [ref=f15e90]
+            - 'cell "صنف ناقص رقم 7 الوحدة: كيس" [ref=f15e91]':
+              - text: صنف ناقص رقم 7
+              - generic [ref=f15e92]: "الوحدة: كيس"
+            - cell "SKU-3006" [ref=f15e93]
+            - cell "مواد غذائية" [ref=f15e94]
+            - cell "6" [ref=f15e95]
+            - cell "10" [ref=f15e96]
+            - cell [ref=f15e97]
+          - row [ref=f15e99]:
+            - cell "8" [ref=f15e100]
+            - 'cell "صنف ناقص رقم 8 الوحدة: كيس" [ref=f15e101]':
+              - text: صنف ناقص رقم 8
+              - generic [ref=f15e102]: "الوحدة: كيس"
+            - cell "SKU-3007" [ref=f15e103]
+            - cell "مواد غذائية" [ref=f15e104]
+            - cell "7" [ref=f15e105]
+            - cell "10" [ref=f15e106]
+            - cell [ref=f15e107]
+          - row [ref=f15e109]:
+            - cell "9" [ref=f15e110]
+            - 'cell "صنف ناقص رقم 9 الوحدة: كيس" [ref=f15e111]':
+              - text: صنف ناقص رقم 9
+              - generic [ref=f15e112]: "الوحدة: كيس"
+            - cell "SKU-3008" [ref=f15e113]
+            - cell "مواد غذائية" [ref=f15e114]
+            - cell "8" [ref=f15e115]
+            - cell "10" [ref=f15e116]
+            - cell [ref=f15e117]
+          - row [ref=f15e119]:
+            - cell "10" [ref=f15e120]
+            - 'cell "صنف ناقص رقم 10 الوحدة: كيس" [ref=f15e121]':
+              - text: صنف ناقص رقم 10
+              - generic [ref=f15e122]: "الوحدة: كيس"
+            - cell "SKU-3009" [ref=f15e123]
+            - cell "مواد غذائية" [ref=f15e124]
+            - cell "9" [ref=f15e125]
+            - cell "10" [ref=f15e126]
+            - cell [ref=f15e127]
+  - contentinfo [ref=f15e129]:
+    - generic [ref=f15e130]: شركة توريد التجريبية
+    - generic [ref=f15e131]: قائمة نواقص صادرة من النظام — ٢٨‏/١١‏/٢٠٢٦
