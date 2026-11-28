@@ -330,3 +330,44 @@ checked invoice, one invoice per A5 page in a single print job.
 - [x] Reviewer PASS WITH NOTES; failure-state handling fixed in all three handlers and gate re-run
 - [x] Final reviewer confirmation: PASS
 - [x] Commit, push and Vercel READY (commit `153d525`, deployment `dpl_4ZXFg8L9iRAfznbL2ddZbnzeyP2A`)
+
+---
+
+# Global paper size + compact print layout + supplier-purchase printing
+
+## Goal
+Let the user choose A4 or A5 once in the app header for every print/PDF export, fit more
+rows per page with a smaller header, and add list/full/bulk printing for supplier purchases.
+
+## Scope & decisions
+- Plan checkpoint approved. User chose a **global header control** and **all printable
+  documents** for the compact layout. A5 remains the default; A4 stays explicitly available.
+- `getPreferredPaperSize()` / `setPreferredPaperSize()` persist to localStorage
+  (`ems.print-paper-size`) with a safe fallback. `printHtml()` and `generatePdfFromHtml()`
+  resolve `explicit ?? preference`, so every existing print/PDF path honours the choice.
+- `A4_OVERRIDE_CSS` now only widens geometry; it no longer inflates fonts/padding. The shared
+  unified template is compact for both sizes (smaller header, meta grid, banner, section title,
+  table rows and footer). Wide analytics/low-stock/stock-count/payroll tables were tightened too.
+- New shared `PaperSizeSelect` renders in the Sheet header when `export_print` is permitted;
+  storage events keep multiple tabs in sync. Hard-coded A5 button labels were removed.
+- Supplier purchases: new `supplierPurchasePrint.ts` builds a full purchase document from the
+  existing RLS-scoped line query and prints list, single or bulk (one document per sheet in a
+  single job). `SupplierPurchasesTab` adds a header list-print button, per-row print, checkboxes
+  and `BulkActionBar`, all gated by `export_print`; mobile cards get a print button too.
+- `PRINT_PAGE_BREAK_CSS` moved to `pdfShare.ts` and reused by both invoice and purchase batches.
+- No schema/migration/RLS changes, no service-role key, no `any`, money via `Intl`/numeric SQL,
+  Arabic RTL logical utilities only.
+
+## Acceptance criteria
+- [x] Plan approved; A4/A5 preference works globally and persists locally
+- [x] Compact header/rows applied to all printable documents; A4 no longer restores large text
+- [x] Supplier purchases: consolidated list, full single document, and bulk full documents
+- [x] Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only); build PASS
+- [x] Static QA (RTL + LTR, A4 + A5): preference resolution, `@page` rules, no inflation CSS,
+      supplier document 8 rows/0 overflow, both PDF sizes generated successfully
+- [x] Reviewer verdict on final diff: PASS WITH NOTES (no blockers/majors/minors); LTR date
+      locale nit fixed, and currency-less list totals kept intentionally to match the other
+      tabular list prints
+- [x] Verification Gate re-run after reviewer fix: typecheck PASS; lint PASS; build PASS
+- [ ] Commit, push and Vercel READY
+- [ ] Authenticated in-app print-preview QA (still blocked: no credentials supplied)

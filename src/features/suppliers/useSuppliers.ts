@@ -144,20 +144,23 @@ export function useDeleteSupplier() {
   })
 }
 
+/** RLS-scoped item lines for one purchase; reused by the print document. */
+export async function fetchSupplierPurchaseLines(purchaseId: string): Promise<SupplierPurchaseLineWithProduct[]> {
+  const { data, error } = await supabase
+    .from('supplier_purchase_lines')
+    .select('*, products(name_ar, sku, unit)')
+    .eq('purchase_id', purchaseId)
+    .order('created_at')
+
+  if (error) throw error
+  return data as SupplierPurchaseLineWithProduct[]
+}
+
 export function useSupplierPurchaseLines(purchaseId: string | null) {
   return useQuery({
     queryKey: ['supplier_purchase_lines', purchaseId],
     enabled: !!purchaseId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('supplier_purchase_lines')
-        .select('*, products(name_ar, sku, unit)')
-        .eq('purchase_id', purchaseId!)
-        .order('created_at')
-
-      if (error) throw error
-      return data as SupplierPurchaseLineWithProduct[]
-    },
+    queryFn: () => purchaseId ? fetchSupplierPurchaseLines(purchaseId) : Promise.resolve([]),
   })
 }
 

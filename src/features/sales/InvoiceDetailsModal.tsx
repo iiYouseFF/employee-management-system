@@ -174,7 +174,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
               >
                 <span className="inline-flex items-center gap-1.5">
                   <PrintIcon />
-                  {busy === 'print' ? 'جاري الطباعة...' : 'طباعة A5'}
+                  {busy === 'print' ? 'جاري الطباعة...' : 'طباعة'}
                 </span>
               </button>
               <button

@@ -33,21 +33,21 @@ export interface UnifiedReportTemplateInput {
   dir?: 'rtl' | 'ltr'
 }
 
-/** A5-optimized unified sheet: 559px wide at 96 DPI, 523px of content after padding. */
+/** Compact unified sheet shared by A4 and A5; denser rows leave room for more data. */
 const UNIFIED_REPORT_CSS = `
   .pdf-root, .pdf-root * { box-sizing: border-box; }
   .pdf-root {
     width: 559px;
     margin: 0;
-    padding: 16px 18px;
+    padding: 10px 12px;
     background: #ffffff;
     color: #0f172a;
     font-family: 'Tajawal', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: 12px;
+    line-height: 1.35;
   }
   .pdf-top-bar {
-    height: 6px;
+    height: 4px;
     background: #1a4971;
     width: 100%;
   }
@@ -55,76 +55,76 @@ const UNIFIED_REPORT_CSS = `
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 12px;
-    padding: 0 0 12px;
+    gap: 8px;
+    padding: 0 0 6px;
   }
   .pdf-header-start {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 3px;
     align-items: flex-start;
     min-width: 0;
   }
   .pdf-company {
     margin: 0;
-    font-size: 19px;
+    font-size: 16px;
     font-weight: 800;
     color: #1a4971;
-    line-height: 1.3;
+    line-height: 1.2;
   }
   .pdf-doc-badge {
     display: inline-flex;
     align-items: center;
-    padding: 4px 10px;
-    font-size: 13.5px;
+    padding: 2px 7px;
+    font-size: 11px;
     font-weight: 800;
     color: #103352;
     background: #e0eefb;
     border: 1.5px solid #1a4971;
-    border-radius: 6px;
-    line-height: 1.4;
+    border-radius: 5px;
+    line-height: 1.2;
   }
   .pdf-meta-grid {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    min-width: 180px;
+    gap: 1px;
+    min-width: 150px;
     text-align: end;
   }
   .pdf-meta-item {
-    font-size: 12px;
+    font-size: 10.5px;
     color: #334155;
-    line-height: 1.5;
+    line-height: 1.3;
   }
   .pdf-meta-label { font-weight: 600; color: #475569; }
   .pdf-meta-value { font-weight: 700; color: #0f172a; }
   .pdf-entity-banner {
-    margin: 0 0 12px;
-    padding: 8px 10px;
+    margin: 0 0 6px;
+    padding: 4px 7px;
     background: #f0f6fc;
-    border-inline-start: 4px solid #1a4971;
-    border-radius: 8px;
+    border-inline-start: 3px solid #1a4971;
+    border-radius: 6px;
   }
   .pdf-entity-title {
     margin: 0;
-    font-size: 15px;
+    font-size: 12.5px;
     font-weight: 800;
     color: #0f172a;
-    line-height: 1.5;
+    line-height: 1.3;
   }
   .pdf-entity-subtitle {
-    margin-top: 2px;
-    font-size: 12px;
+    margin-top: 1px;
+    font-size: 10.5px;
     font-weight: 600;
     color: #334155;
-    line-height: 1.5;
+    line-height: 1.3;
   }
   .pdf-body { padding: 0; }
-  .pdf-section { margin-bottom: 14px; }
+  .pdf-section { margin-bottom: 8px; }
   .pdf-section-title {
-    margin: 0 0 8px;
-    padding: 6px 8px;
-    font-size: 12.5px;
+    margin: 0 0 4px;
+    padding: 3px 6px;
+    font-size: 11px;
     font-weight: 800;
     color: #103352;
     background: #e0eefb;
@@ -138,24 +138,24 @@ const UNIFIED_REPORT_CSS = `
     table-layout: auto;
   }
   .pdf-table th {
-    padding: 8px;
-    font-size: 13px;
+    padding: 4px 5px;
+    font-size: 11px;
     font-weight: 800;
     color: #ffffff;
     background: #1a4971;
     text-align: start;
     border: 1px solid #1a4971;
-    line-height: 1.4;
+    line-height: 1.25;
     vertical-align: middle;
   }
   .pdf-table td {
-    padding: 7px 8px;
-    font-size: 12.5px;
+    padding: 3px 5px;
+    font-size: 10.5px;
     font-weight: 600;
     color: #0f172a;
     text-align: start;
     border-block-end: 1px solid #cbd5e1;
-    line-height: 1.5;
+    line-height: 1.3;
     vertical-align: middle;
     background: #ffffff;
   }
@@ -164,7 +164,7 @@ const UNIFIED_REPORT_CSS = `
   .pdf-table thead { display: table-header-group; }
   .pdf-table tfoot { display: table-footer-group; }
   .pdf-table .num {
-    font-size: 12.5px;
+    font-size: 10.5px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     text-align: end;
@@ -172,7 +172,7 @@ const UNIFIED_REPORT_CSS = `
   }
   .pdf-table th.num { text-align: end; }
   .pdf-table tr.row-total td {
-    font-size: 13.5px;
+    font-size: 11px;
     font-weight: 800;
     color: #103352;
     background: #e0eefb !important;
@@ -180,9 +180,9 @@ const UNIFIED_REPORT_CSS = `
     border-block-end: 2px solid #1a4971;
   }
   .pdf-notes {
-    margin: 12px 0 0;
-    padding: 8px 10px;
-    font-size: 12px;
+    margin: 6px 0 0;
+    padding: 4px 6px;
+    font-size: 10.5px;
     font-weight: 700;
     color: #334155;
     background: #f8fafc;
@@ -190,20 +190,20 @@ const UNIFIED_REPORT_CSS = `
     border-radius: 6px;
   }
   .pdf-footer {
-    margin: 14px 0 0;
-    padding-top: 8px;
+    margin: 8px 0 0;
+    padding-top: 4px;
     border-block-start: 1px solid #94a3b8;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     color: #334155;
   }
   .pdf-empty {
-    padding: 10px;
-    font-size: 12px;
+    padding: 6px;
+    font-size: 10.5px;
     font-weight: 600;
     color: #64748b;
     text-align: center;
@@ -583,10 +583,10 @@ export function buildProductCatalogHtml({
         .map((category) => {
           const items = grouped.get(category) ?? []
           return `
-    <div style="margin-bottom:18px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; background:#eef5fc; color:#103352; border:1px solid #cbd5e1; border-bottom:none; padding:6px 8px; font-weight:800; font-size:12px; border-radius:5px 5px 0 0; break-after:avoid-page; page-break-after:avoid;">
+    <div style="margin-bottom:8px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; background:#eef5fc; color:#103352; border:1px solid #cbd5e1; border-bottom:none; padding:3px 6px; font-weight:800; font-size:11px; border-radius:5px 5px 0 0; break-after:avoid-page; page-break-after:avoid;">
         <span>${esc(category)}</span>
-        <span style="font-size:10px; color:#475569;">${items.length} صنف</span>
+        <span style="font-size:9px; color:#475569;">${items.length} صنف</span>
       </div>
       <div class="pdf-table-wrap" style="margin-top:0;">
         <table class="pdf-table">
@@ -690,12 +690,12 @@ export interface LowStockReportPdfInput {
 }
 
 const LOW_STOCK_REPORT_CSS = `
-  .lowstock-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
+  .lowstock-table { width: 100%; border-collapse: collapse; font-size: 10.5px; table-layout: auto; }
   .lowstock-table th, .lowstock-table td {
-    border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; vertical-align: middle;
+    border: 1px solid #cbd5e1; padding: 3px 4px; text-align: center; vertical-align: middle;
   }
   .lowstock-table th {
-    background: #e0eefb !important; color: #103352; font-weight: 800; font-size: 12px;
+    background: #e0eefb !important; color: #103352; font-weight: 800; font-size: 10.5px;
   }
   .lowstock-table td.lowstock-name { text-align: start; font-weight: 700; }
   .lowstock-meta { font-size: 10px; color: #64748b; font-weight: 500; }
@@ -1069,7 +1069,7 @@ export function buildDailyReportHtml(input: DailyReportInput): string {
 
   const repSectionHtml = repRows.length
     ? `
-    <section class="pdf-section" style="margin-top: 18px;">
+    <section class="pdf-section" style="margin-top: 8px;">
       <h3 class="pdf-section-title">ملخص نشاط المناديب</h3>
       <div class="pdf-table-wrap">
         <table class="pdf-table">
@@ -1316,14 +1316,14 @@ const STOCK_COUNT_REPORT_CSS = `
   .pdf-table .stock-count-index, .pdf-table .stock-count-box-cell { text-align: center; }
   .stock-count-index { font-weight: 700; }
   .stock-count-num {
-    font-size: 12px; font-weight: 800;
+    font-size: 10.5px; font-weight: 800;
     font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap;
   }
   .stock-count-box {
     display: inline-block;
     width: 100%;
     min-width: 78px;
-    height: 24px;
+    height: 20px;
     border: 1.5px solid #64748b;
     background: #ffffff;
     border-radius: 3px;
@@ -1331,7 +1331,7 @@ const STOCK_COUNT_REPORT_CSS = `
   .stock-count-box-diff { min-width: 62px; border-color: #94a3b8; }
   .stock-count-category td {
     background: #eef5fc !important; color: #103352;
-    font-size: 11.5px; font-weight: 800; padding: 6px 8px;
+    font-size: 10.5px; font-weight: 800; padding: 3px 5px;
     border: 1px solid #cbd5e1;
   }
   .stock-count-category { break-after: avoid; page-break-after: avoid; }
@@ -1339,7 +1339,7 @@ const STOCK_COUNT_REPORT_CSS = `
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    margin-top: 18px;
+    margin-top: 8px;
     font-weight: 700;
     font-size: 11px;
     break-inside: avoid;

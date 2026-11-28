@@ -26,6 +26,7 @@ import AuditLogsTab from '@/features/audit/AuditLogsTab'
 import NotificationsDrawer, { type NotificationTargetFilter } from '@/features/notifications/NotificationsDrawer'
 import { useNotifications } from '@/hooks/useNotifications'
 import Toast from '@/shared/ui/Toast'
+import PaperSizeSelect from '@/shared/ui/PaperSizeSelect'
 import ReportModal from '@/features/reporting/ReportModal'
 import DailyReportModal from '@/features/reporting/DailyReportModal'
 import HrPayrollTab from '@/features/hr/HrPayrollTab'
@@ -325,6 +326,7 @@ export default function Sheet() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              {canExportPrint && <PaperSizeSelect />}
               {isManager && (
                 <div className="hidden lg:flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-2.5 py-1 backdrop-blur-sm">
                   <span className="text-xs font-semibold text-white/90">المندوب:</span>

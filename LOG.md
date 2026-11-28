@@ -312,3 +312,42 @@
   Vercel production deployment `dpl_4ZXFg8L9iRAfznbL2ddZbnzeyP2A` reached READY for that SHA and is
   aliased to https://tawreed-zeta.vercel.app, which responded successfully. This docs-only
   follow-up records the deployment status; no application code changed after verification.
+
+## 2026-11-28 - Global paper size, compact print layout, supplier-purchase printing
+
+- Track: `feature`; plan checkpoint approved (global header selector, all printable documents).
+- `src/shared/lib/pdfShare.ts`: added localStorage-backed `getPreferredPaperSize()` /
+  `setPreferredPaperSize()` and `PAPER_SIZE_STORAGE_KEY`. `printHtml()` and
+  `generatePdfFromHtml()` now use `explicit ?? preference` (A5 default). `A4_OVERRIDE_CSS` was
+  reduced to geometry only (794px root, meta min-width, table-layout); the old large-font and
+  large-padding overrides were removed. Exported `PRINT_PAGE_BREAK_CSS` for shared batch use.
+- `src/shared/ui/PaperSizeSelect.tsx`: compact RTL A5/A4 toggle with `aria-pressed`, rendered in
+  `Sheet.tsx` header only for users with `export_print`; cross-tab storage sync included.
+- `src/features/reporting/pdfGenerators.ts`: `UNIFIED_REPORT_CSS` compacted (root padding
+  16/18 → 10/12, company 19 → 16px, header/banner/section spacing halved, table cells 8/7 →
+  4/3px, fonts 13/12.5 → 11/10.5px, footer 11 → 10px). Low-stock table, stock-count boxes,
+  category rows, signoff and rep-summary spacing tightened. Hard-coded A4 label buttons changed
+  in `InvoiceDetailsModal.tsx` and `ProductsTab.tsx`; `bulkInvoicePrint.ts` no longer forces A5
+  and imports the shared page-break CSS.
+- `src/features/reporting/printableDocuments.ts` and `productAnalyticsReport.ts`: receipt,
+  payroll, wide-table and analytics typography/padding tightened for denser pages.
+- `src/features/suppliers/useSuppliers.ts`: extracted RLS-scoped `fetchSupplierPurchaseLines()`
+  so the hook and the print builder share the same anon query.
+- New `src/features/reporting/supplierPurchasePrint.ts`: builds a full purchase document on the
+  unified template (supplier, date, invoice no., payment type, notes, item lines with SKU/batch/
+  expiry/qty/cost/total) and prints single or batch documents; batch loads lines in parallel,
+  isolates failures, and emits one print job with one document per sheet.
+- `SupplierPurchasesTab.tsx`: header list-print, per-row print (desktop + mobile cards),
+  checkbox selection and `BulkActionBar` bulk print, all gated by `export_print`; company name
+  comes from settings; partial/all failure states show explicit toasts and keep selection.
+- Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only, no new warnings from
+  the new files); build PASS (pre-existing chunk-size warning only).
+- Static QA using `a5-qa.html` (RTL + LTR): 559px root, 0 overflow, 47px header, 34px rows for
+  the unified table; supplier document 8 rows/0 overflow; preference A4 emitted A4/12mm print
+  rule plus 794px override and no old inflation CSS; preference A5 emitted A5/8mm with no A4
+  override; both A4 and A5 PDF blobs generated successfully.
+- Reviewer verdict: PASS WITH NOTES — no blockers, majors or minors. Two nits: the supplier list
+  print omits the currency suffix (kept intentionally to match the other tabular list prints such
+  as Supplier Payments) and LTR dates used `en-GB` in `fmtDate`; the latter was changed to `en-US`
+  for consistency with the other generators. Verification Gate re-run after the fix: typecheck
+  PASS; lint PASS (pre-existing warnings only); build PASS.

@@ -17,7 +17,8 @@ import {
 } from '/src/features/reporting/pdfGenerators.ts'
 import { buildProductConsumptionReportHtml } from '/src/features/reporting/productAnalyticsReport.ts'
 import { buildPayrollRegisterHtml, buildGenericDocumentHtml, buildCustomerPaymentReceiptHtml } from '/src/features/reporting/printableDocuments.ts'
-import { generatePdfFromHtml, printHtml } from '/src/shared/lib/pdfShare.ts'
+import { buildSupplierPurchaseHtml } from '/src/features/reporting/supplierPurchasePrint.ts'
+import { getPreferredPaperSize, setPreferredPaperSize, generatePdfFromHtml, printHtml } from '/src/shared/lib/pdfShare.ts'
 
 const params = new URLSearchParams(location.search)
 const doc = params.get('doc') || 'unified'
@@ -137,12 +138,33 @@ const htmlByDoc = {
   invoice: buildInvoicePdfHtml(invoiceInput),
   salary: buildSalarySlipHtml(salaryInput),
   analytics: buildProductConsumptionReportHtml(analyticsInput),
+  supplier: buildSupplierPurchaseHtml({
+    companyName: 'شركة توريد التجريبية',
+    supplierName: 'مؤسسة المورد التجريبية للتجارة والتوزيع',
+    purchaseDate: '2026-11-28',
+    invoiceNo: 'SUP-2026-5001',
+    paymentType: 'cash',
+    notes: 'ملاحظة تجريبية للاختبار',
+    total: 23125,
+    lines: Array.from({ length: 8 }, (_, i) => ({
+      product_id: `product-${i}`,
+      qty: i + 2,
+      unit_cost: 18.5,
+      line_total: (i + 2) * 18.5,
+      batch_number: `B-${1000 + i}`,
+      expiry_date: '2027-11-28',
+      products: { name_ar: `صنف مشتريات تجريبي طويل الاسم رقم ${i + 1}`, sku: `SKU-${5000 + i}`, unit: 'علبة' },
+    })),
+    dir,
+  }),
 }
 
 const html = htmlByDoc[doc] || htmlByDoc.unified
 document.getElementById('out').innerHTML = html
 window.__qa = {
   html,
+  getPreferredPaperSize,
+  setPreferredPaperSize,
   async makePdf() {
     const blob = await generatePdfFromHtml(html, dir, paper)
     return await new Promise((resolve) => {
@@ -152,23 +174,33 @@ window.__qa = {
     })
   },
   async makePrint() {
-    const original = window.open
-    let captured = ''
-    const fake = {
-      document: { open() {}, write(value) { captured = value }, close() {}, fonts: { ready: Promise.resolve() } },
-      addEventListener() {},
-      focus() {},
-      print() {},
-      close() {},
-    }
-    window.open = () => fake
-    try {
-      await printHtml(html, 'A5 QA', dir, paper)
-    } finally {
-      window.open = original
-    }
-    return captured
+    return capturePrint(() => printHtml(html, 'print QA', dir, paper))
   },
+  async makePrintWithPreference() {
+    return capturePrint(() => printHtml(html, 'print QA', dir))
+  },
+  async makePdfWithPreference() {
+    const blob = await generatePdfFromHtml(html, dir)
+    return { size: blob.size, type: blob.type }
+  },
+}
+async function capturePrint(call) {
+  const original = window.open
+  let captured = ''
+  const fake = {
+    document: { open() {}, write(value) { captured = value }, close() {}, fonts: { ready: Promise.resolve() } },
+    addEventListener() {},
+    focus() {},
+    print() {},
+    close() {},
+  }
+  window.open = () => fake
+  try {
+    await call()
+  } finally {
+    window.open = original
+  }
+  return captured
 }
 window.__qaReady = true
 </script>

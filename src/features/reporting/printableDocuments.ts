@@ -43,16 +43,16 @@ const DOCUMENT_CSS = `
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    margin-top: 16px;
-    font-size: 11px;
+    margin-top: 8px;
+    font-size: 10px;
     font-weight: 700;
     break-inside: avoid;
     page-break-inside: avoid;
   }
   .wide-table { table-layout: fixed; }
-  .wide-table th, .wide-table td { padding: 4px 4px; font-size: 10.5px; overflow-wrap: anywhere; }
+  .wide-table th, .wide-table td { padding: 3px 4px; font-size: 10px; overflow-wrap: anywhere; }
   .wide-table .num { white-space: nowrap; }
-  .payroll-table th, .payroll-table td { padding: 2px 2px; font-size: 8.5px; line-height: 1.3; white-space: normal; }
+  .payroll-table th, .payroll-table td { padding: 1px 2px; font-size: 8px; line-height: 1.2; white-space: normal; }
   .payroll-table .num { white-space: normal; }
   .payroll-table th:nth-child(1) { width: 14%; }
 `

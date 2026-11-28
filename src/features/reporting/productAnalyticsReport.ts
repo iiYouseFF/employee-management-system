@@ -42,12 +42,12 @@ function esc(value: unknown): string {
 
 const MAX_HISTORY_ROWS = 100
 
-/** Compact A5 overrides for the wide eight-column analytics tables. */
+/** Compact overrides for the wide eight-column analytics tables. */
 const ANALYTICS_A5_CSS = `
   .analytics-table { table-layout: fixed; }
-  .analytics-table th, .analytics-table td { padding: 4px 4px; font-size: 10.5px; white-space: normal; overflow-wrap: anywhere; }
-  .analytics-table .num { font-size: 10.5px; white-space: nowrap; }
-  .analytics-table td[dir="ltr"] { font-size: 10px; }
+  .analytics-table th, .analytics-table td { padding: 3px 4px; font-size: 10px; white-space: normal; overflow-wrap: anywhere; }
+  .analytics-table .num { font-size: 10px; white-space: nowrap; }
+  .analytics-table td[dir="ltr"] { font-size: 9.5px; }
   .analytics-customer th:nth-child(1) { width: 17%; }
   .analytics-customer th:nth-child(2) { width: 12%; }
   .analytics-customer th:nth-child(3) { width: 12%; }

@@ -38,26 +38,41 @@ const PAPER_WIDTH_PX: Record<PaperSize, number> = {
   a4: 794,
 }
 
+export const PAPER_SIZE_STORAGE_KEY = 'ems.print-paper-size'
+
+/** Reads the user's paper-size choice; A5 stays the default for new users. */
+export function getPreferredPaperSize(): PaperSize {
+  try {
+    const stored = localStorage.getItem(PAPER_SIZE_STORAGE_KEY)
+    if (stored === 'a4' || stored === 'a5') return stored
+  } catch {
+    // Storage can be unavailable (private mode / disabled cookies).
+  }
+  return 'a5'
+}
+
+/** Persists the paper-size choice for every print and PDF export. */
+export function setPreferredPaperSize(size: PaperSize): void {
+  try {
+    localStorage.setItem(PAPER_SIZE_STORAGE_KEY, size)
+  } catch {
+    // Printing still works with the in-memory selection.
+  }
+}
+
+function resolvePaperSize(explicit?: PaperSize): PaperSize {
+  return explicit ?? getPreferredPaperSize()
+}
+
 /**
- * The unified report template is authored for A5. Explicit A4 exports still need
- * the original geometry, so it is restored here for every builder at once.
+ * A4 only needs wider geometry for PDF export. Font sizes and padding are kept
+ * from the compact shared template so both paper sizes fit the same dense rows.
  */
 const A4_OVERRIDE_CSS = `
-  .pdf-root { width: 794px !important; padding: 24px 32px 20px !important; font-size: 15px !important; }
-  .pdf-company { font-size: 24px !important; }
-  .pdf-doc-badge { font-size: 16px !important; padding: 6px 14px !important; }
-  .pdf-meta-grid { min-width: 240px !important; }
-  .pdf-meta-item, .pdf-entity-subtitle, .pdf-section-title { font-size: 14px !important; }
-  .pdf-entity-title { font-size: 18px !important; }
-  .pdf-table th { font-size: 15px !important; padding: 12px !important; }
-  .pdf-table td { font-size: 14.5px !important; padding: 11px 12px !important; }
-  .pdf-table .num { font-size: 14.5px !important; }
-  .pdf-table tr.row-total td { font-size: 15.5px !important; }
+  .pdf-root { width: 794px !important; }
+  .pdf-meta-grid { min-width: 220px !important; }
   .analytics-table { table-layout: auto !important; }
-  .analytics-table th, .analytics-table td { padding: 10px !important; font-size: 13px !important; }
   .overdue-table { table-layout: auto !important; }
-  .overdue-table th, .overdue-table td { padding: 8px !important; font-size: 12px !important; }
-  .pdf-signatures { font-size: 14px !important; margin-top: 28px !important; }
 `
 
 /** In-browser printing has page margins, so the fixed canvas width must become fluid. */
@@ -70,6 +85,14 @@ const A4_PRINT_CSS = `${A4_OVERRIDE_CSS}
   ${FLUID_PRINT_CSS}
 `
 
+/** Print-only page break used when concatenating one document per sheet. */
+export const PRINT_PAGE_BREAK_CSS = `
+  @media print {
+    .pdf-print-page { break-after: page; page-break-after: always; }
+    .pdf-print-page:last-of-type { break-after: auto; page-break-after: auto; }
+  }
+`
+
 /**
  * Converts an HTML string or element into a pixel-perfect PDF using HTML5 canvas.
  * This completely eliminates Arabic reversed text or detached letter issues, because
@@ -78,9 +101,10 @@ const A4_PRINT_CSS = `${A4_OVERRIDE_CSS}
 export async function generatePdfFromHtml(
   htmlContent: string,
   dir: PrintDirection = 'rtl',
-  paperSize: PaperSize = 'a5'
+  paperSize?: PaperSize
 ): Promise<Blob> {
-  const widthPx = PAPER_WIDTH_PX[paperSize]
+  const size = resolvePaperSize(paperSize)
+  const widthPx = PAPER_WIDTH_PX[size]
   const container = document.createElement('div')
   container.style.position = 'fixed'
   container.style.left = '-9999px'
@@ -90,7 +114,7 @@ export async function generatePdfFromHtml(
   container.style.zIndex = '-9999'
   container.setAttribute('dir', dir)
   container.innerHTML = htmlContent
-  if (paperSize === 'a4') {
+  if (size === 'a4') {
     const override = document.createElement('style')
     override.textContent = A4_OVERRIDE_CSS
     container.appendChild(override)
@@ -117,7 +141,7 @@ export async function generatePdfFromHtml(
     })
 
     const imgData = canvas.toDataURL('image/jpeg', 0.95)
-    const pdf = new jsPDF('p', 'mm', paperSize)
+    const pdf = new jsPDF('p', 'mm', size)
     const pdfWidth = pdf.internal.pageSize.getWidth()
     const pdfHeight = pdf.internal.pageSize.getHeight()
 
@@ -202,8 +226,9 @@ export async function printHtml(
   htmlContent: string,
   title = 'تقرير',
   dir: PrintDirection = 'rtl',
-  paperSize: PaperSize = 'a5'
+  paperSize?: PaperSize
 ): Promise<boolean> {
+  const size = resolvePaperSize(paperSize)
   const win = window.open('', '_blank', 'width=1100,height=800')
   if (!win) return false
 
@@ -212,8 +237,8 @@ export async function printHtml(
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-  const pageRule = paperSize === 'a4' ? 'size: A4 portrait; margin: 12mm;' : 'size: A5 portrait; margin: 8mm;'
-  const contentRule = paperSize === 'a5' ? A5_PRINT_CSS : A4_PRINT_CSS
+  const pageRule = size === 'a4' ? 'size: A4 portrait; margin: 12mm;' : 'size: A5 portrait; margin: 8mm;'
+  const contentRule = size === 'a5' ? A5_PRINT_CSS : A4_PRINT_CSS
   const lang = dir === 'ltr' ? 'en' : 'ar'
 
   const html = `<!doctype html>

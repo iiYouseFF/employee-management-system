@@ -7,11 +7,22 @@ import { useDatePreset } from '@/shared/hooks/useDatePreset'
 import { formatMoney } from '@/shared/lib/format'
 import SupplierPurchaseModal from '@/features/suppliers/SupplierPurchaseModal'
 import { useProducts } from '@/features/products/useProducts'
+import { useAuth } from '@/features/auth/useAuth'
+import { useSettings } from '@/features/settings/useSettings'
+import { printGenericDocument } from '@/features/reporting/printableDocuments'
 import {
+  printSupplierPurchase,
+  printSupplierPurchasesBatch,
+} from '@/features/reporting/supplierPurchasePrint'
+import { useRowSelection } from '@/shared/hooks/useRowSelection'
+import { BulkActionBar } from '@/shared/ui/BulkActionBar'
+import {
+  fetchSupplierPurchaseLines,
   useDeleteSupplierPurchase,
   useSupplierPurchaseLines,
   useSupplierPurchases,
   useSuppliers,
+  type SupplierPurchase,
 } from '@/features/suppliers/useSuppliers'
 
 interface Props { showToast: (msg: string) => void; createSignal?: number; onSignalHandled?: () => void }
@@ -35,9 +46,17 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
   const { preset, from, to, setPreset, setFrom, setTo, reset } = useDatePreset('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(15)
+  const { data: settings } = useSettings()
+  const { can } = useAuth()
+  const canPrint = can('export_print')
+  const companyName = settings?.title || 'المؤسسة المصرية لتوزيع المواد الغذائية'
+  const dir = document.documentElement.dir === 'ltr' ? 'ltr' : 'rtl'
+  const [printingId, setPrintingId] = useState<string | null>(null)
+  const [bulkPrinting, setBulkPrinting] = useState(false)
   useEffect(() => { if (createSignal) { openNew(); onSignalHandled?.() } }, [createSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name || '-'
+  const formatDate = (value: string) => new Date(value).toLocaleDateString('ar-EG')
   const editingPurchase = useMemo(
     () => purchases.find((p) => p.id === editingId) || null,
     [purchases, editingId],
@@ -69,6 +88,7 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
     const start = (safePage - 1) * pageSize
     return filteredPurchases.slice(start, start + pageSize)
   }, [filteredPurchases, safePage, pageSize])
+  const selection = useRowSelection(paginated, (purchase) => purchase.id)
 
   const openNew = () => {
     setEditingId(null)
@@ -80,7 +100,7 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
     setModalOpen(true)
   }
 
-  const handleDelete = async (purchase: (typeof purchases)[number]) => {
+  const handleDelete = async (purchase: SupplierPurchase) => {
     if (!confirm(`هل أنت متأكد من حذف فاتورة المشتريات${purchase.invoice_no ? ` رقم ${purchase.invoice_no}` : ''}؟ سيتم خصم الأصناف من المخزون.`)) return
     try {
       await deletePurchase.mutateAsync(purchase.id)
@@ -90,14 +110,96 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
     }
   }
 
+  const toPrintRef = (purchase: SupplierPurchase) => ({
+    id: purchase.id,
+    supplierName: supplierName(purchase.supplier_id),
+    purchaseDate: purchase.purchase_date,
+    invoiceNo: purchase.invoice_no,
+    paymentType: purchase.payment_type,
+    notes: purchase.notes,
+    total: Number(purchase.total_amount || 0),
+  })
+
+  const handlePrintList = async () => {
+    const printed = await printGenericDocument({
+      companyName,
+      title: 'مشتريات الموردين',
+      subtitle: hasActiveFilters ? 'النتائج المطابقة للفلاتر الحالية' : undefined,
+      columns: [
+        { label: '#', numeric: true },
+        { label: 'التاريخ' },
+        { label: 'المورد' },
+        { label: 'رقم الفاتورة' },
+        { label: 'النوع' },
+        { label: 'الإجمالي', numeric: true },
+        { label: 'ملاحظات' },
+      ],
+      rows: filteredPurchases.map((purchase, index) => [
+        String(filteredPurchases.length - index),
+        formatDate(purchase.purchase_date),
+        supplierName(purchase.supplier_id),
+        purchase.invoice_no || '-',
+        purchase.payment_type === 'cash' ? 'نقدي' : 'آجل',
+        formatMoney(Number(purchase.total_amount || 0), { withCurrency: false }),
+        purchase.notes || '-',
+      ]),
+      dir,
+    })
+    if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+  }
+
+  const handlePrintPurchase = async (purchase: SupplierPurchase) => {
+    if (printingId) return
+    setPrintingId(purchase.id)
+    try {
+      const lines = await fetchSupplierPurchaseLines(purchase.id)
+      const printed = await printSupplierPurchase({ ...toPrintRef(purchase), companyName, lines, dir })
+      if (!printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+    } catch (err) {
+      showToast(`تعذر طباعة فاتورة المشتريات: ${(err as Error)?.message || 'خطأ غير معروف'}`)
+    } finally {
+      setPrintingId(null)
+    }
+  }
+
+  const handleBulkPrint = async () => {
+    if (bulkPrinting) return
+    setBulkPrinting(true)
+    try {
+      const result = await printSupplierPurchasesBatch({
+        purchases: selection.selectedRows.map(toPrintRef),
+        companyName,
+        dir,
+      })
+      if (result.printed && result.failed === 0) selection.clear()
+      if (!result.printed) showToast('يرجى السماح بالنوافذ المنبثقة للطباعة')
+      if (result.failed) {
+        showToast(result.printed
+          ? `تعذّر تحميل ${result.failed} فاتورة؛ تمت طباعة الباقي. لم يتم إلغاء التحديد`
+          : `تعذّر تحميل ${result.failed} فاتورة؛ لم تتم الطباعة`)
+      }
+    } finally {
+      setBulkPrinting(false)
+    }
+  }
+
   return (
     <div className="app-page space-y-5">
       <PageHeader
         title="مشتريات الموردين"
         count={`${filteredPurchases.length} عملية`}
-        actions={<button type="button" onClick={openNew} className="app-btn app-btn-primary py-2 text-xs sm:text-sm">
-          + تسجيل فاتورة مشتريات
-        </button>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canPrint && (
+              <button type="button" onClick={() => void handlePrintList()} className="app-btn app-btn-secondary py-2 text-xs sm:text-sm">
+                طباعة القائمة
+              </button>
+            )}
+            <button type="button" onClick={openNew} className="app-btn app-btn-primary py-2 text-xs sm:text-sm">
+              + تسجيل فاتورة مشتريات
+            </button>
+          </div>
+        }
       />
 
       <FilterToolbar
@@ -117,6 +219,16 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
       <p className="mb-3 rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2 text-[11px] text-blue-800">
         تسجيل الفاتورة هنا يضيف الأصناف إلى المخزون تلقائياً. لا تستخدم «استلام بضاعة» في المخزون إلا للبضاعة غير المرتبطة بفاتورة مورد.
       </p>
+
+      {canPrint && (
+        <BulkActionBar
+          count={selection.count}
+          onPrint={() => void handleBulkPrint()}
+          onClear={selection.clear}
+          printLabel="طباعة المشتريات المحددة"
+          busy={bulkPrinting}
+        />
+      )}
 
       <ResponsiveDataView
         loading={purchasesQuery.isPending}
@@ -144,6 +256,17 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
             <table className="app-table">
               <thead>
                 <tr>
+                  {canPrint && (
+                    <th className="w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selection.allCurrentPageSelected}
+                        onChange={selection.toggleCurrentPage}
+                        aria-label="تحديد كل مشتريات الصفحة"
+                        className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th className="w-12 text-center">#</th>
                   <th className="text-center">التاريخ</th>
                   <th>المورد</th>
@@ -157,6 +280,17 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
               <tbody>
                 {paginated.map((p, idx) => (
                   <tr key={p.id}>
+                    {canPrint && (
+                      <td className="text-center">
+                        <input
+                          type="checkbox"
+                          checked={selection.isSelected(p.id)}
+                          onChange={() => selection.toggle(p.id)}
+                          aria-label="تحديد فاتورة المشتريات"
+                          className="h-4 w-4 accent-[var(--primary)] cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="text-center text-xs text-slate-400 font-mono">{filteredPurchases.length - ((safePage - 1) * pageSize + idx)}</td>
                     <td className="text-center text-xs font-mono text-slate-600">{new Date(p.purchase_date).toLocaleDateString('ar-EG')}</td>
                     <td className="font-semibold text-slate-800">{supplierName(p.supplier_id)}</td>
@@ -170,6 +304,16 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
                     <td className="text-xs text-slate-500">{p.notes || '-'}</td>
                     <td>
                       <div className="flex gap-1.5 justify-center">
+                        {canPrint && (
+                          <button
+                            type="button"
+                            onClick={() => void handlePrintPurchase(p)}
+                            disabled={printingId === p.id}
+                            className="app-btn app-btn-sm app-btn-ghost text-xs"
+                          >
+                            {printingId === p.id ? 'جاري الطباعة...' : 'طباعة'}
+                          </button>
+                        )}
                         <button type="button" onClick={() => openEdit(p.id)} className="app-btn app-btn-sm app-btn-ghost text-xs">تعديل</button>
                         <button
                           type="button"
@@ -202,6 +346,16 @@ export default function SupplierPurchasesTab({ showToast, createSignal, onSignal
             {p.invoice_no && <div className="text-xs text-slate-500">رقم الفاتورة: <span className="font-mono" dir="ltr">{p.invoice_no}</span></div>}
             {p.notes && <div className="text-xs text-slate-500">{p.notes}</div>}
             <div className="flex gap-2 pt-2 border-t border-slate-100">
+              {canPrint && (
+                <button
+                  type="button"
+                  onClick={() => void handlePrintPurchase(p)}
+                  disabled={printingId === p.id}
+                  className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs"
+                >
+                  {printingId === p.id ? 'جاري الطباعة...' : 'طباعة'}
+                </button>
+              )}
               <button type="button" onClick={() => openEdit(p.id)} className="app-btn app-btn-ghost app-btn-sm flex-1 py-1.5 text-xs">تعديل</button>
               <button
                 type="button"

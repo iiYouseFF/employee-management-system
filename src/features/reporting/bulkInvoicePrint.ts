@@ -1,15 +1,7 @@
 import { buildInvoicePdfHtml } from '@/features/reporting/pdfGenerators'
-import { printHtml } from '@/shared/lib/pdfShare'
+import { printHtml, PRINT_PAGE_BREAK_CSS } from '@/shared/lib/pdfShare'
 import { buildInvoicePdfInput } from '@/features/sales/invoicePdfInput'
 import { fetchInvoiceDetails, type InvoiceDetails, type InvoiceType } from '@/features/sales/useInvoices'
-
-/** Each selected invoice starts on a fresh A5 sheet in the same print job. */
-const PAGE_BREAK_CSS = `
-  @media print {
-    .pdf-print-page { break-after: page; page-break-after: always; }
-    .pdf-print-page:last-of-type { break-after: auto; page-break-after: auto; }
-  }
-`
 
 export interface BulkInvoiceRef {
   id: string
@@ -52,8 +44,8 @@ export async function printInvoicesBatch({
 
   const html = `${documents
     .map((details) => `<section class="pdf-print-page">${buildInvoicePdfHtml(buildInvoicePdfInput(details, companyName, dir))}</section>`)
-    .join('')}<style>${PAGE_BREAK_CSS}</style>`
+    .join('')}<style>${PRINT_PAGE_BREAK_CSS}</style>`
 
-  const printed = await printHtml(html, title, dir, 'a5')
+  const printed = await printHtml(html, title, dir)
   return { printed, loaded: documents.length, failed }
 }
