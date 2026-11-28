@@ -266,8 +266,8 @@ remaining key record views.
       receipt, payroll and generic documents (RTL + LTR QA)
 - [x] Payment/salary/expense/payroll documents + print buttons implemented and permission-gated
 - [x] Verification Gate: typecheck PASS; lint PASS (pre-existing warnings only); build PASS
-- [ ] Reviewer re-pass on final diff
-- [ ] PLAN/LOG committed, pushed, Vercel READY
+- [x] Reviewer re-pass on final diff (PASS)
+- [x] PLAN/LOG committed, pushed, Vercel READY (commit `153d525`, deployment `dpl_4ZXFg8L9iRAfznbL2ddZbnzeyP2A`)
 - [ ] Authenticated in-app print-preview QA (no credentials supplied; static print CSS/PDF QA done)
 
 ---
@@ -300,7 +300,7 @@ Let managers select multiple invoice/document rows with checkboxes and apply one
 - [x] Verification Gate re-run after fixes: typecheck PASS; lint PASS; build PASS
 - [x] Reviewer re-pass blocker (stale selection restored when revisiting a page) fixed by
       resetting the keyed selection during render
-- [ ] Push and Vercel READY
+- [x] Push and Vercel READY (included in commit `153d525`)
 
 ---
 
@@ -329,4 +329,4 @@ checked invoice, one invoice per A5 page in a single print job.
 - [x] Static print QA: A5 `@page`, two sections/two roots at fluid 499px, 0 overflow, page-break rules
 - [x] Reviewer PASS WITH NOTES; failure-state handling fixed in all three handlers and gate re-run
 - [x] Final reviewer confirmation: PASS
-- [ ] Commit, push and Vercel READY
+- [x] Commit, push and Vercel READY (commit `153d525`, deployment `dpl_4ZXFg8L9iRAfznbL2ddZbnzeyP2A`)
