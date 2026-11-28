@@ -5,6 +5,7 @@ import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
 import { isEmptyPlaceholderInvoiceLine } from '@/features/sales/invoiceLineUtils'
 import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
+import { productUnitOptions, resolveProductUnit } from '@/shared/lib/productUnits'
 
 export interface LineItem {
   /** temporary client-side key */
@@ -71,6 +72,7 @@ export default function InvoiceLineEditor({
           (p, idx) =>
             p._key === initialLines[idx]._key &&
             p.product_id === initialLines[idx].product_id &&
+            p.unit === initialLines[idx].unit &&
             p.qty === initialLines[idx].qty &&
             p.unit_price === initialLines[idx].unit_price
         )
@@ -110,7 +112,7 @@ export default function InvoiceLineEditor({
         const prod = products.find((p) => p.id === value)
         if (prod) {
           updated.product_name = prod.name_ar
-          updated.unit = prod.unit ?? ''
+          updated.unit = resolveProductUnit(prod.unit)
           updated.unit_price = Number(prod.price) || 0
           updated.on_hand = stockMap[prod.id] ?? 0
         } else {
@@ -217,6 +219,25 @@ export default function InvoiceLineEditor({
                       </span>
                     )}
                   />
+                </div>
+
+                <div className="w-full md:w-28 shrink-0">
+                  {selected && !disabled ? (
+                    <select
+                      value={line.unit}
+                      onChange={(e) => setField(line._key, 'unit', e.target.value)}
+                      className="app-input !py-1.5 !min-h-0 h-9 text-xs w-full"
+                      aria-label={`الوحدة للسطر ${index + 1}`}
+                    >
+                      {productUnitOptions(line.unit).map((unit) => (
+                        <option key={unit} value={unit}>{unit}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="app-input !py-1.5 !min-h-0 h-9 text-center text-xs bg-slate-50 flex items-center justify-center">
+                      {line.unit || 'الوحدة'}
+                    </div>
+                  )}
                 </div>
 
                 <div className="w-full md:w-24 shrink-0">

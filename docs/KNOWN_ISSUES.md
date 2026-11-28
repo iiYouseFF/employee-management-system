@@ -3,26 +3,62 @@
 > Produced during the architecture review / cleanup. These are **findings and recommendations**,
 > not changes applied to already-run migrations or live data. Items are ordered by priority.
 
-## 1. Database defects (fix in a NEW additive migration — `0038_…` or later, never edit applied files)
+## 1. Database defects (fix in a NEW additive migration — `0041_…` or later, never edit applied files)
 
-**Status (2026-11-27):** migrations through `0037_notifications_and_low_stock_10` are applied on the
-remote project. `0037` added the notifications table/RLS, live operational-alerts RPC, rep-activity
+**Status (2026-11-28):** migrations through `0040_purchase_returns_hardening` are applied on the
+remote project. The local `0038_hr_attendance_loans_payroll.sql` is still pending and untouched.
+`0039` added manager-only supplier purchase returns with stock movements, ledger/KPI/cashflow
+integration and fixed the `kpi_summary()` expense-date defect below.
+`0037` added the notifications table/RLS, live operational-alerts RPC, rep-activity
 triggers, the `save_credit_invoice()` override flag, and the effective 10-unit low-stock threshold.
 `0031` added the 15-day credit due-date trigger and the
 `unpaid_credit_invoices_list()` RPC; `0032` corrected the report's rep attribution and due-date
 trigger behavior; `0033` fixed sales-rep visibility of invoice lines for assigned customers;
 `0034` added the granular per-rep permission flags, RLS guards and helper RPCs; `0035` hardened
 that implementation (statement isolation, ACLs, reference validation and `search_path`);
-`0036` closed the legacy stock RPC bypass. The next free number is `0038`.
+`0036` closed the legacy stock RPC bypass. `0040` hardened the supplier-return functions, ledger view and
+statement ACLs (details below). The next free remote number is `0041` (pending local `0038` still exists).
 
 **Migration filename note:** both applied migrations use the `0031_` prefix locally
 (`0031_unpaid_overdue_invoices.sql` and `0031_product_customer_breakdown_fix.sql`); the remote
 tracks them under distinct timestamp versions. They are applied files and must not be renamed;
-use `0038_` or later for the next migration.
+use `0041_` or later for the next remote migration, or apply the pending local `0038` first.
+
+### Supplier purchase returns hardening (`0040`, applied 2026-11-28)
+
+Applied migration `0040_purchase_returns_hardening.sql` closes the two blocking findings from the
+post-`0039` review; no applied file was edited:
+
+- **Double stock reversal (blocking).** Both `save_supplier_return(jsonb, jsonb)` and
+  `delete_supplier_return(uuid)` now skip an original `supplier_return` stock movement when a
+  `reversal` row already references it. Repeated edits/deletes no longer inflate `products.on_hand`.
+  Both functions lock the return header and all touched products in a consistent order.
+- **Ledger/view isolation (blocking).** `v_supplier_transactions` has `security_invoker = true`
+  restored; `supplier_statement(uuid, date, date)` now requires `public.is_manager()` and filters
+  `s.owner_id = public.get_manager_id()` in both CTEs, so rep/cross-tenant callers see no transaction
+  rows (only the zero-balance opening placeholder, with null debit/credit/reference).
+- **Direct DML.** `authenticated` has only `SELECT` on `supplier_returns`/`supplier_return_lines`;
+  `INSERT`/`UPDATE`/`DELETE` and all `anon` privileges were revoked, forcing writes through the
+  guarded RPCs. EXECUTE on the touched RPCs remains `authenticated`-only.
+- **Frontend nit.** The return quantity input now uses `step="0.0001"` instead of `step="any"` to
+  match the DB's 4-decimal quantity precision.
+
+Verified remotely: view `reloptions = ["security_invoker=true"]`; both reversal guards present in
+the RPC bodies; manager/tenant filters present in `supplier_statement()`; ACLs as above; migrations
+ordered `0039 → 0040`. A rolled-back live transaction exercised create → edit → edit → delete with
+quantities 1 → 2 → 3 → deleted: on-hand moved 13 → 12 → 11 → 10 → 13, exactly three reversal rows
+were written, and all return lines were removed. As `authenticated`, direct `DELETE` on
+`supplier_returns` was denied; a rep and a different-tenant manager each received only the
+zero-balance opening placeholder (no transaction rows) from `supplier_statement()`. No data was
+persisted by the test. No signatures changed, so type regeneration was not required.
+
+**Operational note:** the guards prevent future double reversals but do not repair stock already
+inflated by repeated edit/delete cycles performed before `0040` was applied (the migration does not
+rewrite stock rows). Reconcile affected products manually if such cycles occurred.
 
 | # | Issue | Evidence | Recommended fix |
 |---|---|---|---|
-| 1 | `kpi_summary()` references `expenses.expense_date`, but the column is `date` | `0021_reservations_and_returns.sql:877`; schema in `0010_all_features_management.sql:194` | Use `expenses.date` (or add a generated `expense_date` column) and regenerate types |
+| 1 | ~~`kpi_summary()` references `expenses.expense_date`, but the column is `date`~~ **Resolved by `0039`** — the recreated function uses `expenses.date`. | `0021_reservations_and_returns.sql:877`; schema in `0010_all_features_management.sql:194` | No further action |
 | 2 | Audit trigger reads `NEW.title` / `OLD.title` on `expenses`, but the column is `description` | `0019_audit_logs.sql:162,212,243` | Use `NEW.description` / `OLD.description` |
 | 3 | ~~App calls `product_stock_summary_v3()` but no migration defines it~~ **Resolved by `0035`** — the function is now created explicitly with authenticated-only EXECUTE. |
 | 4 | `DROP FUNCTION product_stock_summary()` may be blocked by `stock_valuation()` dependency | `0020_expiry_and_stock_alerts.sql:76`; `0018_inventory.sql:588-605` | Drop/recreate both functions together in a new migration |
@@ -106,8 +142,11 @@ commit). The accidental duplicate `006_reservations_and_returns.sql` was removed
 Before applying, confirm `supabase_migrations.schema_migrations` on the remote DB does not already
 record version `006`; if it does, use `supabase migration repair` instead of re-running the body.
 
-**Types drift:** `src/shared/types/supabase.ts` has hand edits (`allow_negative_stock?` optional in `Row`)
-and RPCs ahead of the SQL. Regenerate with `supabase gen types typescript` after the `0022` fixes.
+**Types drift:** `src/shared/types/supabase.ts` was regenerated after `0039` and now includes the
+supplier-return tables and RPCs. `0040` changed no signatures, so regeneration was not needed.
+The newer generator changed no-arg RPC `Args` from `Record<PropertyKey, never>` to `never`; the
+prior convention was retained to avoid unrelated churn. Regenerate again after applying pending
+`0038` or any future migration.
 
 ## 2. Configuration / quality
 

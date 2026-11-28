@@ -3,6 +3,7 @@ import Modal from '@/shared/ui/Modal'
 import { formatNumber } from '@/shared/lib/format'
 import { useProducts, type Product } from '@/features/products/useProducts'
 import { useProductStock, type ProductStockRow } from '@/features/inventory/useInventory'
+import { productUnitOptions, resolveProductUnit } from '@/shared/lib/productUnits'
 
 export interface BulkMatrixLine {
   product_id: string
@@ -30,10 +31,18 @@ interface BulkProductMatrixModalProps {
     product_id: string
     qty: number
     unit_price?: number
+    unit?: string
     condition?: 'salable' | 'damaged'
   }>
   onClose: () => void
   onCommit: (selectedLines: BulkMatrixLine[]) => void
+}
+
+interface MatrixEntry {
+  qty: string
+  price: string
+  condition: 'salable' | 'damaged'
+  unit?: string
 }
 
 export default function BulkProductMatrixModal({
@@ -61,8 +70,8 @@ export default function BulkProductMatrixModal({
   }, [stockList])
 
   // Initialise row entries from products
-  const [entries, setEntries] = useState<Record<string, { qty: string; price: string; condition: 'salable' | 'damaged' }>>(() => {
-    const initial: Record<string, { qty: string; price: string; condition: 'salable' | 'damaged' }> = {}
+  const [entries, setEntries] = useState<Record<string, MatrixEntry>>(() => {
+    const initial: Record<string, MatrixEntry> = {}
     
     // Seed with existing lines if provided
     for (const line of initialLines) {
@@ -71,6 +80,7 @@ export default function BulkProductMatrixModal({
           qty: line.qty > 0 ? String(line.qty) : '',
           price: line.unit_price !== undefined ? String(line.unit_price) : '',
           condition: line.condition || 'salable',
+          unit: line.unit || resolveProductUnit(products.find((p) => p.id === line.product_id)?.unit),
         }
       }
     }
@@ -130,6 +140,16 @@ export default function BulkProductMatrixModal({
       return {
         ...prev,
         [productId]: { ...cur, price: val },
+      }
+    })
+  }
+
+  const handleUnitChange = (productId: string, unit: string) => {
+    setEntries((prev) => {
+      const cur = prev[productId] || { qty: '', price: '', condition: 'salable' }
+      return {
+        ...prev,
+        [productId]: { ...cur, unit },
       }
     })
   }
@@ -205,7 +225,7 @@ export default function BulkProductMatrixModal({
           product_id: p.id,
           product_name: p.name_ar,
           sku: p.sku,
-          unit: p.unit || 'وحدة',
+          unit: resolveProductUnit(entry.unit ?? p.unit),
           qty: q,
           unit_price: unitPrice,
           condition: entry.condition || 'salable',
@@ -366,7 +386,20 @@ export default function BulkProductMatrixModal({
 
                     {/* Unit */}
                     <td className="py-2 px-2 text-center text-slate-500">
-                      {p.unit || 'وحدة'}
+                      {mode === 'sale' ? (
+                        <select
+                          value={resolveProductUnit(entry.unit ?? p.unit)}
+                          onChange={(e) => handleUnitChange(p.id, e.target.value)}
+                          className="app-input !py-1 !min-h-0 h-8 text-xs w-full"
+                          aria-label={`وحدة ${p.name_ar}`}
+                        >
+                          {productUnitOptions(entry.unit ?? p.unit).map((unit) => (
+                            <option key={unit} value={unit}>{unit}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        p.unit || 'وحدة'
+                      )}
                     </td>
 
                     {/* Sale Mode Stock Info (ATP & Reserved) */}

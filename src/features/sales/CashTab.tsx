@@ -1,5 +1,6 @@
 ﻿import { useState, useMemo, useEffect } from 'react'
 import { formatMoney, formatNumber, getTodayISO } from '@/shared/lib/format'
+import { resolveProductUnit } from '@/shared/lib/productUnits'
 import Modal from '@/shared/ui/Modal'
 import SearchableSelect from '@/shared/ui/SearchableSelect'
 import { toSearchableOptions } from '@/shared/ui/searchableSelectUtils'
@@ -86,7 +87,7 @@ function CashInvoiceModal({
       _key: l.id as string,
       product_id: l.product_id as string,
       product_name: ((l.products as Record<string, unknown>)?.name_ar as string) || '',
-      unit: ((l.products as Record<string, unknown>)?.unit as string) || '',
+      unit: resolveProductUnit((l.unit as string) || ((l.products as Record<string, unknown>)?.unit as string)),
       unit_price: Number(l.unit_price),
       qty: Number(l.qty),
       line_total: Number(l.line_total),
@@ -136,7 +137,7 @@ function CashInvoiceModal({
     }
 
     const validLines: InvoiceLine[] = meaningfulLines
-      .map((l) => ({ product_id: l.product_id, qty: l.qty, unit_price: l.unit_price }))
+      .map((l) => ({ product_id: l.product_id, qty: l.qty, unit_price: l.unit_price, unit: l.unit }))
 
     if (validLines.length === 0) {
       setErr('أضف صنفاً واحداً على الأقل للفاتورة')

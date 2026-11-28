@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/shared/lib/supabase'
 import { getTenantId } from '@/shared/lib/tenant'
+import { resolveProductUnit } from '@/shared/lib/productUnits'
 
 
 export function useCustomers(repFilter?: string) {
@@ -282,6 +283,8 @@ export interface InvoiceDetailLine {
   qty: number
   unit_price: number
   line_total: number
+  /** Unit chosen on the invoice line; legacy rows fall back to the product unit. */
+  unit: string | null
   product: {
     name_ar: string | null
     name_en: string | null
@@ -361,7 +364,7 @@ export function useInvoiceDetails(invoiceId: string | null, invoiceType: Invoice
 
       const { data: lineRows, error: linesError } = await supabase
         .from('invoice_lines')
-        .select('id,qty,unit_price,line_total,products(name_ar,name_en,sku,unit)')
+        .select('id,qty,unit_price,line_total,unit,products(name_ar,name_en,sku,unit)')
         .eq('invoice_type', invoiceType)
         .eq('invoice_id', invoiceId)
         .order('created_at', { ascending: true })
@@ -375,6 +378,7 @@ export function useInvoiceDetails(invoiceId: string | null, invoiceType: Invoice
           qty: asNumber(row.qty),
           unit_price: asNumber(row.unit_price),
           line_total: asNumber(row.line_total),
+          unit: resolveProductUnit(row.unit ? String(row.unit) : product.unit ? String(product.unit) : null),
           product: Object.keys(product).length
             ? {
                 name_ar: product.name_ar ? String(product.name_ar) : null,

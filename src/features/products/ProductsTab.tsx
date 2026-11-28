@@ -9,6 +9,7 @@ import {
 import { useSettings } from '@/features/settings/useSettings'
 import { formatNumber } from '@/shared/lib/format'
 import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
+import { DEFAULT_PRODUCT_UNIT, productUnitOptions, resolveProductUnit } from '@/shared/lib/productUnits'
 import Modal from '@/shared/ui/Modal'
 import CategorySelect from '@/features/products/CategorySelect'
 import WhatsAppShareButton from '@/shared/ui/WhatsAppShareButton'
@@ -48,7 +49,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
     name_en: '',
     sku: '',
     category: '',
-    unit: 'قطعة',
+    unit: DEFAULT_PRODUCT_UNIT,
     price: 0,
     min_stock_alert: LOW_STOCK_THRESHOLD,
     expiry_date: '',
@@ -111,7 +112,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         name_en: product.name_en || '',
         sku: product.sku || '',
         category: product.category || '',
-        unit: product.unit || 'قطعة',
+        unit: resolveProductUnit(product.unit),
         price: Number(product.price),
         min_stock_alert: Number(product.min_stock_alert || 0),
         expiry_date: product.expiry_date || '',
@@ -125,7 +126,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         name_en: '',
         sku: '',
         category: '',
-        unit: 'قطعة',
+        unit: DEFAULT_PRODUCT_UNIT,
         price: 0,
         min_stock_alert: LOW_STOCK_THRESHOLD,
         expiry_date: '',
@@ -160,7 +161,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
         name_en: form.name_en || null,
         sku: form.sku || null,
         category: form.category || null,
-        unit: form.unit || 'قطعة',
+        unit: form.unit || DEFAULT_PRODUCT_UNIT,
         price: form.price,
         min_stock_alert: form.min_stock_alert,
         expiry_date: form.expiry_date || null,
@@ -334,7 +335,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
                       '-'
                     )}
                   </td>
-                  <td className="text-center text-slate-600 text-xs">{p.unit || 'قطعة'}</td>
+                  <td className="text-center text-slate-600 text-xs">{resolveProductUnit(p.unit)}</td>
                   <td className="text-center font-mono font-extrabold text-base text-primary-800 whitespace-nowrap">
                     {formatNumber(p.price)} <span className="text-xs font-normal text-slate-500">ج.م</span>
                   </td>
@@ -432,7 +433,7 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
                   </span>
                 )}
                 <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
-                  الوحدة: {p.unit || 'قطعة'}
+                  الوحدة: {resolveProductUnit(p.unit)}
                 </span>
                 {p.sku && (
                   <span className="font-mono text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200" dir="ltr">
@@ -551,13 +552,16 @@ export default function ProductsTab({ isReadOnly = false }: ProductsTabProps) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">الوحدة</label>
-                <input
-                  type="text"
+                <select
                   value={form.unit}
                   onChange={(e) => setForm({ ...form, unit: e.target.value })}
                   className="app-input"
-                  placeholder="قطعة، كرتونة، كجم..."
-                />
+                  aria-label="وحدة الصنف"
+                >
+                  {productUnitOptions(form.unit).map((unit) => (
+                    <option key={unit} value={unit}>{unit}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">

@@ -52,6 +52,7 @@ export interface InvoiceLine {
   product_id: string
   qty: number
   unit_price: number
+  unit?: string
 }
 
 // ─── Hooks ───────────────────────────────────────────────────────────────────

@@ -261,6 +261,9 @@ Line items of a supplier purchase (created by migration 0026).
 - `created_at` (`timestamptz`, DEFAULT `now()`)
 RLS: manager read-only on the table; all writes go through the security-definer RPCs.
 
+#### 12b. `supplier_returns` / `supplier_return_lines`
+Supplier purchase returns (created by migration 0039). A return header stores `supplier_id`, optional `purchase_id`, `return_date`, `settlement_method` (`reduce_payable` or `cash_refund`), `total_amount`, notes and `created_by`. Lines store `product_id`, `qty`, `unit_cost`, an average-cost snapshot and a generated `line_total`. RLS is manager-only and tenant-scoped; all writes go through `save_supplier_return(jsonb,jsonb)` and `delete_supplier_return(uuid)`. Saving writes outgoing `stock_movements` with `reference_type = 'supplier_return'`; editing and deleting reverse only movements that do not already have a `reversal` row (hardened by `0040`). Linked returns cannot exceed the quantity received on the original purchase invoice across all returns. Payable-reducing returns appear as debits in `supplier_statement()`; cash refunds reduce the cash outcome in KPIs. `0040` restores `security_invoker` on the ledger view and restricts the statement RPC to managers and their own tenant.
+
 #### 13. `supplier_payments`
 Disbursements made to suppliers.
 - `id` (`uuid`, PK, DEFAULT `gen_random_uuid()`)
@@ -279,7 +282,7 @@ Disbursements made to suppliers.
 Operational overhead expenses (salaries, fuel, rent, utility bills).
 - `id` (`uuid`, PK, DEFAULT `gen_random_uuid()`)
 - `owner_id` (`uuid`, NOT NULL, FK `auth.users.id` ON DELETE CASCADE)
-- `expense_date` (`date`, NOT NULL)
+- `date` (`date`, NOT NULL) — the live column name used by `kpi_summary()`/`cashflow_series()`
 - `category` (`text`, NOT NULL)
 - `amount` (`numeric(14,2)`, NOT NULL, CHECK `> 0`)
 - `description` (`text`)
@@ -431,7 +434,7 @@ flowchart TD
 
 ### 5.6 Executive Financial KPI Metrics
 - **Income:** Total cash collected = $\text{Cash Invoices} + \text{Customer Payments}$.
-- **Outcome:** Total cash spent = $\text{Supplier Payments} + \text{Cash Purchases} + \text{Operating Expenses}$.
+- **Outcome:** Total cash spent = $\text{Supplier Payments} + \text{Cash Purchases} + \text{Operating Expenses} - \text{Cash Refunds from Suppliers}$.
 - **Net Cashflow:** $\text{Income} - \text{Outcome}$.
 - **DSO (Days Sales Outstanding):**
   $$\text{DSO} = \frac{\text{Total Unpaid Receivables}}{\text{Total Credit Sales in Period}} \times \text{Days in Period}$$
@@ -557,7 +560,7 @@ graph TD
             Profiles["user_roles"]
             Customers["customers & payments"]
             Invoices["cash_invoices, credit_invoices & invoice_lines"]
-            Suppliers["suppliers, supplier_purchases, supplier_payments"]
+            Suppliers["suppliers, supplier_purchases, supplier_returns, supplier_payments"]
             Inventory["products, stock_movements"]
             Accounting["expenses, general ledger views"]
             Audit["audit_logs (Triggers & Snapshots)"]
@@ -845,13 +848,18 @@ The **Suppliers & Purchases** tab (manager only) has four main sections.
   - **Credit**: Increases the amount owed to the supplier and appears in the statement and liabilities.
   - **Cash**: Paid immediately and counted as a cash outflow.
 
-### C. Supplier Payments
+### C. Supplier Purchase Returns
+- Click **+ تسجيل مرتجع مشتريات** (manager-only).
+- Select the supplier and optionally link the original purchase invoice, then add the returned products with quantities and unit costs.
+- Choose **تقليل الدين** to debit the supplier statement, or **استرداد نقدي** to reduce cash outflow. Saving removes the goods from stock; editing and deleting reverse the stock effect.
+
+### D. Supplier Payments
 - Click **+ Pay Supplier**.
 - Select the supplier, enter the amount, choose the payment method (`Cash`, `Cheque`, `Bank Transfer`), and add a reference or cheque number.
 - The payment is deducted from the supplier's balance immediately.
 
-### D. Cumulative Supplier Statement
-- Select a supplier to view their transactions (purchases and payments) with a continuous running balance.
+### E. Cumulative Supplier Statement
+- Select a supplier to view their transactions (purchases, payments and payable-reducing returns) with a continuous running balance.
 
 ---
 
@@ -905,7 +913,7 @@ The **Financial KPIs** tab is reserved for managers and gives a strategic view o
 
 ### Roles & Security Model
 - **Manager (`manager`)**:
-  - Full CRUD permissions across all system tables (`customers`, `cash_invoices`, `credit_invoices`, `payments`, `suppliers`, `supplier_purchases`, `supplier_payments`, `products`, `expenses`).
+  - Full CRUD permissions across all system tables (`customers`, `cash_invoices`, `credit_invoices`, `payments`, `suppliers`, `supplier_purchases`, `supplier_returns`, `supplier_payments`, `products`, `expenses`).
   - Access to team management, representative assignment, executive KPI dashboard, and supplier accounting.
 - **Sales Rep (`sales_rep`)**:
   - Strict read-only access enforced at both Database RLS and Frontend levels.
@@ -913,14 +921,15 @@ The **Financial KPIs** tab is reserved for managers and gives a strategic view o
   - Can view and print the Product Price List.
    - No access to Suppliers, operational expenses, or Manager Financial KPIs.
 
-### Enforcement Details (migration `0014_rbac_hardening_v2`)
-- **Database is the boundary.** Reps hold only `select` policies; every write on customers, invoices, payments, suppliers, products and expenses is rejected at the DB (0 rows affected or RLS error), regardless of the UI.
+### Enforcement Details (migration `0014_rbac_hardening_v2`, extended by `0034`, `0035`, `0036`, `0039` and `0040`)
+- **Database is the boundary.** Reps hold `select` policies by default; writes on customers, invoices, payments, suppliers, products and expenses are rejected at the DB unless the manager granted the matching `reps.permissions` flag and the RPC/RLS scope checks pass.
 - **Confirmation gate.** `current_role_name()` / `current_owner_id()` return `null` until `auth.users.email_confirmed_at` is set, so an unconfirmed account has no role and sees no rows (products included). The UI shows the «لا تملك صلاحية الوصول» screen in that case.
 - **Provisioning is centralised.** `public.provision_user_role(uuid)` (SECURITY DEFINER, execute revoked from `public`/`anon`/`authenticated`) is the only role-granting path. It runs from `handle_new_user()` on signup and `handle_user_email_confirmed()` when confirmation arrives.
 - **Role escalation is impossible from the client.** `user_roles` has RLS with no client-facing policy and no table grant; a rep cannot promote itself. `sync_rep_role` never demotes a manager and never moves a role across owners.
 - **Rep identity is bound to one row.** `uq_reps_user_id` (partial unique index) guarantees one rep row per user, so `get_current_rep_id()` is unambiguous.
 - **Rep visibility rule.** A rep sees a customer when `representative_id = get_current_rep_id()`, and sees an invoice/payment when it carries their `rep_id` or belongs to one of their customers. There is no cross-rep visibility.
-- **Search path hardening.** Every `public` SECURITY DEFINER function runs with `search_path = public, pg_temp`; `auth` objects stay fully qualified.
+- **Search path hardening.** SECURITY DEFINER functions remediated by `0014`, `0035`, `0036`, `0039` and `0040` run with `search_path = public, pg_temp`; some legacy functions (e.g. supplier-purchase RPCs from `0026`–`0029`) still use `search_path = public` — see `docs/KNOWN_ISSUES.md`. `auth` objects stay fully qualified.
+- **Supplier ledger isolation.** `0040` restores `security_invoker = true` on `v_supplier_transactions` and restricts `supplier_statement()` to managers reading only their own tenant, so rep/cross-tenant callers get no transaction rows (only a zero-balance opening placeholder).
 
 ---
 
@@ -936,8 +945,11 @@ The **Financial KPIs** tab is reserved for managers and gives a strategic view o
 - **Supplier Payments**:
   - Decreases the amount owed to the supplier.
   - Recorded as a debit entry on the supplier ledger.
+- **Supplier Purchase Returns (`supplier_returns`)**:
+  - Return purchased goods to the supplier; saving removes them from stock, while editing and deleting reverse only movements that have not already been reversed (hardened by `0040`).
+  - `settlement_method = 'reduce_payable'` reduces the payable and is a debit in the supplier statement; `cash_refund` reduces the cash outcome in KPIs.
 - **Supplier Running Balance Calculation**:
-  $$\text{Supplier Balance} = \text{Opening Balance} + \sum \text{Credit Purchases} - \sum \text{Payments}$$
+  $$\text{Supplier Balance} = \text{Opening Balance} + \sum \text{Credit Purchases} - \sum \text{Payments} - \sum \text{Payable-Reducing Returns}$$
 
 ---
 
@@ -950,7 +962,7 @@ Both Customer and Supplier statements use a chronological running balance model:
 | Account Type | Debit (مدين) | Credit (دائن) | Running Balance Formula |
 |---|---|---|---|
 | **Customer (Receivables)** | Credit Invoice (زيادة مديونية العميل) | Payments received / Down payment (سداد العميل) | $\text{Opening} + \sum (\text{Debit} - \text{Credit})$ |
-| **Supplier (Payables)** | Payment to supplier (سداد للمورد) | Credit Purchase (فاتورة مشتريات آجل) | $\text{Opening} + \sum (\text{Credit} - \text{Debit})$ |
+| **Supplier (Payables)** | Payment to supplier (سداد للمورد) / payable-reducing purchase return (مرتجع يقلّل الدين) | Credit Purchase (فاتورة مشتريات آجل) | $\text{Opening} + \sum (\text{Credit} - \text{Debit})$ |
 
 - **Opening Balance (`رصيد أول المدة`)**:
   - Represents the account's historical balance before the filtered start date (`p_from`).
@@ -962,8 +974,9 @@ Both Customer and Supplier statements use a chronological running balance model:
 
 1. **Income vs Outcome**:
    - **Income**: All collected cash $\rightarrow \text{Cash Invoices} + \text{Payments Received on Credit}$.
-   - **Outcome**: Total outflows $\rightarrow \text{Supplier Payments} + \text{Cash Purchases} + \text{Operational Expenses}$.
+   - **Outcome**: Total outflows $\rightarrow \text{Supplier Payments} + \text{Cash Purchases} + \text{Operational Expenses} - \text{Cash Refunds from Suppliers}$.
    - **Net Cash**: $\text{Income} - \text{Outcome}$.
+   - `purchase_returns_total` in `kpi_summary()` reports both purchase-return settlement methods combined.
 2. **Receivables & Payables**:
    - **Total Receivables**: Sum of remaining unpaid balances on customer credit invoices.
    - **Total Payables**: Net outstanding debt owed to suppliers.

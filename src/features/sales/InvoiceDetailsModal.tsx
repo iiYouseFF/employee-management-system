@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import Modal from '@/shared/ui/Modal'
 import { formatNumber } from '@/shared/lib/format'
+import { resolveProductUnit } from '@/shared/lib/productUnits'
 import { useInvoiceDetails, type InvoiceDetails, type InvoiceType } from '@/hooks/useInvoices'
 import { useSettings } from '@/features/settings/useSettings'
 import {
@@ -131,7 +132,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
       ? data.lines.map((line) => ({
           ...base,
           'الصنف': line.product?.name_ar || line.product?.name_en || line.product?.sku || data.item || '-',
-          'الوحدة': line.product?.unit || '-',
+          'الوحدة': resolveProductUnit(line.unit),
           'الكمية': formatNumber(line.qty),
           'سعر الوحدة': money(line.unit_price),
           'إجمالي السطر': money(line.line_total),
@@ -285,7 +286,7 @@ export default function InvoiceDetailsModal({ invoiceId, invoiceType, onClose }:
                             <div className="text-[10px] font-mono text-slate-400" dir="ltr">SKU: {line.product.sku}</div>
                           )}
                         </td>
-                        <td className="text-center text-xs text-slate-600">{line.product?.unit || '-'}</td>
+                        <td className="text-center text-xs text-slate-600">{resolveProductUnit(line.unit)}</td>
                         <td className="text-end font-mono tabular-nums">{formatNumber(line.qty)}</td>
                         <td className="text-end font-mono tabular-nums">{money(line.unit_price)}</td>
                         <td className="text-end font-mono font-bold tabular-nums">{money(line.line_total)}</td>

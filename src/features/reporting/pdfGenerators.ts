@@ -4,6 +4,7 @@ import type { StatementRow } from '@/features/statements/useStatements'
 import type { Product } from '@/features/products/useProducts'
 import type { Report, Cell } from '@/features/reporting/report'
 import { LOW_STOCK_THRESHOLD } from '@/shared/lib/stockThresholds'
+import { resolveProductUnit } from '@/shared/lib/productUnits'
 import { t, type UiLang } from '@/shared/lib/bilingual'
 
 function esc(val: unknown): string {
@@ -538,9 +539,31 @@ export function buildProductCatalogHtml({
   companyName = 'شركة توريد',
 }: ProductCatalogPdfInput): string {
   const catLabel = categoryFilter === 'all' ? 'جميع التصنيفات' : categoryFilter
-  const rowsHtml = products
-    .map(
-      (p, idx) => `
+  const uncategorizedLabel = 'بدون تصنيف'
+
+  const grouped = new Map<string, Product[]>()
+  for (const p of products) {
+    const key = p.category?.trim() || uncategorizedLabel
+    const list = grouped.get(key)
+    if (list) {
+      list.push(p)
+    } else {
+      grouped.set(key, [p])
+    }
+  }
+
+  const sortedCategories = Array.from(grouped.keys()).sort((a, b) => {
+    if (a === uncategorizedLabel) return 1
+    if (b === uncategorizedLabel) return -1
+    return a.localeCompare(b, 'ar')
+  })
+
+  const buildRows = (items: Product[]) =>
+    items
+      .slice()
+      .sort((a, b) => a.name_ar.localeCompare(b.name_ar, 'ar'))
+      .map(
+        (p, idx) => `
         <tr>
           <td class="num">${idx + 1}</td>
           <td style="font-weight:700;">${esc(p.name_ar)}</td>
@@ -550,26 +573,39 @@ export function buildProductCatalogHtml({
           <td>${esc(p.unit || 'قطعة')}</td>
           <td class="num" style="font-weight:800;">${esc(fmtMoney(p.price))}</td>
         </tr>`
-    )
-    .join('')
+      )
+      .join('')
 
-  const bodyHtml = `
-    <div class="pdf-table-wrap">
-      <table class="pdf-table">
-        <thead>
-          <tr>
-            <th class="num" style="width:48px;">#</th>
-            <th>اسم الصنف</th>
-            <th style="width:130px;">English Name</th>
-            <th style="width:110px;">الكود (SKU)</th>
-            <th style="width:110px;">التصنيف</th>
-            <th style="width:80px;">الوحدة</th>
-            <th class="num" style="width:120px;">السعر المعتمد</th>
-          </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
+  const bodyHtml = sortedCategories.length
+    ? sortedCategories
+        .map((category) => {
+          const items = grouped.get(category) ?? []
+          return `
+    <div style="margin-bottom:18px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; background:#eef5fc; color:#103352; border:1px solid #cbd5e1; border-bottom:none; padding:8px 12px; font-weight:800; font-size:14px; border-radius:6px 6px 0 0; break-after:avoid-page; page-break-after:avoid;">
+        <span>${esc(category)}</span>
+        <span style="font-size:12px; color:#475569;">${items.length} صنف</span>
+      </div>
+      <div class="pdf-table-wrap" style="margin-top:0;">
+        <table class="pdf-table">
+          <thead>
+            <tr>
+              <th class="num" style="width:48px;">#</th>
+              <th>اسم الصنف</th>
+              <th style="width:130px;">English Name</th>
+              <th style="width:110px;">الكود (SKU)</th>
+              <th style="width:110px;">التصنيف</th>
+              <th style="width:80px;">الوحدة</th>
+              <th class="num" style="width:120px;">السعر المعتمد</th>
+            </tr>
+          </thead>
+          <tbody>${buildRows(items)}</tbody>
+        </table>
+      </div>
     </div>`
+        })
+        .join('')
+    : '<div class="pdf-empty">لا توجد أصناف</div>'
 
   return buildUnifiedReportTemplate({
     companyName,
@@ -745,6 +781,7 @@ export interface InvoicePdfLine {
   qty: number
   unit_price: number
   line_total: number
+  unit?: string | null
   product: {
     name_ar: string | null
     name_en: string | null
@@ -815,7 +852,7 @@ export function buildInvoicePdfHtml({
             <tr>
               <td class="num">${esc(index + 1)}</td>
               <td>${esc(productName(line))}</td>
-              <td>${esc(line.product?.unit || '-')}</td>
+              <td>${esc(resolveProductUnit(line.unit || line.product?.unit))}</td>
               <td class="num">${esc(formatNumber(line.qty))}</td>
               <td class="num">${esc(formatNumber(line.unit_price))}</td>
               <td class="num">${esc(fmtMoney(line.line_total))}</td>

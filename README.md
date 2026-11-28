@@ -149,7 +149,8 @@ Two roles are stored and verified in Supabase:
 - **Cash purchases:** recorded with `payment_type = 'cash'` — cost is immediate and netted to zero on the payable ledger (no separate payment row is created).
 - **Credit purchases:** recorded with `payment_type = 'credit'` — increases the balance owed to the supplier.
 - **Supplier payments:** record money paid out to a supplier with date, amount, method, and reference.
-- Supplier balance = opening + credit purchases − payments made.
+- **Supplier purchase returns (مرتجعات المشتريات):** return purchased goods to a supplier, optionally linked to the original purchase. Returns remove stock, can reduce the payable or be recorded as a cash refund, and support edit/delete with stock reversal.
+- Supplier balance = opening + credit purchases − payments made − payable-reducing returns.
 - **Cumulative supplier statements:** same running-balance ledger structure as customer statements, with supplier sign conventions (payment = debit, credit purchase = credit).
 - Manager-only tab; RLS blocks all rep access at the database level.
 
@@ -339,7 +340,7 @@ src/
                                  # bulk matrix, useInvoices, useSalesReturns
     customers/                   # CustomersTab
     payments/                    # PaymentsTab
-    suppliers/                   # SuppliersTab, SupplierStatementModal, useSuppliers
+    suppliers/                   # Directory, purchases, returns, payments, statement tabs + useSuppliers/useSupplierReturns
     products/                    # ProductsTab, CategorySelect, useProducts, useProductCategories
     inventory/                   # InventoryTab, useInventory
     expenses/                    # ExpensesTab, useExpenses
@@ -359,7 +360,7 @@ src/
   styles/
     index.css                    # Tailwind base + design tokens + component classes
 supabase/
-  migrations/                    # Additive SQL migrations (0001–0037 applied; 0004–0006 skipped historically)
+  migrations/                    # Additive SQL migrations (0001–0040 applied, except pending local 0038; next free 0041; 0004–0006 skipped historically)
 docs/
   APP_SUMMARY.md                 # Technical reference: schema, RPCs, workflows
   SYSTEM_ARCHITECTURE.md         # High-level architecture & tech stack
@@ -399,6 +400,7 @@ Slash commands (`.opencode/commands/`): `/track`, `/feature`, `/fix`,
 | `payments` | Customer payments, optionally allocated to a credit invoice |
 | `suppliers` | Vendor profiles and opening balances |
 | `supplier_purchases` | Purchases from suppliers (`cash` or `credit`) |
+| `supplier_returns` | Purchase returns to suppliers (payable reduction or cash refund) |
 | `supplier_payments` | Payments made to suppliers |
 | `expenses` | Operational expenses |
 | `products` | Price list (Arabic/English names, SKU, unit, price, category) |

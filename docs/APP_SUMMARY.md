@@ -235,6 +235,9 @@ Line items of a supplier purchase (created by migration 0026).
 - `created_at` (`timestamptz`, DEFAULT `now()`)
 RLS: manager read-only on the table; all writes go through the security-definer RPCs.
 
+#### 12b. `supplier_returns` / `supplier_return_lines`
+Supplier purchase returns (created by migration 0039). Header: `supplier_id`, optional `purchase_id`, `return_date`, `settlement_method` (`reduce_payable` / `cash_refund`), generated `total_amount`, notes and `created_by`. Lines: `product_id`, `qty`, `unit_cost`, `avg_cost_snapshot` and generated `line_total`. RLS is manager-only and tenant-scoped; writes go through `save_supplier_return(jsonb,jsonb)` and `delete_supplier_return(uuid)`. Saving writes outgoing stock movements (`reference_type = 'supplier_return'`); editing reverses only movements not already reversed, and deleting uses the same guard. Payable-reducing returns are debits in `supplier_statement()`; cash refunds reduce the cash outcome in KPIs. `0040` restores `security_invoker` on the ledger view and restricts the statement RPC to managers and their own tenant.
+
 #### 13. `supplier_payments`
 Disbursements made to suppliers.
 - `id` (`uuid`, PK, DEFAULT `gen_random_uuid()`)
@@ -253,7 +256,7 @@ Disbursements made to suppliers.
 Operational overhead expenses (salaries, fuel, rent, utility bills).
 - `id` (`uuid`, PK, DEFAULT `gen_random_uuid()`)
 - `owner_id` (`uuid`, NOT NULL, FK `auth.users.id` ON DELETE CASCADE)
-- `expense_date` (`date`, NOT NULL)
+- `date` (`date`, NOT NULL) — the live column name used by `kpi_summary()`/`cashflow_series()`
 - `category` (`text`, NOT NULL)
 - `amount` (`numeric(14,2)`, NOT NULL, CHECK `> 0`)
 - `description` (`text`)
@@ -405,7 +408,7 @@ flowchart TD
 
 ### 5.6 Executive Financial KPI Metrics
 - **Income:** Total cash collected = $\text{Cash Invoices} + \text{Customer Payments}$.
-- **Outcome:** Total cash spent = $\text{Supplier Payments} + \text{Cash Purchases} + \text{Operating Expenses}$.
+- **Outcome:** Total cash spent = $\text{Supplier Payments} + \text{Cash Purchases} + \text{Operating Expenses} - \text{Cash Refunds from Suppliers}$.
 - **Net Cashflow:** $\text{Income} - \text{Outcome}$.
 - **DSO (Days Sales Outstanding):**
   $$\text{DSO} = \frac{\text{Total Unpaid Receivables}}{\text{Total Credit Sales in Period}} \times \text{Days in Period}$$
