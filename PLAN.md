@@ -400,5 +400,6 @@ same invoice from that view.
 - [x] Reviewer verdict: PASS WITH NOTES (no blockers/majors); keyboard access is covered by the
       explicit «تفاصيل» buttons, and zero-line printing intentionally matches the existing tab
       print behavior
-- [ ] Commit, push and Vercel READY
+- [x] Commit, push and Vercel READY (commit `3afc40a`, deployment `dpl_8FSRBwCcGBKDSyYWDVjD7ooRJUFN`,
+      aliased to https://tawreed-zeta.vercel.app)
 - [ ] Authenticated in-app QA (still blocked: no credentials supplied)

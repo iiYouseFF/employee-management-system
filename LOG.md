@@ -335,6 +335,10 @@
   whole row/card is a mouse convenience while keyboard users have the explicit «تفاصيل» buttons,
   and printing a zero-line purchase matches the existing tab print behavior (the document shows
   «لا توجد أصناف مسجلة»). No code changes were needed after the review.
+- Commit `3afc40a` pushed to `main`. Vercel production deployment
+  `dpl_8FSRBwCcGBKDSyYWDVjD7ooRJUFN` reached READY for that SHA and is aliased to
+  https://tawreed-zeta.vercel.app, which responded successfully. This docs-only follow-up records
+  the deployment status; no application code changed after verification.
 
 ## 2026-11-28 - Global paper size, compact print layout, supplier-purchase printing
 
