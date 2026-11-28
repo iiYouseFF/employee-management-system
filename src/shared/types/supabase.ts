@@ -520,6 +520,7 @@ export type Database = {
           owner_id: string
           product_id: string
           qty: number
+          unit: string | null
           unit_price: number
         }
         Insert: {
@@ -531,6 +532,7 @@ export type Database = {
           owner_id: string
           product_id: string
           qty: number
+          unit?: string | null
           unit_price: number
         }
         Update: {
@@ -542,6 +544,7 @@ export type Database = {
           owner_id?: string
           product_id?: string
           qty?: number
+          unit?: string | null
           unit_price?: number
         }
         Relationships: [
@@ -1107,6 +1110,111 @@ export type Database = {
           },
         ]
       }
+      supplier_return_lines: {
+        Row: {
+          avg_cost_snapshot: number
+          created_at: string
+          id: string
+          line_total: number | null
+          owner_id: string
+          product_id: string
+          qty: number
+          return_id: string
+          unit_cost: number
+        }
+        Insert: {
+          avg_cost_snapshot?: number
+          created_at?: string
+          id?: string
+          line_total?: number | null
+          owner_id?: string
+          product_id: string
+          qty: number
+          return_id: string
+          unit_cost: number
+        }
+        Update: {
+          avg_cost_snapshot?: number
+          created_at?: string
+          id?: string
+          line_total?: number | null
+          owner_id?: string
+          product_id?: string
+          qty?: number
+          return_id?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_return_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_return_lines_return_id_fkey"
+            columns: ["return_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_returns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_returns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          owner_id: string
+          purchase_id: string | null
+          return_date: string
+          settlement_method: string
+          supplier_id: string
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          owner_id?: string
+          purchase_id?: string | null
+          return_date?: string
+          settlement_method: string
+          supplier_id: string
+          total_amount?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          owner_id?: string
+          purchase_id?: string | null
+          return_date?: string
+          settlement_method?: string
+          supplier_id?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_returns_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_returns_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           created_at: string
@@ -1266,9 +1374,9 @@ export type Database = {
           tx_date: string
         }[]
       }
-      current_owner_id: { Args: Record<PropertyKey, never>; Returns: string }
+      current_owner_id: { Args: never; Returns: string }
       current_role_name: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: Database["public"]["Enums"]["app_role"]
       }
       customer_statement: {
@@ -1291,12 +1399,13 @@ export type Database = {
       delete_credit_invoice: { Args: { p_id: string }; Returns: undefined }
       delete_sales_return: { Args: { p_id: string }; Returns: undefined }
       delete_supplier_purchase: { Args: { p_id: string }; Returns: undefined }
-      get_current_rep_id: { Args: Record<PropertyKey, never>; Returns: string }
-      get_current_rep_owner_id: { Args: Record<PropertyKey, never>; Returns: string }
+      delete_supplier_return: { Args: { p_id: string }; Returns: undefined }
+      get_current_rep_id: { Args: never; Returns: string }
+      get_current_rep_owner_id: { Args: never; Returns: string }
       get_email_by_phone: { Args: { p_phone: string }; Returns: Json }
-      get_manager_id: { Args: Record<PropertyKey, never>; Returns: string }
+      get_manager_id: { Args: never; Returns: string }
       get_operational_alerts: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           alert_key: string
           category: string
@@ -1308,9 +1417,9 @@ export type Database = {
           title: string
         }[]
       }
-      is_manager: { Args: Record<PropertyKey, never>; Returns: boolean }
-      is_rep_user: { Args: Record<PropertyKey, never>; Returns: boolean }
-      is_sales_rep: { Args: Record<PropertyKey, never>; Returns: boolean }
+      is_manager: { Args: never; Returns: boolean }
+      is_rep_user: { Args: never; Returns: boolean }
+      is_sales_rep: { Args: never; Returns: boolean }
       kpi_summary: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       mark_notifications_read: { Args: { p_ids?: string[] }; Returns: number }
       monthly_payroll_summary: {
@@ -1394,7 +1503,7 @@ export type Database = {
         }[]
       }
       product_stock_summary: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           avg_cost: number
           category: string
@@ -1410,7 +1519,7 @@ export type Database = {
         }[]
       }
       product_stock_summary_v2: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           alert_status: string
           avg_cost: number
@@ -1431,7 +1540,7 @@ export type Database = {
         }[]
       }
       product_stock_summary_v3: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           alert_status: string
           available_qty: number
@@ -1501,7 +1610,7 @@ export type Database = {
         Returns: boolean
       }
       rep_directory: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           cash_count: number
           cash_total: number
@@ -1546,7 +1655,11 @@ export type Database = {
         Args: { p_lines: Json; p_purchase: Json }
         Returns: string
       }
-      stock_alerts_summary: { Args: Record<PropertyKey, never>; Returns: Json }
+      save_supplier_return: {
+        Args: { p_lines: Json; p_return: Json }
+        Returns: string
+      }
+      stock_alerts_summary: { Args: never; Returns: Json }
       stock_movement_history: {
         Args: { p_from?: string; p_product_id?: string; p_to?: string }
         Returns: {
@@ -1564,7 +1677,7 @@ export type Database = {
         }[]
       }
       stock_valuation: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           avg_cost: number
           category: string
@@ -1591,7 +1704,7 @@ export type Database = {
         }[]
       }
       unpaid_credit_invoices_list: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           customer_id: string
           customer_name: string
