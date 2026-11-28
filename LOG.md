@@ -199,3 +199,9 @@
 - Commit scope: only `pdfGenerators.ts`, `InventoryTab.tsx`, `PLAN.md` and `LOG.md`. Pre-existing
   uncommitted catalog-grouping work in `pdfGenerators.ts` plus all docs/supplier-return/`tmp_*`
   work was left untouched.
+- Feature commit `deb634a` was pushed to `main`, but its Vercel build (and the earlier `6df2d61`
+  build) failed: committed `Sheet.tsx` imports `SupplierReturnsTab`, which existed only as
+  untracked local work. With user approval, `85af098` committed the supplier-return components,
+  hook, regenerated types and migrations `0039`/`0040` as source only (not applied). Vercel
+  production deployment `dpl_J85HwWTP8sCGJxe6cCUCcdawb7Uu` then reported READY for `85af098`,
+  which includes the stock count sheet.

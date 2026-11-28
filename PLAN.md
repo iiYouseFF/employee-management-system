@@ -218,4 +218,12 @@ a scope toggle for all active products vs. the current filtered view.
 - [x] Reviewer PASS WITH NOTES; all in-scope notes (CSS specificity, bold English name, product-query error state) fixed
 - [x] Static A4 PDF/HTML QA in `rtl` and `ltr`: box metrics, repeated headers, no SKU repeated across pages
 - [ ] Authenticated in-app RTL/LTR visual QA (no credentials supplied)
-- [ ] PLAN/LOG committed and pushed; Vercel production READY
+- [x] PLAN/LOG committed and pushed; Vercel production READY (feature `deb634a`, supplier-returns
+  fix `85af098`, deployment `dpl_J85HwWTP8sCGJxe6cCUCcdawb7Uu`)
+
+### Deployment note
+The first Vercel build for `deb634a` failed on a pre-existing broken import: commit `6df2d61`
+wired `SupplierReturnsTab` into `Sheet.tsx` without committing that component. With user approval,
+`85af098` committed the supplier-return components/hook, regenerated types and the additive
+`0039`/`0040` migrations (source only — not applied), after which the production deployment
+reported READY.
